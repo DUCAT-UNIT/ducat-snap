@@ -2,30 +2,27 @@
 
 Date: 2026-06-12
 
-This document captures the current audit and submission handoff state for `@ducat-unit/ducat-snap` v0.1.0.
+This document captures the current local audit and submission handoff state for `@ducat-unit/ducat-snap` v0.1.0.
 
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Implementation commit: `ef2c1489e27807f80aa8ecda19db1284f5031632`
-- Implementation tag: `audit-candidate-0.1.0-20260612-copyable-message`
+- Implementation commit: `087b7c7f797311f3208ee4caa20fe46aca4c5b04`
+- Implementation tag: not yet tagged after cleanup
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
 - Launch network: signet/mutinynet only
+- Mainnet: intentionally disabled
 
 ## Automated Verification
 
-- GitHub Actions workflow: `Verify Ducat Snap`
-- Run URL: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27437420295
-- Run conclusion: `success`
-- Run head SHA: `ef2c1489e27807f80aa8ecda19db1284f5031632`
 - Local release command: `npm run verify:release`
 - Local release command result: passed
-- Separate publish dry-run command: `npm publish --dry-run --access public`
-- Separate publish dry-run result: passed
+- GitHub Actions workflow: `Verify Ducat Snap`
+- GitHub Actions status for this cleanup commit: pending until pushed
 
-`npm run verify:release` currently covers:
+`npm run verify:release` covers:
 
 - `npm run type-check`
 - `npm test`
@@ -38,13 +35,14 @@ This document captures the current audit and submission handoff state for `@duca
 ## Test Evidence
 
 - Jest suites: 4 passed
-- Jest tests: 17 passed
+- Jest tests: 20 passed
 - Covered areas:
   - Deterministic signet/mutinynet account derivation
   - `ducat_getAccounts`
   - Derived-address-only message signing
   - Copyable message confirmation rendering for arbitrary signing content
   - PSBT input ownership and network validation
+  - Ducat alpha Taproot script-path signing compatibility
   - RPC origin validation
   - Malformed PSBT rejection
   - User-declined confirmation rejection
@@ -52,15 +50,33 @@ This document captures the current audit and submission handoff state for `@duca
 
 ## Package Evidence
 
-- Tarball path: `/Users/lucasrodriguez/Desktop/Ducat/SNAP/ducat-unit-ducat-snap-0.1.0.tgz`
-- Tarball SHA-256: `3dc81725d3eb8abed66acbb7689520f02b42a46103a5d89a69b0ae553577ae7b`
-- npm package shasum: `94f6a0c37c23f3b007ad44fe027d63562b70931d`
-- npm package integrity: `sha512-S4NNEWEcrInk1EB9Mvb6/iEiJD8das47ggdzilYdN556dw2GTyaqyAdjIKgRjNL3E1FEfa+JpNE1kN0TewAglQ==`
-- Snap manifest source shasum: `6JcS73lpuUpJ9QQbeC2s1jlCDS+/R4LeaBQMKL32XEA=`
-- `npm publish --dry-run --access public`: passed
+- Package dry-run command: `npm pack --dry-run --json`
+- Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
+- Dry-run package size: `1313053`
+- Dry-run unpacked size: `2213950`
+- Dry-run file count: `15`
+- npm package shasum: `5e2e6ba93583822e83b2c09c3e2078c513297f9e`
+- npm package integrity: `sha512-RCF4uLbPP0puqnI+m8G5n3b8Y6VDo3xrERrLdC/nRL2rnfjlJWKyGIt8jxXWSzcXUBV9kyx6cAbocmwJf8IIlw==`
+- Snap manifest source shasum: `/IHujYHc/LA19OQAmbn6PX50JRtdFwoRNgNC/nstIUE=`
 - Actual npm publish: blocked until npm auth is configured
-- `npm whoami`: `ENEEDAUTH`
-- `npm view @ducat-unit/ducat-snap`: `E404`; package is not published yet
+
+Packaged files:
+
+- `AUDIT_SCOPE.md`
+- `DEMO_SCRIPT.md`
+- `DEPENDENCY_AUDIT.md`
+- `LICENSE`
+- `LISTING.md`
+- `PRIVACY.md`
+- `README.md`
+- `RELEASE_CHECKLIST.md`
+- `SECURITY.md`
+- `SNAPPER_REVIEW.md`
+- `SUPPORT.md`
+- `dist/bundle.js`
+- `images/icon.svg`
+- `package.json`
+- `snap.manifest.json`
 
 ## Security Scan Evidence
 
@@ -68,7 +84,7 @@ This document captures the current audit and submission handoff state for `@duca
 - Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`.
 - Transitive dependency versions are locked by `package-lock.json`.
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
-- Snapper result: completed with 96 ESLinting findings
+- Snapper result: completed with 100 ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 
@@ -77,46 +93,36 @@ This document captures the current audit and submission handoff state for `@duca
 - Frontend PR: https://github.com/DUCAT-UNIT/frontend/pull/675
 - PR status: draft
 - Branch: `feat/metamask-snap-connector`
-- Base branch: `fix/admin-dashboard-api-hooks`
-- Current head commit after rebase: `73fb5c61`
+- Local current commit: `d242e1cb`
 - Local worktree: `/Users/lucasrodriguez/Desktop/Ducat/frontend-metamask-snap`
 
-Local frontend verification passed:
+Local frontend verification previously passed on the integration branch:
 
+- Connector Jest coverage
 - `npm run type-check`
-- `npm test -- --runInBand`
 - Scoped Biome check for changed Snap connector files
 - `npm run build`
 
 Known frontend CI note:
 
-- Vercel alpha currently fails before build because the environment cannot read `@ducat-unit/runestone@1.0.5` from GitHub Packages without the expected npm token.
+- Vercel alpha can fail before build when the environment cannot read private `@ducat-unit/*` packages from GitHub Packages without the expected npm token.
 - This is considered non-blocking for the Snap implementation per project direction.
-- The Vercel dev and Storybook checks passed.
 
-## Base Branch Fix Evidence
+## Known Pre-Audit Notes
 
-- Admin API hook base-fix PR: https://github.com/DUCAT-UNIT/frontend/pull/676
-- Branch: `fix/admin-dashboard-api-hooks`
-- Base branch: `fix/admin-panel-number-sizes`
-- Commit: `25850ddf`
-- Purpose: add the missing tracked admin API hooks required for base branch type-check.
-
-Local base-fix verification passed:
-
-- `npm run type-check`
-- Scoped Biome check for changed admin hook files
-
-Known base-fix CI note:
-
-- Vercel alpha currently fails for the same GitHub Packages npm-token issue.
-- This is considered non-blocking for the Snap implementation per project direction.
+- The Snap uses the real Ducat circle mark from the app assets at `images/icon.svg`.
+- Signet/mutinynet alpha vault PSBTs currently use a compatibility path for Taproot script-path inputs in `src/psbt.ts`; this must be reviewed by the auditor and tightened before mainnet.
+- `snap_getBip32Entropy` requires third-party audit before MetaMask directory submission.
+- Production support and legal privacy URLs must be finalized before submission.
 
 ## Remaining External Gates
 
+- Push this cleanup/evidence state.
+- Wait for GitHub Actions on the pushed commit.
+- Tag the audit candidate.
 - Configure npm authentication for the `@ducat-unit` package scope.
-- Publish `@ducat-unit/ducat-snap@0.1.0` to npm.
-- Schedule and complete a third-party audit because the Snap uses `snap_getBip32Entropy`.
+- Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
+- Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
 - Merge audit fixes, if any, and tag the fixed source commit.
 - Capture final listing screenshots from the audited build.
 - Record the demo video from `DEMO_SCRIPT.md`.
