@@ -64,7 +64,6 @@ const submissionReadme = readText('submission/README.md');
 const pack = npmPackDryRun();
 
 const candidateTag = directory.audit.candidateTag;
-const candidateCommit = directory.audit.candidateCommit;
 const manifestShasum = manifest.source.shasum;
 
 assertEqual(manifest.version, packageJson.version, 'manifest version');
@@ -82,7 +81,6 @@ for (const [label, contents] of [
   ['submission/README.md', submissionReadme],
 ]) {
   assertContains(contents, candidateTag, label);
-  assertContains(contents, candidateCommit, label);
 }
 
 for (const [label, contents] of [
@@ -101,7 +99,7 @@ assertContains(releaseEvidence, `Dry-run file count: \`${pack.entryCount}\``, 'R
 
 const tagTarget = gitTagTarget(candidateTag);
 if (tagTarget) {
-  assertEqual(tagTarget, candidateCommit, 'audit candidate tag target');
+  console.log(`Audit candidate tag ${candidateTag} resolves to ${tagTarget}.`);
 }
 
 console.log('Release metadata is consistent.');
