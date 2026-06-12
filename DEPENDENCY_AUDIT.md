@@ -20,6 +20,8 @@ Result: 31 development-toolchain vulnerabilities, all low or moderate.
 
 The published Snap package contains the production bundle and release metadata. `npm audit --omit=dev` is clean for production dependencies.
 
+Direct `dependencies` and `devDependencies` in `package.json` are pinned to exact versions. Transitive dependency versions are locked by `package-lock.json`.
+
 The full audit findings are in development tooling paths, primarily transitive dependencies of MetaMask Snap build/test tooling. `npm audit fix --package-lock-only` did not resolve them. npm reports that the remaining forced path would install older breaking versions of MetaMask Snap packages, so it was not applied locally.
 
 ## Release Requirement
