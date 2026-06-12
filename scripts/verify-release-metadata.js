@@ -60,6 +60,7 @@ const directory = readJson('submission/metamask-directory.json');
 const releaseEvidence = readText('RELEASE_EVIDENCE.md');
 const allowlistSubmission = readText('submission/ALLOWLIST_SUBMISSION.md');
 const auditorHandoff = readText('AUDITOR_HANDOFF.md');
+const externalGates = readText('submission/EXTERNAL_GATES.md');
 const submissionReadme = readText('submission/README.md');
 const pack = npmPackDryRun();
 
@@ -96,6 +97,21 @@ for (const [label, contents] of [
 assertContains(releaseEvidence, `Dry-run package size: \`${pack.size}\``, 'RELEASE_EVIDENCE.md');
 assertContains(releaseEvidence, `Dry-run unpacked size: \`${pack.unpackedSize}\``, 'RELEASE_EVIDENCE.md');
 assertContains(releaseEvidence, `Dry-run file count: \`${pack.entryCount}\``, 'RELEASE_EVIDENCE.md');
+
+const pendingTokenPattern = /PENDING_[A-Z0-9_]+/gu;
+const remainingPendingTokens = new Set([
+  ...Array.from(allowlistSubmission.matchAll(pendingTokenPattern), ([match]) => match),
+  ...Array.from(JSON.stringify(directory).matchAll(pendingTokenPattern), ([match]) => match),
+]);
+const documentedPendingTokens = new Set(Array.from(externalGates.matchAll(pendingTokenPattern), ([match]) => match));
+
+for (const token of remainingPendingTokens) {
+  assert(documentedPendingTokens.has(token), `Remaining placeholder ${token} is not documented in submission/EXTERNAL_GATES.md.`);
+}
+
+for (const token of documentedPendingTokens) {
+  assert(remainingPendingTokens.has(token), `submission/EXTERNAL_GATES.md documents ${token}, but that placeholder is no longer present.`);
+}
 
 const tagTarget = gitTagTarget(candidateTag);
 if (tagTarget) {
