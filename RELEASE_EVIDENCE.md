@@ -34,6 +34,7 @@ This document captures the current local audit and submission handoff state for 
 - `npm run manifest`
 - `npm audit --omit=dev`
 - `npm run snapper`
+- `npm run verify:metadata`
 - `npm pack --dry-run`
 
 ## Test Evidence
@@ -65,11 +66,11 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1319103`
-- Dry-run unpacked size: `2234084`
+- Dry-run package size: `1319121`
+- Dry-run unpacked size: `2234174`
 - Dry-run file count: `15`
-- npm package shasum: `8111e4369d2df3e474046d781578c13b6efa1d8f`
-- npm package integrity: `sha512-0ajZJv8h7hinwLsU4Dub4+csmFXZOKD1Ceq9QathjDqc6dcEYj+RucEebMgiaMJfwit1ZQHsl+cjvHud6vikgg==`
+- npm package shasum: `76a39fd69b33beceee65f090545d25787f513b0a`
+- npm package integrity: `sha512-z+6ZARUhQiV7+VAUCKT45Kwru/3o//g/nWH7JORIe3ympltLz2tVlysC8YZvfx/BlzlkKQBT3Ti6qzk1HbPFjg==`
 - Snap manifest source shasum: `gR2z1FUeF6YR0FLYW9pw+4fENZDoZ/5dSGja6792vKs=`
 - Actual npm publish: blocked until npm auth is configured
 

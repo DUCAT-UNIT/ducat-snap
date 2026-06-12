@@ -191,6 +191,7 @@ npm run manifest
 npm run serve
 npm run verify
 npm run verify:release
+npm run verify:metadata
 npm run audit:prod
 npm run pack:dry-run
 ```
