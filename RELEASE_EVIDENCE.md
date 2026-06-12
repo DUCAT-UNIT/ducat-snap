@@ -20,8 +20,10 @@ This document captures the current local audit and submission handoff state for 
 
 - Local release command: `npm run verify:release`
 - Local release command result: passed
+- Pull request: https://github.com/DUCAT-UNIT/ducat-snap/pull/1
+- Pull request status: draft
 - GitHub Actions workflow: `Verify Ducat Snap`
-- GitHub Actions status for this cleanup branch: pending PR or manual workflow run; the workflow runs on PRs, `main`, and `workflow_dispatch`
+- GitHub Actions status for this cleanup PR: passed
 
 `npm run verify:release` covers:
 
@@ -127,8 +129,7 @@ Known frontend CI note:
 
 ## Remaining External Gates
 
-- Open a pull request or manually dispatch GitHub Actions for this cleanup branch.
-- Wait for GitHub Actions on the PR or audit candidate commit.
+- Keep GitHub Actions green on the cleanup PR and audit candidate commit.
 - Tag the audit candidate.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
