@@ -58,4 +58,26 @@ describe('PSBT signing', () => {
 
     expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { tb1qunknown: [0] })).toThrow('not managed');
   });
+
+  it('reports the actual input address when a signer address does not match the PSBT input script', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '22'.repeat(32),
+      index: 0,
+      witnessUtxo: {
+        script: keySet.satsOutputScript,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.runes.address]: [0] })).toThrow(
+      `Actual input address: ${keySet.record.sats.address}.`,
+    );
+  });
 });

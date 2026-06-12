@@ -63,7 +63,11 @@ function assertInputMatchesAddress(psbt: Psbt, index: number, address: string, k
   const expectedScript = role === 'sats' ? keySet.satsOutputScript : keySet.taprootOutputScript;
 
   if (!sameScript(Buffer.from(witnessUtxo.script), expectedScript)) {
-    throw new Error(`PSBT input ${index} does not match ${address}.`);
+    const actualAddress = parseOutputAddress(Buffer.from(witnessUtxo.script), keySet.network);
+
+    throw new Error(
+      `PSBT input ${index} for ${address} does not match the Ducat Snap ${role} account. Actual input address: ${actualAddress}.`,
+    );
   }
 }
 
