@@ -2,27 +2,27 @@
 
 ## Pre-Submission
 
-- [ ] Public repository points to the audited source commit.
-- [ ] `.github/workflows/verify.yml` succeeds on the audited source commit.
-- [ ] `npm run verify:release` succeeds.
+- [x] Public repository contains the current audit-candidate source commit.
+- [x] `.github/workflows/verify.yml` succeeds on the current audit candidate.
+- [x] `npm run verify:release` succeeds locally.
 - [ ] `submission/metamask-directory.json` pending external fields are replaced.
-- [ ] `npm run pack:dry-run` output reviewed.
-- [ ] `npm run audit:prod` output reviewed.
-- [ ] Dependency audit reviewed.
-- [ ] Snapper/security scan reviewed.
-- [ ] Console logs, unused permissions, vague placeholders, and dead RPC methods removed.
+- [x] `npm run pack:dry-run` output reviewed.
+- [x] `npm run audit:prod` output reviewed.
+- [x] Dependency audit reviewed.
+- [x] Snapper/security scan reviewed.
+- [x] Console logs, unused permissions, accidental placeholders, and dead RPC methods removed or documented as external gates.
 - [ ] Alpha Taproot script-path compatibility in `src/psbt.ts` is audited and either accepted for signet/mutinynet only or replaced with strict Ducat SDK-compatible verification.
 - [ ] Third-party audit completed because the Snap uses `snap_getBip32Entropy`.
 - [ ] Audit fixes merged and tagged.
 
 ## Listing Assets
 
-- [ ] Icon.
+- [x] Icon.
 - [ ] `submission/screenshots/` contains final screenshots.
 - [ ] Screenshots captured from the audited build using `LISTING.md`.
-- [ ] Short description from `LISTING.md`.
-- [ ] Long description from `LISTING.md`.
-- [ ] Privacy policy.
+- [x] Short description from `LISTING.md`.
+- [x] Long description from `LISTING.md`.
+- [x] Privacy policy.
 - [ ] Support and escalation contact.
 - [ ] Demo video recorded with `DEMO_SCRIPT.md`, showing install, connect, create/deposit/borrow/repay/withdraw/swap/liquidation signing, and Snap home.
 
