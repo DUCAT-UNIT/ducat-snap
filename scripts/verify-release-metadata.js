@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { execFileSync } = require('node:child_process');
-const { readFileSync } = require('node:fs');
+const { existsSync, readFileSync } = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -62,6 +62,7 @@ const allowlistSubmission = readText('submission/ALLOWLIST_SUBMISSION.md');
 const auditorHandoff = readText('AUDITOR_HANDOFF.md');
 const externalGates = readText('submission/EXTERNAL_GATES.md');
 const submissionReadme = readText('submission/README.md');
+const snapperReview = readText('SNAPPER_REVIEW.md');
 const pack = npmPackDryRun();
 
 const candidateTag = directory.audit.candidateTag;
@@ -97,6 +98,22 @@ for (const [label, contents] of [
 assertContains(releaseEvidence, `Dry-run package size: \`${pack.size}\``, 'RELEASE_EVIDENCE.md');
 assertContains(releaseEvidence, `Dry-run unpacked size: \`${pack.unpackedSize}\``, 'RELEASE_EVIDENCE.md');
 assertContains(releaseEvidence, `Dry-run file count: \`${pack.entryCount}\``, 'RELEASE_EVIDENCE.md');
+
+if (existsSync(path.join(root, 'snapper-report.json'))) {
+  const snapperReport = readJson('snapper-report.json');
+  const snapperCategories = Object.entries(snapperReport).filter(([, findings]) => Array.isArray(findings) && findings.length > 0);
+  const snapperFindings = snapperCategories.flatMap(([, findings]) => findings);
+  const riskRatings = new Set(snapperFindings.map((finding) => finding.riskRating));
+  const categoryNames = snapperCategories.map(([category]) => category);
+
+  assertContains(snapperReview, `Local result: ${snapperFindings.length} findings`, 'SNAPPER_REVIEW.md');
+  if (riskRatings.size === 1) {
+    assertContains(snapperReview, `all risk ${Array.from(riskRatings)[0]}`, 'SNAPPER_REVIEW.md');
+  }
+  if (categoryNames.length === 1) {
+    assertContains(snapperReview, `\`${categoryNames[0]}\` category`, 'SNAPPER_REVIEW.md');
+  }
+}
 
 const pendingTokenPattern = /PENDING_[A-Z0-9_]+/gu;
 const remainingPendingTokens = new Set([
