@@ -53,9 +53,9 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `TODO`
-- npm package integrity: `TODO`
-- Snap manifest source shasum: `TODO`
+- npm package shasum: `3e0b7fb808e5fe29d4b86b3e01ee9b56e318d050`
+- npm package integrity: `sha512-j7EkmFD0Ni4osO25Ek8xG/oqmAEe/ifCOTV10pFKAqpLcZAG7OZT+KjFlPDp4F40lqXwnyiiPqIzVp3qhquvhQ==`
+- Snap manifest source shasum: `jzVxEAlMLcojzhKyPLZKFDuEl10O3D3vg31J0YhrMjY=`
 
 ## Permissions Summary
 

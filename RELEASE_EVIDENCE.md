@@ -7,8 +7,8 @@ This document captures the current audit and submission handoff state for `@duca
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Implementation commit: `7d9f1793dc3ca455ba943f83b763ba3a8c096416`
-- Implementation tag: `audit-candidate-0.1.0-20260612-publish-ready`
+- Implementation commit: `6c41a5625451fcbe75c24bf9063a6a13fcd89c0d`
+- Implementation tag: `audit-candidate-0.1.0-20260612-pinned-deps`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -17,11 +17,13 @@ This document captures the current audit and submission handoff state for `@duca
 ## Automated Verification
 
 - GitHub Actions workflow: `Verify Ducat Snap`
-- Run URL: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27435392885
+- Run URL: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27436831789
 - Run conclusion: `success`
-- Run head SHA: `7d9f1793dc3ca455ba943f83b763ba3a8c096416`
+- Run head SHA: `6c41a5625451fcbe75c24bf9063a6a13fcd89c0d`
 - Local release command: `npm run verify:release`
 - Local release command result: passed
+- Separate publish dry-run command: `npm publish --dry-run --access public`
+- Separate publish dry-run result: passed
 
 `npm run verify:release` currently covers:
 
@@ -31,7 +33,7 @@ This document captures the current audit and submission handoff state for `@duca
 - `npm run manifest`
 - `npm audit --omit=dev`
 - `npm run snapper`
-- `npm publish --dry-run --access public`
+- `npm pack --dry-run`
 
 ## Test Evidence
 
@@ -50,8 +52,9 @@ This document captures the current audit and submission handoff state for `@duca
 ## Package Evidence
 
 - Tarball path: `/Users/lucasrodriguez/Desktop/Ducat/SNAP/ducat-unit-ducat-snap-0.1.0.tgz`
-- Tarball SHA-256: `f269ee7a558e96049bb132345d762eaeecc941a9e0fffda8da16bcafab2cfe6e`
-- npm dry-run package shasum: `c2e34b769077cf201d9be38b1dea84a1f7cd6d65`
+- Tarball SHA-256: `c980de85abdb2b397451ee241a99eb68d41ed1617f54b0631f51ecb69144998c`
+- npm package shasum: `3e0b7fb808e5fe29d4b86b3e01ee9b56e318d050`
+- npm package integrity: `sha512-j7EkmFD0Ni4osO25Ek8xG/oqmAEe/ifCOTV10pFKAqpLcZAG7OZT+KjFlPDp4F40lqXwnyiiPqIzVp3qhquvhQ==`
 - Snap manifest source shasum: `jzVxEAlMLcojzhKyPLZKFDuEl10O3D3vg31J0YhrMjY=`
 - `npm publish --dry-run --access public`: passed
 - Actual npm publish: blocked until npm auth is configured
@@ -61,6 +64,8 @@ This document captures the current audit and submission handoff state for `@duca
 ## Security Scan Evidence
 
 - Production dependency audit: passed with 0 production vulnerabilities
+- Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`.
+- Transitive dependency versions are locked by `package-lock.json`.
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
 - Snapper result: completed with 96 ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
