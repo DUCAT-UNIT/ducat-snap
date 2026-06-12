@@ -50,6 +50,10 @@ function compactCount(count: number, singular: string, plural = `${singular}s`):
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function maybeAddSats(left: number | null, right: number | null): number | null {
+  return left === null || right === null ? null : left + right;
+}
+
 function signedInputLabel(role: DucatAddressRole): string {
   return role === 'sats' ? 'BTC input' : 'Vault input';
 }
@@ -161,15 +165,23 @@ export async function confirmPsbt(params: {
   const { summary, context, origin } = params;
   const signedInputs = summary.signedInputIndexes.map((index) => `#${index}`).join(', ');
   const action = actionLabel(context, 'Ducat transaction');
+  const leavesWalletSats = maybeAddSats(summary.externalOutputSats, summary.feeSats);
   const visibleWarnings = summary.warnings.map((warning) => warning.trim()).filter(Boolean);
   const recipientOutputs = summary.outputs
     .map((output, index) => ({ index, output }))
     .filter(({ output }) => !isDataOutput(output));
+  const externalOutputCount = recipientOutputs.filter(({ output }) => !output.isMine).length;
+  const changeOutputCount = recipientOutputs.filter(({ output }) => output.isMine).length;
   const dataOutputCount = summary.outputs.length - recipientOutputs.length;
   const visibleOutputs = recipientOutputs.slice(0, 8);
   const hiddenOutputs = recipientOutputs.slice(visibleOutputs.length);
   const hiddenExternalSats = hiddenOutputs.filter(({ output }) => !output.isMine).reduce((total, { output }) => total + output.valueSats, 0);
   const visibleSignedInputs = [...summary.signedInputs].sort((left, right) => left.index - right.index).slice(0, 6);
+  const inputRoleLabel = [...new Set(summary.signedInputs.map((input) => roleLabel(input.role)))].join(' + ') || 'No Ducat account inputs';
+  const leavingDescription =
+    leavesWalletSats === null
+      ? 'Fee unavailable; review the recipient amount and raw details.'
+      : `${formatSatsOnly(summary.externalOutputSats)} to recipients + ${formatSatsOnly(summary.feeSats ?? 0)} fee`;
   const inputRows =
     visibleSignedInputs.length > 0
       ? visibleSignedInputs.map((input) =>
@@ -199,35 +211,37 @@ export async function confirmPsbt(params: {
     params: {
       type: 'confirmation',
       content: uiBox([
+        uiHeading(action, 'lg'),
+        uiMuted(`Requested by ${originLabel(origin)} on ${networkLabel(summary.network)}.`),
         uiCard({
-          description: `${compactCount(summary.signedInputIndexes.length, 'input')} signed - ${networkLabel(summary.network)}`,
-          extra: 'to recipients',
+          description: `${compactCount(summary.signedInputIndexes.length, 'input')} signed from ${inputRoleLabel}`,
+          extra: leavesWalletSats === null ? 'review details' : 'leaves wallet',
           image: DUCAT_MARK_SVG,
-          title: action,
-          value: formatMaybeBtcValue(summary.externalOutputSats),
+          title: 'Net spend',
+          value: formatMaybeBtcValue(leavesWalletSats),
         }),
         ...(visibleWarnings.length ? [uiBanner('Needs attention', 'warning', visibleWarnings[0])] : []),
         uiSection([
-          uiHeading('Money movement'),
-          amountCard('Signed value', summary.signedInputValueSats, `${compactCount(summary.signedInputIndexes.length, 'input')} signed by MetaMask`),
-          amountCard('Recipients', summary.externalOutputSats, 'Leaves Ducat Snap accounts'),
-          amountCard('Your change', summary.selfOutputSats, 'Returns to Ducat Snap accounts'),
-          amountCard('Network fee', summary.feeSats, 'Paid to Bitcoin miners'),
+          uiHeading('At a glance'),
+          uiRow('Leaves wallet', detailValue(formatMaybeBtcValue(leavesWalletSats), leavingDescription)),
+          uiRow('Recipients', detailValue(formatBtcValue(summary.externalOutputSats), compactCount(externalOutputCount, 'external output'))),
+          uiRow('Change back', detailValue(formatBtcValue(summary.selfOutputSats), compactCount(changeOutputCount, 'Ducat output'))),
+          uiRow('Network fee', detailValue(formatMaybeBtcValue(summary.feeSats), 'Bitcoin miner fee')),
         ]),
         uiSection([
-          uiHeading('Signing scope'),
-          uiRow('Origin', originLabel(origin)),
+          uiHeading('Security check'),
+          uiRow('Requested by', originLabel(origin)),
           uiRow('Network', networkLabel(summary.network)),
-          uiRow('Inputs signed', detailValue(`${summary.signedInputIndexes.length} of ${summary.inputCount}`, signedInputs || 'No requested inputs')),
-          uiRow('Outputs parsed', `${summary.outputCount}`),
+          uiRow('Signing', detailValue(`${summary.signedInputIndexes.length} of ${summary.inputCount} inputs`, signedInputs || 'No requested inputs')),
+          uiRow('Accounts', inputRoleLabel),
           ...(dataOutputCount ? [uiRow('Data outputs', `${dataOutputCount} non-spendable output${dataOutputCount === 1 ? '' : 's'}`)] : []),
         ]),
         uiCollapsibleSection(
-          'Signed input details',
+          'Inputs being signed',
           [...inputRows, ...(summary.signedInputs.length > visibleSignedInputs.length ? [uiMuted(`+ ${summary.signedInputs.length - visibleSignedInputs.length} more inputs`)] : [])],
         ),
         uiCollapsibleSection(
-          'Recipient and change details',
+          'Recipient and change outputs',
           [...outputRows, ...(hiddenOutputs.length ? [uiMuted(`+ ${hiddenOutputs.length} more outputs; hidden external total ${formatSats(hiddenExternalSats, summary.network)}`)] : [])],
         ),
         ...(visibleWarnings.length > 1
