@@ -84,9 +84,9 @@ Local frontend verification passed:
 
 Known frontend CI note:
 
-- Vercel alpha/dev checks currently fail before build because the environment cannot read `@ducat-unit/runestone@1.0.5` from GitHub Packages without the expected npm token.
+- Vercel alpha currently fails before build because the environment cannot read `@ducat-unit/runestone@1.0.5` from GitHub Packages without the expected npm token.
 - This is considered non-blocking for the Snap implementation per project direction.
-- The Storybook Vercel check passed.
+- The Vercel dev and Storybook checks passed.
 
 ## Base Branch Fix Evidence
 
@@ -103,7 +103,7 @@ Local base-fix verification passed:
 
 Known base-fix CI note:
 
-- Vercel alpha/dev checks currently fail for the same GitHub Packages npm-token issue.
+- Vercel alpha currently fails for the same GitHub Packages npm-token issue.
 - This is considered non-blocking for the Snap implementation per project direction.
 
 ## Remaining External Gates
