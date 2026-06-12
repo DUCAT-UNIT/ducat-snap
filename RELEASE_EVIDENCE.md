@@ -24,7 +24,7 @@ This document captures the current local audit and submission handoff state for 
 - Pull request status: draft
 - GitHub Actions workflow: `Verify Ducat Snap`
 - GitHub Actions status for audit candidate commit: passed
-- GitHub Actions run: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27446702134
+- GitHub Actions run: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27447233313
 
 `npm run verify:release` covers:
 
