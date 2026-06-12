@@ -6,8 +6,8 @@ Use `ALLOWLIST_SUBMISSION.md` as the working copy for the MetaMask form fields. 
 
 Current audit candidate:
 
-- Tag: `audit-candidate-0.1.0-20260613-signet-mutinynet`
-- Commit: `e6c39b1dfc57f7951d4092683ed2ba438c2f675a`
+- Tag: `audit-candidate-0.1.0-20260613-metadata-guard`
+- Commit: `bd9202402fae808e1815f68de51b147bf428c80e`
 - Verification run: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27446702134
 
 ## Before Submission
