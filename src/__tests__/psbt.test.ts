@@ -103,9 +103,17 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.runes.address]: [0] })).toThrow(
-      `Actual input address: ${keySet.record.sats.address}.`,
-    );
+    try {
+      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.runes.address]: [0] });
+      throw new Error('Expected preparePsbtForSigning to fail.');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'PSBT_INPUT_ACCOUNT_MISMATCH',
+        details: expect.objectContaining({
+          actualAddress: keySet.record.sats.address,
+        }),
+      });
+    }
   });
 
   it('signs committed Taproot script-path inputs that contain the derived vault pubkey', () => {
@@ -137,6 +145,7 @@ describe('PSBT signing', () => {
     const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
     const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
 
+    expect(prepared.summary.warnings).toEqual([]);
     expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
     expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
   });
@@ -171,7 +180,40 @@ describe('PSBT signing', () => {
     const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
     const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
 
+    expect(prepared.summary.warnings).toContain(
+      'Alpha compatibility path: one Taproot script-path input contains the Ducat vault key but could not be fully recomputed against the prevout.',
+    );
     expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
     expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
+  });
+
+  it('labels bare OP_RETURN outputs as data outputs', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '55'.repeat(32),
+      index: 0,
+      witnessUtxo: {
+        script: keySet.satsOutputScript,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      script: btcScript.compile([opcodes.OP_RETURN]),
+      value: 0,
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+
+    expect(prepared.summary.outputs[0]).toMatchObject({
+      address: 'OP_RETURN',
+      role: 'op_return',
+      valueSats: 0,
+    });
   });
 });

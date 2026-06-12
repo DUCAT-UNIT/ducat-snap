@@ -1,12 +1,14 @@
 import { getAccountKeySet, getRoleForAddress } from './accounts';
-import { confirmBatch, confirmMessage, confirmPsbt } from './confirmations';
+import { confirmBatch, confirmClearRecentActions, confirmMessage, confirmPsbt } from './confirmations';
+import { actionLabel } from './display';
+import { ducatError } from './errors';
 import { getHomeState } from './home';
 import { signBip322SimpleMessage } from './message';
-import { normalizeNetwork } from './networks';
+import { DUCAT_ALLOWED_ORIGINS, normalizeNetwork } from './networks';
 import { preparePsbtForSigning, signPreparedPsbt } from './psbt';
-import { appendRecentAction } from './state';
+import { appendRecentAction, clearRecentActions, rememberDucatSession } from './state';
 import { sendTransfer } from './transfer';
-import type { DucatActionContext, SignInputs } from './types';
+import type { DucatActionContext, DucatNetwork, SignInputs } from './types';
 
 type JsonRpcRequest = {
   method: string;
@@ -23,38 +25,85 @@ type SignPsbtParams = {
 type SignBatchParams = {
   network?: unknown;
   entries?: unknown;
-  context?: DucatActionContext;
+  context?: unknown;
 };
 
 type SignMessageParams = {
   network?: unknown;
   address?: unknown;
   message?: unknown;
-  context?: DucatActionContext;
+  context?: unknown;
 };
 
-const ALLOWED_ORIGINS = new Set([
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
-  'https://app.ducatprotocol.com',
-  'https://dev.app.ducatprotocol.com',
-  'https://staging.app.ducatprotocol.com',
-]);
+const MAX_SIGN_INPUTS = 80;
+
+export const ALLOWED_ORIGINS = new Set<string>(DUCAT_ALLOWED_ORIGINS);
 
 function assertAllowedOrigin(origin: string): void {
   if (!ALLOWED_ORIGINS.has(origin)) {
-    throw new Error(`Origin not authorized for Ducat Snap: ${origin}`);
+    throw ducatError('ORIGIN_NOT_AUTHORIZED', 'This site is not authorized to use the Ducat Snap.', { origin });
   }
 }
 
-function isSignInputs(value: unknown): value is SignInputs {
+function isActionContext(value: unknown): value is DucatActionContext {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
   }
 
-  return Object.values(value).every((indexes) => Array.isArray(indexes) && indexes.every((index) => Number.isInteger(index)));
+  const context = value as DucatActionContext;
+
+  return (
+    (context.actionType === undefined || typeof context.actionType === 'string') &&
+    (context.title === undefined || typeof context.title === 'string') &&
+    (context.flow === undefined || typeof context.flow === 'string') &&
+    (context.metadata === undefined || (typeof context.metadata === 'object' && context.metadata !== null && !Array.isArray(context.metadata)))
+  );
+}
+
+function optionalContext(value: unknown): DucatActionContext | undefined {
+  return isActionContext(value) ? value : undefined;
+}
+
+function parseSignInputs(value: unknown, label: string): SignInputs {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw ducatError('INVALID_PARAMS', `${label} must be an object keyed by Ducat account address.`);
+  }
+
+  const entries = Object.entries(value);
+  const seenIndexes = new Set<number>();
+  let inputCount = 0;
+  const parsed: SignInputs = {};
+
+  if (!entries.length) {
+    throw ducatError('INVALID_PARAMS', `${label} must include at least one input to sign.`);
+  }
+
+  for (const [address, indexes] of entries) {
+    if (!address || !Array.isArray(indexes) || indexes.length === 0) {
+      throw ducatError('INVALID_PARAMS', `${label} must include a non-empty input index array for each address.`, { address });
+    }
+
+    parsed[address] = indexes.map((index) => {
+      if (!Number.isSafeInteger(index) || index < 0) {
+        throw ducatError('INVALID_PARAMS', `${label} contains an invalid PSBT input index.`, { address, index });
+      }
+
+      if (seenIndexes.has(index)) {
+        throw ducatError('INVALID_PARAMS', `${label} contains a duplicate PSBT input index.`, { inputIndex: index });
+      }
+
+      seenIndexes.add(index);
+      inputCount += 1;
+
+      if (inputCount > MAX_SIGN_INPUTS) {
+        throw ducatError('INVALID_PARAMS', `${label} requests too many input signatures for one Snap request.`, { maxSignInputs: MAX_SIGN_INPUTS });
+      }
+
+      return index;
+    });
+  }
+
+  return parsed;
 }
 
 function paramsObject<T extends object>(params: unknown): Partial<T> {
@@ -70,19 +119,21 @@ async function signMessage(origin: string, rawParams: unknown) {
   const network = normalizeNetwork(params.network);
   const address = typeof params.address === 'string' ? params.address : '';
   const message = typeof params.message === 'string' ? params.message : '';
+  const context = optionalContext(params.context);
 
   if (!address || !message) {
-    throw new Error('ducat_signMessage requires address and message.');
+    throw ducatError('INVALID_PARAMS', 'Ducat message signing requires an address and message.');
   }
 
   const keySet = await getAccountKeySet(network);
   const role = getRoleForAddress(keySet, address);
 
   if (!role) {
-    throw new Error(`Address ${address} is not managed by the Ducat Snap.`);
+    throw ducatError('UNMANAGED_ADDRESS', 'This address is not managed by the Ducat Snap.', { address });
   }
 
-  await confirmMessage({ origin, network, address, message, context: params.context });
+  await rememberDucatSession(network, origin);
+  await confirmMessage({ origin, network, address, role, message, context });
 
   const signature = signBip322SimpleMessage({
     keySet,
@@ -91,9 +142,11 @@ async function signMessage(origin: string, rawParams: unknown) {
   });
 
   await appendRecentAction({
-    actionType: params.context?.actionType ?? 'sign-message',
+    actionType: context?.actionType ?? 'sign-message',
+    title: actionLabel(context, 'Sign Ducat message'),
     network,
     origin,
+    status: 'signed',
     summary: `Signed message for ${address}`,
   });
 
@@ -112,63 +165,121 @@ async function signPsbt(origin: string, rawParams: unknown) {
   const params = paramsObject<SignPsbtParams>(rawParams);
   const network = normalizeNetwork(params.network);
 
-  if (typeof params.psbt !== 'string' || !isSignInputs(params.signInputs)) {
-    throw new Error('ducat_signPsbt requires psbt and signInputs.');
+  if (typeof params.psbt !== 'string') {
+    throw ducatError('INVALID_PARAMS', 'Ducat transaction signing requires a PSBT.');
   }
 
+  const context = optionalContext(params.context);
+  const signInputs = parseSignInputs(params.signInputs, 'signInputs');
   const keySet = await getAccountKeySet(network);
-  const prepared = preparePsbtForSigning(params.psbt, network, keySet, params.signInputs);
+  const prepared = preparePsbtForSigning(params.psbt, network, keySet, signInputs);
 
-  await confirmPsbt({ origin, summary: prepared.summary, context: params.context });
+  await rememberDucatSession(network, origin);
+  await confirmPsbt({ origin, summary: prepared.summary, context });
 
-  const psbt = signPreparedPsbt(prepared.psbt, keySet, params.signInputs);
+  const psbt = signPreparedPsbt(prepared.psbt, keySet, signInputs);
 
   await appendRecentAction({
-    actionType: params.context?.actionType ?? 'sign-psbt',
+    actionType: context?.actionType ?? 'sign-psbt',
+    title: actionLabel(context, 'Sign Ducat transaction'),
     network,
     origin,
+    status: 'signed',
+    amountSats: prepared.summary.externalOutputSats || undefined,
     summary: `Signed inputs ${prepared.summary.signedInputIndexes.join(', ')}`,
   });
 
   return { psbt };
 }
 
-function isBatchEntry(value: unknown): value is { psbt: string; signInputs: SignInputs; context?: DucatActionContext } {
-  if (!value || typeof value !== 'object') {
-    return false;
+type ParsedBatchEntry = { psbt: string; signInputs: SignInputs; context?: DucatActionContext };
+
+function parseBatchEntries(value: unknown): ParsedBatchEntry[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw ducatError('BATCH_ENTRY_INVALID', 'Ducat batch signing requires a non-empty entries array.');
   }
 
-  const entry = value as { psbt?: unknown; signInputs?: unknown };
+  return value.map((rawEntry, index) => {
+    if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) {
+      throw ducatError('BATCH_ENTRY_INVALID', 'Every Ducat batch entry must be an object.', { entryIndex: index });
+    }
 
-  return typeof entry.psbt === 'string' && isSignInputs(entry.signInputs);
+    const entry = rawEntry as { psbt?: unknown; signInputs?: unknown; context?: unknown };
+
+    if (typeof entry.psbt !== 'string') {
+      throw ducatError('BATCH_ENTRY_INVALID', 'Every Ducat batch entry requires a PSBT.', { entryIndex: index });
+    }
+
+    return {
+      psbt: entry.psbt,
+      signInputs: parseSignInputs(entry.signInputs, `entries[${index}].signInputs`),
+      context: optionalContext(entry.context),
+    };
+  });
+}
+
+function assertSingleNetwork(summaries: { network: DucatNetwork }[]): void {
+  const firstNetwork = summaries[0]?.network;
+
+  if (firstNetwork && summaries.some((summary) => summary.network !== firstNetwork)) {
+    throw ducatError('INVALID_NETWORK', 'All PSBTs in a Ducat batch must use the same network.');
+  }
+}
+
+function capabilities() {
+  return {
+    snap: '@ducat-unit/ducat-snap',
+    version: '0.1.0',
+    networks: ['signet', 'mutinynet'],
+    methods: [
+      'ducat_clearRecentActions',
+      'ducat_getAccounts',
+      'ducat_getCapabilities',
+      'ducat_getHomeState',
+      'ducat_signMessage',
+      'ducat_signPsbt',
+      'ducat_signBatch',
+      'ducat_sendTransfer',
+    ],
+    features: {
+      bip322MessageSigning: true,
+      psbtSigning: true,
+      batchSigning: true,
+      simpleBtcTransfer: true,
+      snapHome: true,
+      mainnet: false,
+    },
+  };
 }
 
 async function signBatch(origin: string, rawParams: unknown) {
   const params = paramsObject<SignBatchParams>(rawParams);
   const network = normalizeNetwork(params.network);
-
-  if (!Array.isArray(params.entries) || params.entries.length === 0 || !params.entries.every(isBatchEntry)) {
-    throw new Error('ducat_signBatch requires a non-empty entries array.');
-  }
+  const context = optionalContext(params.context);
+  const entries = parseBatchEntries(params.entries);
 
   const keySet = await getAccountKeySet(network);
-  const prepared = params.entries.map((entry) => ({
+  const prepared = entries.map((entry) => ({
     ...entry,
     ...preparePsbtForSigning(entry.psbt, network, keySet, entry.signInputs),
   }));
+  assertSingleNetwork(prepared.map((item) => item.summary));
 
+  await rememberDucatSession(network, origin);
   await confirmBatch({
     origin,
-    summaries: prepared.map((item) => item.summary),
-    context: params.context,
+    entries: prepared.map((item) => ({ summary: item.summary, context: item.context })),
+    context,
   });
 
   const psbts = prepared.map((item) => signPreparedPsbt(item.psbt, keySet, item.signInputs));
 
   await appendRecentAction({
-    actionType: params.context?.actionType ?? 'sign-batch',
+    actionType: context?.actionType ?? 'sign-batch',
+    title: actionLabel(context, 'Sign Ducat batch'),
     network,
     origin,
+    status: 'signed',
     summary: `Signed ${psbts.length} PSBTs`,
   });
 
@@ -179,10 +290,23 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest) 
   assertAllowedOrigin(origin);
 
   switch (request.method) {
+    case 'ducat_clearRecentActions':
+      await confirmClearRecentActions(origin);
+      await clearRecentActions();
+
+      return { cleared: true };
+
     case 'ducat_getAccounts': {
       const params = paramsObject<{ network?: unknown }>(request.params);
-      return (await getAccountKeySet(params.network)).record;
+      const network = normalizeNetwork(params.network);
+      const account = await getAccountKeySet(network);
+      await rememberDucatSession(network, origin);
+
+      return account.record;
     }
+
+    case 'ducat_getCapabilities':
+      return capabilities();
 
     case 'ducat_signMessage':
       return signMessage(origin, request.params);
@@ -202,6 +326,6 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest) 
     }
 
     default:
-      throw new Error(`Method not found: ${request.method}`);
+      throw ducatError('METHOD_NOT_FOUND', 'The Ducat Snap does not support this RPC method.', { method: request.method });
   }
 }

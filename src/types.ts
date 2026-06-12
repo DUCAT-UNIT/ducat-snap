@@ -34,29 +34,58 @@ export type PsbtOutputSummary = {
   address: string;
   valueSats: number;
   isMine: boolean;
+  role: DucatAddressRole | 'external' | 'op_return' | 'unknown';
+};
+
+export type PsbtInputVerification =
+  | 'matched-account-output'
+  | 'committed-taproot-script-path'
+  | 'alpha-unverified-taproot-script-path';
+
+export type PsbtInputSummary = {
+  index: number;
+  address: string;
+  signingAddress: string;
+  role: DucatAddressRole;
+  valueSats: number | null;
+  verification: PsbtInputVerification;
 };
 
 export type PsbtSummary = {
   network: DucatNetwork;
   inputCount: number;
   signedInputIndexes: number[];
+  signedInputs: PsbtInputSummary[];
   outputCount: number;
   outputs: PsbtOutputSummary[];
   feeSats: number | null;
   inputValueSats: number | null;
+  signedInputValueSats: number | null;
   outputValueSats: number;
+  externalOutputSats: number;
+  selfOutputSats: number;
+  warnings: string[];
 };
+
+export type RecentActionStatus = 'signed' | 'broadcast' | 'failed';
 
 export type RecentAction = {
   id: string;
   actionType: string;
+  title?: string;
   network: DucatNetwork;
   origin: string;
   timestamp: number;
+  status?: RecentActionStatus;
   txid?: string;
   summary?: string;
+  amountSats?: number;
+  unitAmount?: number;
+  details?: Record<string, string | number | boolean | null>;
 };
 
 export type DucatSnapState = {
   recentActions: RecentAction[];
+  lastNetwork?: DucatNetwork;
+  lastOrigin?: string;
 };

@@ -15,8 +15,8 @@ Use this script for the MetaMask allowlist/directory submission video. Record ag
 2. Show the MetaMask Snap install request and permissions.
 3. Approve the Snap installation.
 4. Connect and show the derived `sats`, `runes`, and `vault` addresses in the Ducat app.
-5. Open MetaMask Snap home and show account addresses, BTC balance, UNIT balance, vault status, recent actions, and Ducat deep links.
-6. Execute or stage a create-vault flow and show the Ducat PSBT confirmation.
+5. Open MetaMask Snap home and show account addresses, BTC balance, UNIT balance, vault status, recent actions, clickable HTTPS app links, and copyable local routes.
+6. Execute or stage a create-vault flow and show the compact Ducat PSBT confirmation summary, inputs, outputs, fees, warnings, and app metadata.
 7. Execute or stage deposit BTC and show the confirmation summary.
 8. Execute or stage borrow UNIT and show the confirmation summary.
 9. Execute or stage repay UNIT and show the confirmation summary.

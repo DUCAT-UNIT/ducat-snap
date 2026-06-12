@@ -6,8 +6,8 @@ Use `ALLOWLIST_SUBMISSION.md` as the working copy for the MetaMask form fields. 
 
 ## Before Submission
 
-1. Replace the `TODO` fields in `metamask-directory.json`.
-2. Replace the `TODO` fields in `ALLOWLIST_SUBMISSION.md`.
+1. Replace the `PENDING_*` fields in `metamask-directory.json`.
+2. Replace the `PENDING_*` fields in `ALLOWLIST_SUBMISSION.md`.
 3. Capture screenshots into `submission/screenshots/` using `LISTING.md`.
 4. Record the demo video using `DEMO_SCRIPT.md`.
 5. Attach the third-party audit report required for `snap_getBip32Entropy`.

@@ -5,12 +5,12 @@
 - [ ] Public repository points to the audited source commit.
 - [ ] `.github/workflows/verify.yml` succeeds on the audited source commit.
 - [ ] `npm run verify:release` succeeds.
-- [ ] `submission/metamask-directory.json` TODO fields are replaced.
+- [ ] `submission/metamask-directory.json` pending external fields are replaced.
 - [ ] `npm run pack:dry-run` output reviewed.
 - [ ] `npm run audit:prod` output reviewed.
 - [ ] Dependency audit reviewed.
 - [ ] Snapper/security scan reviewed.
-- [ ] Console logs, unused permissions, TODOs, and dead RPC methods removed.
+- [ ] Console logs, unused permissions, vague placeholders, and dead RPC methods removed.
 - [ ] Alpha Taproot script-path compatibility in `src/psbt.ts` is audited and either accepted for signet/mutinynet only or replaced with strict Ducat SDK-compatible verification.
 - [ ] Third-party audit completed because the Snap uses `snap_getBip32Entropy`.
 - [ ] Audit fixes merged and tagged.

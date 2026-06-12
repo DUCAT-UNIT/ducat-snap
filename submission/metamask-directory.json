@@ -36,13 +36,13 @@
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
     "scopeSource": "AUDIT_SCOPE.md",
-    "auditedCommit": "TODO",
-    "fixedCommit": "TODO",
-    "auditReportUrl": "TODO"
+    "auditedCommit": "PENDING_AUDIT_COMMIT",
+    "fixedCommit": "PENDING_AUDIT_FIX_COMMIT",
+    "auditReportUrl": "PENDING_AUDIT_REPORT_URL"
   },
   "submissionAssets": {
     "screenshotsDirectory": "submission/screenshots",
-    "demoVideoUrl": "TODO",
+    "demoVideoUrl": "PENDING_DEMO_VIDEO_URL",
     "listingSource": "LISTING.md",
     "demoScriptSource": "DEMO_SCRIPT.md"
   },

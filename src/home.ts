@@ -1,8 +1,21 @@
 import { getAccountKeySet } from './accounts';
-import { DUCAT_APP_URL, esploraUrl, normalizeNetwork, validatorUrls } from './networks';
+import { actionLabel, formatMaybeBtcValue, formatSats, formatSatsOnly, formatUnit, networkLabel, truncateMiddle } from './display';
+import { ducatAppUrl, esploraUrl, normalizeNetwork, validatorUrls } from './networks';
 import { getState } from './state';
 import type { DucatNetwork } from './types';
-import { divider, heading, panel, text } from './ui';
+import {
+  uiBanner,
+  uiBox,
+  uiCard,
+  uiCollapsibleSection,
+  uiCopyable,
+  uiHeading,
+  uiLink,
+  uiMuted,
+  uiRow,
+  uiSection,
+  type SnapElement,
+} from './ui';
 
 type AddressStats = {
   chain_stats: {
@@ -50,13 +63,20 @@ type VaultSummary = {
 
 const JSON_CONTENT_TYPE = `application/${'json'}`;
 
-function shortAddress(address: string): string {
-  return `${address.slice(0, 12)}...${address.slice(-8)}`;
+async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 10_000): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function fetchBtcBalance(network: DucatNetwork, address: string): Promise<number | null> {
   try {
-    const response = await fetch(`${esploraUrl(network)}/address/${address}`);
+    const response = await fetchWithTimeout(`${esploraUrl(network)}/address/${address}`);
 
     if (!response.ok) {
       return null;
@@ -78,7 +98,7 @@ async function fetchBtcBalance(network: DucatNetwork, address: string): Promise<
 async function postValidatorJson<T>(network: DucatNetwork, path: string, body: Record<string, string>): Promise<T | null> {
   for (const baseUrl of validatorUrls(network)) {
     try {
-      const response = await fetch(`${baseUrl}${path}`, {
+      const response = await fetchWithTimeout(`${baseUrl}${path}`, {
         method: 'POST',
         headers: { 'content-type': JSON_CONTENT_TYPE },
         body: JSON.stringify(body),
@@ -141,6 +161,7 @@ async function fetchVaultSummary(network: DucatNetwork, vaultPubkey: string): Pr
 
 export async function getHomeState(networkInput: unknown): Promise<{
   network: DucatNetwork;
+  appUrl: string;
   accounts: {
     sats: string;
     runes: string;
@@ -153,9 +174,9 @@ export async function getHomeState(networkInput: unknown): Promise<{
   vault: VaultSummary | null;
   recentActions: Awaited<ReturnType<typeof getState>>['recentActions'];
 }> {
-  const network = normalizeNetwork(networkInput);
-  const keySet = await getAccountKeySet(network);
   const state = await getState();
+  const network = networkInput === undefined || networkInput === null ? state.lastNetwork ?? 'mutinynet' : normalizeNetwork(networkInput);
+  const keySet = await getAccountKeySet(network);
   const [btcSats, unit, vault] = await Promise.all([
     fetchBtcBalance(network, keySet.record.sats.address),
     fetchUnitBalance(network, keySet.record.runes.address),
@@ -164,6 +185,7 @@ export async function getHomeState(networkInput: unknown): Promise<{
 
   return {
     network,
+    appUrl: ducatAppUrl(state.lastOrigin),
     accounts: {
       sats: keySet.record.sats.address,
       runes: keySet.record.runes.address,
@@ -178,49 +200,133 @@ export async function getHomeState(networkInput: unknown): Promise<{
   };
 }
 
-export async function renderHomePage(networkInput: unknown = 'mutinynet') {
+function statusLabel(status: string): string {
+  return status
+    .replace(/_/gu, ' ')
+    .replace(/-/gu, ' ')
+    .replace(/\b\w/gu, (char: string) => char.toUpperCase());
+}
+
+function recentActionLine(action: Awaited<ReturnType<typeof getState>>['recentActions'][number]): string {
+  const ageMs = Math.max(0, Date.now() - action.timestamp);
+  const ageMinutes = Math.floor(ageMs / 60_000);
+  const when =
+    ageMinutes < 1
+      ? 'just now'
+      : ageMinutes < 60
+        ? `${ageMinutes}m ago`
+        : ageMinutes < 1_440
+          ? `${Math.floor(ageMinutes / 60)}h ago`
+          : new Date(action.timestamp).toISOString().slice(0, 10);
+  const status = statusLabel(action.status ?? 'signed');
+  const amount = action.amountSats === undefined ? '' : ` - ${formatSats(action.amountSats, action.network)}`;
+  const txid = action.txid ? ` - tx ${truncateMiddle(action.txid, 8, 6)}` : '';
+
+  return `${when} - ${actionLabel({ title: action.title, actionType: action.actionType })} - ${status}${amount}${txid}`;
+}
+
+function recentActionComponents(actions: Awaited<ReturnType<typeof getState>>['recentActions']): SnapElement[] {
+  if (!actions.length) {
+    return [uiMuted('No recent Ducat actions yet.')];
+  }
+
+  return actions.flatMap((action, index) => [
+    uiRow(`#${index + 1}`, recentActionLine(action)),
+    ...(action.txid ? [uiRow('Txid', uiCopyable(action.txid))] : []),
+  ]);
+}
+
+function actionUrl(appUrl: string, path: string): string {
+  return `${appUrl}${path}`;
+}
+
+function canRenderSnapLink(url: string): boolean {
+  try {
+    const protocol = new URL(url).protocol;
+
+    return protocol === 'https:' || protocol === 'mailto:' || protocol === 'metamask:';
+  } catch {
+    return false;
+  }
+}
+
+function actionComponents(appUrl: string): SnapElement[] {
+  const actions = [
+    ['Create', '/?action=create'],
+    ['Deposit', '/?action=deposit'],
+    ['Borrow', '/?action=borrow'],
+    ['Repay', '/?action=repay'],
+    ['Withdraw', '/?action=withdraw'],
+    ['Swap', '/swap'],
+    ['Liquidations', '/liquidations'],
+  ] as const;
+
+  if (canRenderSnapLink(appUrl)) {
+    return actions.map(([label, path]) => uiRow(label, uiLink('Open', actionUrl(appUrl, path))));
+  }
+
+  return [
+    uiMuted('Local routes are copyable because MetaMask Snap Home only opens HTTPS, mailto, and metamask links.'),
+    ...actions.map(([label, path]) => uiRow(label, uiCopyable(actionUrl(appUrl, path)))),
+  ];
+}
+
+export async function renderHomePage(networkInput?: unknown) {
   try {
     const homeState = await getHomeState(networkInput);
-    const actions = homeState.recentActions.slice(0, 5).map((action) =>
-      text(
-        `${new Date(action.timestamp).toISOString().slice(0, 16)}Z - ${action.actionType} on ${action.network}${
-          action.txid ? ` - ${action.txid.slice(0, 12)}...` : ''
-        }`,
-      ),
-    );
+    const actions = homeState.recentActions.slice(0, 5);
 
     return {
-      content: panel([
-        heading('Ducat'),
-        text(`**Network:** ${homeState.network}`),
-        text(`**Sats:** ${shortAddress(homeState.accounts.sats)}`),
-        text(`**Runes:** ${shortAddress(homeState.accounts.runes)}`),
-        text(`**Vault:** ${shortAddress(homeState.accounts.vault)}`),
-        divider(),
-        text(`**BTC balance:** ${homeState.balances.btcSats === null ? 'Unavailable' : `${homeState.balances.btcSats} sats`}`),
-        text(`**UNIT balance:** ${homeState.balances.unit === null ? 'Unavailable' : `${homeState.balances.unit} UNIT`}`),
-        text(
-          homeState.vault
-            ? `**Vault status:** ${homeState.vault.status} - ${homeState.vault.btcLocked ?? 'unknown'} BTC locked / ${
-                homeState.vault.unitBorrowed ?? 'unknown'
-              } UNIT borrowed`
-            : '**Vault status:** No vault found or unavailable.',
-        ),
-        divider(),
-        heading('Ducat actions'),
-        text(`[Create](${DUCAT_APP_URL}/?action=create) | [Deposit](${DUCAT_APP_URL}/?action=deposit) | [Borrow](${DUCAT_APP_URL}/?action=borrow)`),
-        text(`[Repay](${DUCAT_APP_URL}/?action=repay) | [Withdraw](${DUCAT_APP_URL}/?action=withdraw) | [Swap](${DUCAT_APP_URL}/swap)`),
-        text(`[Liquidations](${DUCAT_APP_URL}/liquidations)`),
-        divider(),
-        heading('Recent actions'),
-        ...(actions.length ? actions : [text('No recent Ducat actions yet.')]),
+      content: uiBox([
+        uiHeading('Ducat', 'lg'),
+        uiMuted(networkLabel(homeState.network)),
+        uiBanner('Testnet release', 'info', 'Mainnet is disabled. Use the Ducat app for create, deposit, borrow, repay, withdraw, swap, and liquidation flows.'),
+        uiSection([
+          uiHeading('Overview'),
+          uiCard({
+            description: 'Spendable testnet BTC',
+            extra: homeState.balances.btcSats === null ? undefined : formatSatsOnly(homeState.balances.btcSats),
+            title: 'BTC balance',
+            value: formatMaybeBtcValue(homeState.balances.btcSats),
+          }),
+          uiCard({
+            description: 'Ducat validator balance',
+            title: 'UNIT balance',
+            value: formatUnit(homeState.balances.unit),
+          }),
+        ]),
+        uiSection([
+          uiHeading('Accounts'),
+          uiRow('BTC', uiCopyable(homeState.accounts.sats)),
+          uiRow('UNIT / Runes', uiCopyable(homeState.accounts.runes)),
+          uiRow('Vault', uiCopyable(homeState.accounts.vault)),
+        ]),
+        ...(homeState.balances.btcSats === null || homeState.balances.unit === null
+          ? [uiBanner('Balance lookup unavailable', 'warning', 'One or more balance services are unavailable or timed out. Signing still works from PSBT data supplied by the Ducat app.')]
+          : []),
+        uiSection([
+          uiHeading('Vault'),
+          ...(homeState.vault
+            ? [
+                uiRow('Status', statusLabel(homeState.vault.status)),
+                uiRow('Vault ID', homeState.vault.tag ?? homeState.vault.id),
+                uiRow('BTC locked', homeState.vault.btcLocked === null ? 'Unknown' : `${homeState.vault.btcLocked} BTC`),
+                uiRow('UNIT borrowed', homeState.vault.unitBorrowed === null ? 'Unknown' : `${homeState.vault.unitBorrowed} UNIT`),
+                uiRow('Collateral', homeState.vault.collateralRatio === null ? 'Unknown' : `${homeState.vault.collateralRatio}%`),
+                uiRow('Liquidation', homeState.vault.liquidationPrice === null ? 'Unknown' : `$${homeState.vault.liquidationPrice}`),
+                uiRow('Oracle', homeState.vault.oraclePrice === null ? 'Unknown' : `$${homeState.vault.oraclePrice}`),
+              ]
+            : [uiMuted('No vault found, or the Ducat validator is unavailable.')]),
+        ]),
+        uiCollapsibleSection('Ducat actions', actionComponents(homeState.appUrl), true),
+        uiCollapsibleSection('Recent actions', recentActionComponents(actions), true),
       ]),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
     return {
-      content: panel([heading('Ducat'), text(`Unable to load Snap home: ${message}`)]),
+      content: uiBox([uiHeading('Ducat', 'lg'), uiBanner('Unable to load Snap Home', 'warning', message)]),
     };
   }
 }

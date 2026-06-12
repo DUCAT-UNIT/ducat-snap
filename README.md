@@ -121,11 +121,35 @@ The connector intentionally does not call `wallet_requestSnaps` before every sig
 ## JSON-RPC API
 
 - `ducat_getAccounts({ network })`
+- `ducat_clearRecentActions()`
+- `ducat_getCapabilities()`
 - `ducat_signMessage({ network, address, message })`
 - `ducat_signPsbt({ network, psbt, signInputs, context })`
 - `ducat_signBatch({ network, entries, context })`
 - `ducat_sendTransfer({ network, address, amountSats, feeRate })`
 - `ducat_getHomeState({ network })`
+
+## What Users See
+
+MetaMask confirmations are intentionally action-specific and use structured sections and rows:
+
+- Message signing shows the Ducat action label, origin, testnet network, signing account, BIP322 signature type, message length, message fingerprint, and copyable message body.
+- PSBT signing shows the Ducat action label, origin, testnet network, compact summary rows, signed input details, output details, fee, warnings, and Ducat app metadata.
+- Batch signing shows transaction count, all-or-nothing semantics, total fee, per-transaction summaries, and warning count.
+- Simple BTC transfer shows amount, estimated fee, total debit, change, sender, recipient, selected UTXO count/value, and broadcast endpoint.
+- Snap Home shows structured cards for the last connected network, copyable BTC/UNIT/vault addresses, BTC and UNIT balances when services are available, vault status, recent action status, clickable links for HTTPS Ducat app origins, and copyable local routes during development. Approved Ducat origins can request a confirmed recent-action history clear.
+
+Errors returned to the frontend are friendly by default and include a stable `code` plus diagnostic `details` for developers. The frontend should display the `message` and keep details available for expanded debugging.
+
+## Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+| --- | --- | --- |
+| `Fetching local snaps is disabled` | MetaMask local Snap development is disabled. | Enable local Snap fetching in MetaMask/Flask developer settings, then retry install/update. |
+| MetaMask asks to reinstall before signing | The served local Snap shasum changed. | Run `npm run build && npm run manifest`, restart `npm run serve`, then use the frontend `Update Snap` button. |
+| `This site is not authorized to use the Ducat Snap` | The frontend origin is not in `snap.manifest.json`. | Use one of the allowed local origins or add the origin intentionally and regenerate the manifest. |
+| `This transaction is trying to spend an input from a different Ducat Snap account` | The PSBT input does not match the derived Snap account requested in `signInputs`. | Refresh the frontend wallet account state and rebuild the Ducat transaction. Use diagnostic details to compare expected and actual input addresses. |
+| Balance or vault status is unavailable on Snap Home | Public indexer or Ducat validator lookup timed out or failed. | Retry later. Signing still uses PSBT data supplied by the Ducat app. |
 
 ## Security Model
 
@@ -140,7 +164,7 @@ The connector intentionally does not call `wallet_requestSnaps` before every sig
 
 ### Alpha Compatibility Note
 
-Current Ducat alpha vault PSBTs can include Taproot script-path inputs where the tapleaf contains the derived vault key but the local commitment check cannot always recompute the prevout output key. For signet/mutinynet testing, the Snap permits that alpha shape after confirming the tapleaf contains the Snap vault pubkey and after showing the MetaMask confirmation.
+Current Ducat alpha vault PSBTs can include Taproot script-path inputs where the tapleaf contains the derived vault key but the local commitment check cannot always recompute the prevout output key. For signet/mutinynet testing, the Snap permits that alpha shape after confirming the tapleaf contains the Snap vault pubkey and after showing an explicit warning in the MetaMask confirmation.
 
 Before mainnet, this compatibility path must be reviewed by the external auditor and either removed or replaced with a strict Ducat SDK-compatible Taproot commitment verifier.
 
@@ -152,7 +176,7 @@ Before mainnet, this compatibility path must be reviewed by the external auditor
 4. Complete the third-party audit required for `snap_getBip32Entropy`.
 5. Merge any audit fixes and tag the fixed candidate.
 6. Publish `@ducat-unit/ducat-snap@0.1.0` to npm.
-7. Replace TODOs in `submission/metamask-directory.json` and `submission/ALLOWLIST_SUBMISSION.md`.
+7. Replace pending external fields in `submission/metamask-directory.json` and `submission/ALLOWLIST_SUBMISSION.md`.
 8. Capture final screenshots into `submission/screenshots/`.
 9. Record the demo video using `DEMO_SCRIPT.md`.
 10. Submit the MetaMask allowlist/directory request with audit report, npm URL, public repo URL, demo video, support details, and listing assets.

@@ -2,6 +2,7 @@ import { address as btcAddress, Psbt } from 'bitcoinjs-lib';
 
 import { getAccountKeySet } from './accounts';
 import { confirmTransfer } from './confirmations';
+import { ducatError } from './errors';
 import { bitcoinNetwork, esploraUrl, normalizeNetwork } from './networks';
 import { appendRecentAction } from './state';
 
@@ -18,27 +19,63 @@ type SendTransferParams = {
   feeRate?: unknown;
 };
 
+async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 12_000): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+  let response: Response;
+
+  try {
+    response = await fetchWithTimeout(url);
+  } catch (error) {
+    throw ducatError('INVALID_PARAMS', 'Unable to fetch Bitcoin network data for this transfer.', {
+      url,
+      cause: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+    throw ducatError('INVALID_PARAMS', 'Unable to fetch Bitcoin network data for this transfer.', {
+      status: response.status,
+      statusText: response.statusText,
+      url,
+    });
   }
 
   return response.json() as Promise<T>;
 }
 
 async function postText(url: string, body: string): Promise<string> {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'text/plain' },
-    body,
-  });
+  let response: Response;
+
+  try {
+    response = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body,
+    });
+  } catch (error) {
+    throw ducatError('BROADCAST_FAILED', 'The transaction was signed, but broadcasting it to the Bitcoin network failed.', {
+      cause: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   const text = await response.text();
 
   if (!response.ok) {
-    throw new Error(text || `Broadcast failed: ${response.status} ${response.statusText}`);
+    throw ducatError('BROADCAST_FAILED', 'The transaction was signed, but broadcasting it to the Bitcoin network failed.', {
+      status: response.status,
+      statusText: response.statusText,
+      response: text,
+    });
   }
 
   return text;
@@ -62,7 +99,7 @@ async function getFeeRate(endpoint: string, feeRate?: unknown): Promise<number> 
   }
 }
 
-function selectUtxos(utxos: EsploraUtxo[], amountSats: number, feeRate: number): {
+export function selectUtxos(utxos: EsploraUtxo[], amountSats: number, feeRate: number): {
   selected: EsploraUtxo[];
   feeSats: number;
   changeSats: number;
@@ -79,8 +116,8 @@ function selectUtxos(utxos: EsploraUtxo[], amountSats: number, feeRate: number):
     let changeSats = selectedValue - amountSats - feeSats;
 
     if (changeSats > 0 && changeSats < 546) {
-      feeSats = estimateFee(selected.length, 1, feeRate);
-      changeSats = selectedValue - amountSats - feeSats;
+      changeSats = 0;
+      feeSats = selectedValue - amountSats;
     }
 
     if (changeSats >= 0) {
@@ -88,7 +125,10 @@ function selectUtxos(utxos: EsploraUtxo[], amountSats: number, feeRate: number):
     }
   }
 
-  throw new Error('Insufficient funds for transfer and fee.');
+  throw ducatError('INSUFFICIENT_FUNDS', 'The Ducat Snap BTC account does not have enough funds for this transfer and fee.', {
+    requestedAmountSats: amountSats,
+    availableSats: utxos.reduce((total, utxo) => total + utxo.value, 0),
+  });
 }
 
 export async function sendTransfer(origin: string, params: SendTransferParams): Promise<{ txid: string }> {
@@ -96,14 +136,17 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
   const recipient = typeof params.address === 'string' ? params.address : '';
   const amountSats = typeof params.amountSats === 'number' ? Math.floor(params.amountSats) : 0;
 
-  if (amountSats <= 0) {
-    throw new Error('Transfer amount must be greater than zero.');
+  if (!Number.isSafeInteger(amountSats) || amountSats <= 0) {
+    throw ducatError('INVALID_PARAMS', 'Transfer amount must be greater than zero.');
   }
 
   try {
     btcAddress.toOutputScript(recipient, bitcoinNetwork(network));
   } catch {
-    throw new Error(`Invalid recipient address for ${network}.`);
+    throw ducatError('INVALID_RECIPIENT', 'The recipient address is not valid for this Ducat testnet network.', {
+      network,
+      recipient,
+    });
   }
 
   const keySet = await getAccountKeySet(network);
@@ -111,6 +154,7 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
   const feeRate = await getFeeRate(endpoint, params.feeRate);
   const utxos = await fetchJson<EsploraUtxo[]>(`${endpoint}/address/${keySet.record.sats.address}/utxo`);
   const { selected, feeSats, changeSats } = selectUtxos(utxos, amountSats, feeRate);
+  const inputValueSats = selected.reduce((total, utxo) => total + utxo.value, 0);
   const psbt = new Psbt({ network: bitcoinNetwork(network) });
 
   for (const utxo of selected) {
@@ -138,19 +182,42 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
     amountSats,
     feeSats,
     feeRate,
+    changeSats,
+    inputCount: selected.length,
+    inputValueSats,
+    broadcastEndpoint: endpoint,
   });
 
   selected.forEach((_, index) => psbt.signInput(index, keySet.satsNode));
   psbt.finalizeAllInputs();
 
   const txHex = psbt.extractTransaction().toHex();
-  const txid = await postText(`${endpoint}/tx`, txHex);
+  let txid: string;
+
+  try {
+    txid = await postText(`${endpoint}/tx`, txHex);
+  } catch (error) {
+    await appendRecentAction({
+      actionType: 'transfer',
+      title: 'Send BTC',
+      network,
+      origin,
+      status: 'failed',
+      amountSats,
+      summary: `Broadcast failed for ${amountSats} sats to ${recipient}`,
+    });
+
+    throw error;
+  }
 
   await appendRecentAction({
     actionType: 'transfer',
+    title: 'Send BTC',
     network,
     origin,
+    status: 'broadcast',
     txid,
+    amountSats,
     summary: `${amountSats} sats to ${recipient}`,
   });
 

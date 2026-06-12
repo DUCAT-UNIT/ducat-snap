@@ -7,8 +7,8 @@ This document captures the current local audit and submission handoff state for 
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Implementation commit: `087b7c7f797311f3208ee4caa20fe46aca4c5b04`
-- Implementation tag: not yet tagged after cleanup
+- Implementation commit: pending cleanup commit
+- Implementation tag: pending cleanup tag
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -34,16 +34,25 @@ This document captures the current local audit and submission handoff state for 
 
 ## Test Evidence
 
-- Jest suites: 4 passed
-- Jest tests: 20 passed
+- Jest suites: 6 passed
+- Jest tests: 33 passed
 - Covered areas:
   - Deterministic signet/mutinynet account derivation
   - `ducat_getAccounts`
   - Derived-address-only message signing
   - Copyable message confirmation rendering for arbitrary signing content
+  - Compact action-specific PSBT confirmation rendering with parsed output facts and Ducat app metadata
+  - OP_RETURN data-output labeling
   - PSBT input ownership and network validation
   - Ducat alpha Taproot script-path signing compatibility
+  - Ducat alpha Taproot script-path warning surfacing
   - RPC origin validation
+  - Manifest/RPC allowed-origin sync
+  - `ducat_getCapabilities`
+  - Confirmed recent-action clearing
+  - Snap Home rendering from last connected network and origin
+  - Recent-action state validation, sorting, capping, and clearing
+  - Transfer UTXO selection, dust-change fee display, and insufficient funds rejection
   - Malformed PSBT rejection
   - User-declined confirmation rejection
   - Batch order preservation and whole-batch invalid rejection
@@ -52,12 +61,12 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1313053`
-- Dry-run unpacked size: `2213950`
+- Dry-run package size: `1319103`
+- Dry-run unpacked size: `2234084`
 - Dry-run file count: `15`
-- npm package shasum: `5e2e6ba93583822e83b2c09c3e2078c513297f9e`
-- npm package integrity: `sha512-RCF4uLbPP0puqnI+m8G5n3b8Y6VDo3xrERrLdC/nRL2rnfjlJWKyGIt8jxXWSzcXUBV9kyx6cAbocmwJf8IIlw==`
-- Snap manifest source shasum: `/IHujYHc/LA19OQAmbn6PX50JRtdFwoRNgNC/nstIUE=`
+- npm package shasum: `8111e4369d2df3e474046d781578c13b6efa1d8f`
+- npm package integrity: `sha512-0ajZJv8h7hinwLsU4Dub4+csmFXZOKD1Ceq9QathjDqc6dcEYj+RucEebMgiaMJfwit1ZQHsl+cjvHud6vikgg==`
+- Snap manifest source shasum: `gR2z1FUeF6YR0FLYW9pw+4fENZDoZ/5dSGja6792vKs=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -84,7 +93,7 @@ Packaged files:
 - Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`.
 - Transitive dependency versions are locked by `package-lock.json`.
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
-- Snapper result: completed with 100 ESLinting findings
+- Snapper result: completed with 166 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 
