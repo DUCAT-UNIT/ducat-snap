@@ -1,0 +1,40 @@
+name: Verify Ducat Snap
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Build, Test, And Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify Snap
+        run: npm run verify
+
+      - name: Production Dependency Audit
+        run: npm run audit:prod
+
+      - name: Snapper Scan
+        run: npm run snapper
+
+      - name: Package Dry Run
+        run: npm run pack:dry-run

@@ -1,0 +1,61 @@
+{
+  "name": "@ducat-unit/ducat-snap",
+  "version": "0.1.0",
+  "description": "Ducat Bitcoin account and signing Snap for MetaMask.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ducat-unit/ducat-snap.git"
+  },
+  "license": "MIT",
+  "main": "./dist/bundle.js",
+  "files": [
+    "dist/",
+    "images/",
+    "snap.manifest.json",
+    "README.md",
+    "LICENSE",
+    "PRIVACY.md",
+    "SECURITY.md",
+    "SUPPORT.md",
+    "RELEASE_CHECKLIST.md",
+    "LISTING.md",
+    "DEMO_SCRIPT.md",
+    "AUDIT_SCOPE.md",
+    "SNAPPER_REVIEW.md",
+    "DEPENDENCY_AUDIT.md"
+  ],
+  "scripts": {
+    "build": "mm-snap build",
+    "manifest": "mm-snap manifest",
+    "serve": "mm-snap serve",
+    "start": "mm-snap watch",
+    "test": "jest",
+    "type-check": "tsc --noEmit",
+    "verify": "npm run type-check && npm test && npm run build && npm run manifest",
+    "lint": "npm run type-check && npm test",
+    "audit:prod": "npm audit --omit=dev",
+    "snapper": "npx --yes @sayfer_io/snapper --path . --output snapper-report.json",
+    "verify:release": "bash scripts/verify-release.sh",
+    "pack:dry-run": "npm pack --dry-run",
+    "prepublishOnly": "npm run verify"
+  },
+  "dependencies": {
+    "@bitcoin-js/tiny-secp256k1-asmjs": "^2.2.3",
+    "@noble/hashes": "^1.8.0",
+    "bitcoinjs-lib": "^6.1.7",
+    "buffer": "^6.0.3"
+  },
+  "devDependencies": {
+    "@metamask/snaps-cli": "^8.3.0",
+    "@metamask/snaps-sdk": "^11.0.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.7",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.9.2"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

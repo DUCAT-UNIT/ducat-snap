@@ -1,0 +1,51 @@
+{
+  "version": "0.1.0",
+  "description": "Ducat Bitcoin accounts, Ducat-aware confirmations, and PSBT/message signing for MetaMask.",
+  "proposedName": "Ducat",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ducat-unit/ducat-snap.git"
+  },
+  "source": {
+    "shasum": "ushLiDyNaoyOzwniWJnQFx8R/kP3e887ctB28y5B/Co=",
+    "location": {
+      "npm": {
+        "filePath": "dist/bundle.js",
+        "iconPath": "images/icon.svg",
+        "packageName": "@ducat-unit/ducat-snap",
+        "registry": "https://registry.npmjs.org/"
+      }
+    }
+  },
+  "initialPermissions": {
+    "endowment:rpc": {
+      "allowedOrigins": [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "https://app.ducatprotocol.com",
+        "https://dev.app.ducatprotocol.com",
+        "https://staging.app.ducatprotocol.com"
+      ]
+    },
+    "snap_getBip32Entropy": [
+      {
+        "path": ["m", "84'", "1'"],
+        "curve": "secp256k1"
+      },
+      {
+        "path": ["m", "86'", "1'"],
+        "curve": "secp256k1"
+      }
+    ],
+    "snap_dialog": {},
+    "snap_manageState": {},
+    "endowment:page-home": {},
+    "endowment:network-access": {},
+    "snap_notify": {},
+    "endowment:lifecycle-hooks": {}
+  },
+  "platformVersion": "11.1.1",
+  "manifestVersion": "0.1"
+}
