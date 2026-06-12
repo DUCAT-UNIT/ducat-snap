@@ -22,6 +22,20 @@ export function text(value: string): Component {
   } as unknown as Component;
 }
 
+/**
+ * Renders arbitrary signing content without Markdown interpretation.
+ * @param value - The exact value to show.
+ * @param sensitive - Whether MetaMask should treat the value as sensitive.
+ * @returns A Snap copyable UI component.
+ */
+export function copyable(value: string, sensitive = false): Component {
+  return {
+    type: 'copyable',
+    value,
+    sensitive,
+  } as unknown as Component;
+}
+
 export function divider(): Component {
   return {
     type: 'divider',

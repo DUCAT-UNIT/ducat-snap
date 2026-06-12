@@ -1,6 +1,6 @@
 import { btcUnit } from './networks';
 import type { DucatActionContext, DucatNetwork, PsbtSummary } from './types';
-import { divider, heading, panel, text } from './ui';
+import { copyable, divider, heading, panel, text } from './ui';
 
 function truncate(value: string, prefix = 10, suffix = 8): string {
   if (value.length <= prefix + suffix + 3) {
@@ -32,6 +32,9 @@ export async function confirmMessage(params: {
   message: string;
   context?: DucatActionContext;
 }): Promise<void> {
+  const displayedMessage = params.message.slice(0, 800);
+  const isTruncated = displayedMessage.length < params.message.length;
+
   const confirmed = await snap.request<boolean>({
     method: 'snap_dialog',
     params: {
@@ -42,7 +45,8 @@ export async function confirmMessage(params: {
         text(`**Network:** ${params.network}`),
         text(`**Address:** ${truncate(params.address)}`),
         divider(),
-        text(`**Message:** ${params.message.slice(0, 800)}`),
+        text(`**Message${isTruncated ? ' (first 800 characters)' : ''}:**`),
+        copyable(displayedMessage),
       ]),
     },
   });

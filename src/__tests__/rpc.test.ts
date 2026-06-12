@@ -136,6 +136,41 @@ describe('RPC router', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
+  it('renders arbitrary message signing content as copyable confirmation data', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+    const message = 'Sign in to Ducat with **literal markdown** and [link text](https://example.com)';
+
+    const result = await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signMessage',
+      params: { network: 'signet', address: keySet.record.sats.address, message },
+    });
+    const dialogCall = request.mock.calls.find(([arg]) => arg.method === 'snap_dialog');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'success',
+        result: expect.objectContaining({
+          address: keySet.record.sats.address,
+          protocol: 'BIP322',
+          signature: expect.any(String),
+        }),
+      }),
+    );
+    expect(dialogCall?.[0].params).toEqual(
+      expect.objectContaining({
+        content: expect.objectContaining({
+          children: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'copyable',
+              value: message,
+            }),
+          ]),
+        }),
+      }),
+    );
+  });
+
   it('rejects malformed PSBTs', async () => {
     const request = setSnapMock();
     const keySet = testKeySet();
