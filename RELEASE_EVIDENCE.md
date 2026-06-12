@@ -7,8 +7,8 @@ This document captures the current audit and submission handoff state for `@duca
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Implementation commit: `6c41a5625451fcbe75c24bf9063a6a13fcd89c0d`
-- Implementation tag: `audit-candidate-0.1.0-20260612-pinned-deps`
+- Implementation commit: `ef2c1489e27807f80aa8ecda19db1284f5031632`
+- Implementation tag: `audit-candidate-0.1.0-20260612-copyable-message`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -17,9 +17,9 @@ This document captures the current audit and submission handoff state for `@duca
 ## Automated Verification
 
 - GitHub Actions workflow: `Verify Ducat Snap`
-- Run URL: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27436831789
+- Run URL: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27437420295
 - Run conclusion: `success`
-- Run head SHA: `6c41a5625451fcbe75c24bf9063a6a13fcd89c0d`
+- Run head SHA: `ef2c1489e27807f80aa8ecda19db1284f5031632`
 - Local release command: `npm run verify:release`
 - Local release command result: passed
 - Separate publish dry-run command: `npm publish --dry-run --access public`
@@ -38,11 +38,12 @@ This document captures the current audit and submission handoff state for `@duca
 ## Test Evidence
 
 - Jest suites: 4 passed
-- Jest tests: 16 passed
+- Jest tests: 17 passed
 - Covered areas:
   - Deterministic signet/mutinynet account derivation
   - `ducat_getAccounts`
   - Derived-address-only message signing
+  - Copyable message confirmation rendering for arbitrary signing content
   - PSBT input ownership and network validation
   - RPC origin validation
   - Malformed PSBT rejection
@@ -52,10 +53,10 @@ This document captures the current audit and submission handoff state for `@duca
 ## Package Evidence
 
 - Tarball path: `/Users/lucasrodriguez/Desktop/Ducat/SNAP/ducat-unit-ducat-snap-0.1.0.tgz`
-- Tarball SHA-256: `c980de85abdb2b397451ee241a99eb68d41ed1617f54b0631f51ecb69144998c`
-- npm package shasum: `3e0b7fb808e5fe29d4b86b3e01ee9b56e318d050`
-- npm package integrity: `sha512-j7EkmFD0Ni4osO25Ek8xG/oqmAEe/ifCOTV10pFKAqpLcZAG7OZT+KjFlPDp4F40lqXwnyiiPqIzVp3qhquvhQ==`
-- Snap manifest source shasum: `jzVxEAlMLcojzhKyPLZKFDuEl10O3D3vg31J0YhrMjY=`
+- Tarball SHA-256: `3dc81725d3eb8abed66acbb7689520f02b42a46103a5d89a69b0ae553577ae7b`
+- npm package shasum: `94f6a0c37c23f3b007ad44fe027d63562b70931d`
+- npm package integrity: `sha512-S4NNEWEcrInk1EB9Mvb6/iEiJD8das47ggdzilYdN556dw2GTyaqyAdjIKgRjNL3E1FEfa+JpNE1kN0TewAglQ==`
+- Snap manifest source shasum: `6JcS73lpuUpJ9QQbeC2s1jlCDS+/R4LeaBQMKL32XEA=`
 - `npm publish --dry-run --access public`: passed
 - Actual npm publish: blocked until npm auth is configured
 - `npm whoami`: `ENEEDAUTH`
