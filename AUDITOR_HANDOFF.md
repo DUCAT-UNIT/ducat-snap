@@ -87,5 +87,6 @@ npm run verify:release
 - Production dependency audit is clean.
 - Full `npm audit` still reports development-toolchain findings from build/test dependencies; see `DEPENDENCY_AUDIT.md`.
 - Snapper currently reports style/scanner-policy findings; see `SNAPPER_REVIEW.md`.
+- Signet/mutinynet alpha vault PSBTs currently use a compatibility path for Taproot script-path inputs in `src/psbt.ts`; see the README alpha note and include this path in manual review before any mainnet expansion.
 - The package is not yet published to npm until npm authentication is configured.
 - Production support and legal privacy URLs must be finalized before MetaMask directory submission.

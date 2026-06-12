@@ -6,7 +6,7 @@ Last local command:
 npx --yes @sayfer_io/snapper --path . --output snapper-report.json
 ```
 
-Local result: 96 findings, all under the `ESLinting` category.
+Local result: 100 findings, all under the `ESLinting` category.
 
 ## Addressed Findings
 
@@ -21,7 +21,7 @@ The first local scan reported 105 findings. The implementation now fixes the non
 
 ## Remaining Finding Summary
 
-- 68 missing JSDoc comments.
+- 72 missing JSDoc comments.
 - 6 missing explicit return type annotations.
 - 4 generic type parameter naming warnings.
 - External API response fields using snake_case, such as Esplora and Ducat validator fields.

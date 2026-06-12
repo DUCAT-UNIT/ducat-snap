@@ -4,10 +4,10 @@
   "proposedName": "Ducat",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ducat-unit/ducat-snap.git"
+    "url": "git+https://github.com/DUCAT-UNIT/ducat-snap.git"
   },
   "source": {
-    "shasum": "RagQYpsLM1kLzrxJlqj+aPNMruATbPDqWj7isglMDsU=",
+    "shasum": "/IHujYHc/LA19OQAmbn6PX50JRtdFwoRNgNC/nstIUE=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",

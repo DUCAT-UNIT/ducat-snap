@@ -2,12 +2,27 @@
   "name": "@ducat-unit/ducat-snap",
   "version": "0.1.0",
   "description": "Ducat Bitcoin account and signing Snap for MetaMask.",
+  "keywords": [
+    "ducat",
+    "metamask-snap",
+    "bitcoin",
+    "signet",
+    "mutinynet",
+    "psbt"
+  ],
+  "homepage": "https://github.com/DUCAT-UNIT/ducat-snap#readme",
+  "bugs": {
+    "url": "https://github.com/DUCAT-UNIT/ducat-snap/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ducat-unit/ducat-snap.git"
+    "url": "git+https://github.com/DUCAT-UNIT/ducat-snap.git"
   },
   "license": "MIT",
   "main": "./dist/bundle.js",
+  "engines": {
+    "node": ">=20"
+  },
   "files": [
     "dist/",
     "images/",

@@ -11,6 +11,7 @@
 - [ ] Dependency audit reviewed.
 - [ ] Snapper/security scan reviewed.
 - [ ] Console logs, unused permissions, TODOs, and dead RPC methods removed.
+- [ ] Alpha Taproot script-path compatibility in `src/psbt.ts` is audited and either accepted for signet/mutinynet only or replaced with strict Ducat SDK-compatible verification.
 - [ ] Third-party audit completed because the Snap uses `snap_getBip32Entropy`.
 - [ ] Audit fixes merged and tagged.
 
