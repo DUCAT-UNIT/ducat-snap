@@ -35,8 +35,8 @@
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.0-20260613-self-contained",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260613-self-contained",
+    "candidateTag": "audit-candidate-0.1.0-20260613-confirmation-polish",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260613-confirmation-polish",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/1",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
@@ -51,9 +51,9 @@
   },
   "verification": {
     "commands": ["npm ci", "npm run verify:release"],
-    "packageShasum": "76a39fd69b33beceee65f090545d25787f513b0a",
-    "packageIntegrity": "sha512-z+6ZARUhQiV7+VAUCKT45Kwru/3o//g/nWH7JORIe3ympltLz2tVlysC8YZvfx/BlzlkKQBT3Ti6qzk1HbPFjg==",
-    "manifestSourceShasum": "gR2z1FUeF6YR0FLYW9pw+4fENZDoZ/5dSGja6792vKs=",
+    "packageShasum": "5cda5485fc8df9950988b478005505a173e79aa4",
+    "packageIntegrity": "sha512-6SHZWnjSUqYNY0zACF0TBEvsxmXJF8wg84tCH6F8wwJY+pToCz0lFVRjrh0gt3MjSXMeOFpK0O8UsM+kERZhiQ==",
+    "manifestSourceShasum": "q9zcNv8CgYfyTyXse2sVYV6/HPwYRlMAoWfnwtEHbDc=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
   }

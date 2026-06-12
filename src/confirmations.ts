@@ -1,6 +1,7 @@
 import { crypto } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
+import { DUCAT_MARK_SVG } from './brand';
 import {
   actionLabel,
   formatBtcValue,
@@ -121,8 +122,13 @@ export async function confirmMessage(params: {
     params: {
       type: 'confirmation',
       content: uiBox([
-        uiHeading(`Review ${actionLabel(params.context, 'message signing')}`, 'lg'),
-        uiMuted(`${originLabel(params.origin)} - ${networkLabel(params.network)}`),
+        uiCard({
+          description: `${originLabel(params.origin)} - ${networkLabel(params.network)}`,
+          extra: roleLabel(params.role),
+          image: DUCAT_MARK_SVG,
+          title: actionLabel(params.context, 'Message signing'),
+          value: 'BIP322',
+        }),
         uiSection([
           uiHeading('Signature'),
           uiRow('Account', detailValue(roleLabel(params.role), truncateMiddle(params.address))),
@@ -193,31 +199,36 @@ export async function confirmPsbt(params: {
     params: {
       type: 'confirmation',
       content: uiBox([
-        uiHeading(`Review ${action}`, 'lg'),
-        uiMuted(`${originLabel(origin)} - ${networkLabel(summary.network)}`),
+        uiCard({
+          description: `${compactCount(summary.signedInputIndexes.length, 'input')} signed - ${networkLabel(summary.network)}`,
+          extra: 'to recipients',
+          image: DUCAT_MARK_SVG,
+          title: action,
+          value: formatMaybeBtcValue(summary.externalOutputSats),
+        }),
         ...(visibleWarnings.length ? [uiBanner('Needs attention', 'warning', visibleWarnings[0])] : []),
         uiSection([
-          uiHeading('At a glance'),
-          amountCard('Spend', summary.signedInputValueSats, `${compactCount(summary.signedInputIndexes.length, 'input')} signed`),
-          amountCard('To recipients', summary.externalOutputSats, 'Leaves Ducat Snap accounts'),
-          amountCard('Change', summary.selfOutputSats, 'Returns to Ducat Snap accounts'),
+          uiHeading('Money movement'),
+          amountCard('Signed value', summary.signedInputValueSats, `${compactCount(summary.signedInputIndexes.length, 'input')} signed by MetaMask`),
+          amountCard('Recipients', summary.externalOutputSats, 'Leaves Ducat Snap accounts'),
+          amountCard('Your change', summary.selfOutputSats, 'Returns to Ducat Snap accounts'),
           amountCard('Network fee', summary.feeSats, 'Paid to Bitcoin miners'),
         ]),
         uiSection([
           uiHeading('Signing scope'),
-          uiRow('Inputs signed', detailValue(`${summary.signedInputIndexes.length} of ${summary.inputCount}`, signedInputs || 'No requested inputs')),
+          uiRow('Origin', originLabel(origin)),
           uiRow('Network', networkLabel(summary.network)),
+          uiRow('Inputs signed', detailValue(`${summary.signedInputIndexes.length} of ${summary.inputCount}`, signedInputs || 'No requested inputs')),
+          uiRow('Outputs parsed', `${summary.outputCount}`),
           ...(dataOutputCount ? [uiRow('Data outputs', `${dataOutputCount} non-spendable output${dataOutputCount === 1 ? '' : 's'}`)] : []),
         ]),
         uiCollapsibleSection(
-          'Signed inputs',
+          'Signed input details',
           [...inputRows, ...(summary.signedInputs.length > visibleSignedInputs.length ? [uiMuted(`+ ${summary.signedInputs.length - visibleSignedInputs.length} more inputs`)] : [])],
-          true,
         ),
         uiCollapsibleSection(
-          'Recipients and change',
+          'Recipient and change details',
           [...outputRows, ...(hiddenOutputs.length ? [uiMuted(`+ ${hiddenOutputs.length} more outputs; hidden external total ${formatSats(hiddenExternalSats, summary.network)}`)] : [])],
-          true,
         ),
         ...(visibleWarnings.length > 1
           ? [uiCollapsibleSection('More warnings', visibleWarnings.slice(1).map((warning) => uiText(warning, { color: 'warning' })))]
@@ -256,8 +267,13 @@ export async function confirmBatch(params: {
     params: {
       type: 'confirmation',
       content: uiBox([
-        uiHeading(`Review ${actionLabel(params.context, 'Ducat')} batch`, 'lg'),
-        uiMuted(`${originLabel(params.origin)} - ${networkLabel(network)}`),
+        uiCard({
+          description: `${originLabel(params.origin)} - ${networkLabel(network)}`,
+          extra: 'transactions',
+          image: DUCAT_MARK_SVG,
+          title: `${actionLabel(params.context, 'Ducat')} batch`,
+          value: `${summaries.length}`,
+        }),
         ...(warningCount ? [uiBanner('Batch warnings', 'warning', `${warningCount} warning${warningCount === 1 ? '' : 's'} across this batch.`)] : []),
         uiSection([
           uiHeading('At a glance'),
@@ -316,10 +332,15 @@ export async function confirmTransfer(params: {
     params: {
       type: 'confirmation',
       content: uiBox([
-        uiHeading('Review Send BTC', 'lg'),
-        uiMuted(`${originLabel(params.origin)} - ${networkLabel(params.network)}`),
+        uiCard({
+          description: `${originLabel(params.origin)} - ${networkLabel(params.network)}`,
+          extra: 'recipient gets',
+          image: DUCAT_MARK_SVG,
+          title: 'Send BTC',
+          value: formatBtcValue(params.amountSats),
+        }),
         uiSection([
-          uiHeading('At a glance'),
+          uiHeading('Money movement'),
           amountCard('Recipient gets', params.amountSats, 'BTC transfer amount'),
           amountCard('Total debit', params.amountSats + params.feeSats, 'Amount plus network fee'),
           amountCard('Network fee', params.feeSats, `${params.feeRate} sat/vB`),
@@ -330,7 +351,7 @@ export async function confirmTransfer(params: {
           uiRow('To', truncateMiddle(params.to)),
           uiRow('Selected UTXOs', detailValue(`${params.inputCount} input${params.inputCount === 1 ? '' : 's'}`, formatSats(params.inputValueSats, params.network))),
           uiRow('Broadcast', truncateMiddle(params.broadcastEndpoint, 28, 10)),
-        ], true),
+        ]),
         uiDivider(),
         uiMuted('Approve only if the recipient and total debit are correct.'),
       ]),

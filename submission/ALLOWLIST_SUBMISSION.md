@@ -40,8 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.0-20260613-self-contained`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-self-contained`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-confirmation-polish`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-confirmation-polish`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,9 +55,9 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `76a39fd69b33beceee65f090545d25787f513b0a`
-- npm package integrity: `sha512-z+6ZARUhQiV7+VAUCKT45Kwru/3o//g/nWH7JORIe3ympltLz2tVlysC8YZvfx/BlzlkKQBT3Ti6qzk1HbPFjg==`
-- Snap manifest source shasum: `gR2z1FUeF6YR0FLYW9pw+4fENZDoZ/5dSGja6792vKs=`
+- npm package shasum: `5cda5485fc8df9950988b478005505a173e79aa4`
+- npm package integrity: `sha512-6SHZWnjSUqYNY0zACF0TBEvsxmXJF8wg84tCH6F8wwJY+pToCz0lFVRjrh0gt3MjSXMeOFpK0O8UsM+kERZhiQ==`
+- Snap manifest source shasum: `q9zcNv8CgYfyTyXse2sVYV6/HPwYRlMAoWfnwtEHbDc=`
 
 ## Permissions Summary
 

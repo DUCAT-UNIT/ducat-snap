@@ -59,7 +59,7 @@ export function uiLink(label: string, href: string): SnapElement {
   return SnapJsx.Link({ children: label, href }) as SnapElement;
 }
 
-export function uiCard(params: { title: string; value: string; description?: string; extra?: string }): SnapElement {
+export function uiCard(params: { title: string; value: string; description?: string; extra?: string; image?: string }): SnapElement {
   return SnapJsx.Card(params) as SnapElement;
 }
 

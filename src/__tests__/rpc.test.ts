@@ -268,7 +268,7 @@ describe('RPC router', () => {
         }),
       }),
     );
-    expect(rendered).toContain('Review message signing');
+    expect(rendered).toContain('Message signing');
     expect(rendered).toContain('BIP322 simple');
     expect(rendered).toContain(message);
   });
@@ -319,9 +319,9 @@ describe('RPC router', () => {
 
     const rendered = dialogValues(request).join('\n');
 
-    expect(rendered).toContain('Review Deposit BTC');
-    expect(rendered).toContain('At a glance');
-    expect(rendered).toContain('To recipients');
+    expect(rendered).toContain('Deposit BTC');
+    expect(rendered).toContain('Money movement');
+    expect(rendered).toContain('Recipients');
     expect(rendered).toContain('Ducat app context');
     expect(rendered).toContain('Vault Id');
     expect(rendered).toContain('App labels are shown for context.');
