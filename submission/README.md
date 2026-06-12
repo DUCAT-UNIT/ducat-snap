@@ -12,8 +12,8 @@ Current audit candidate:
 
 ## Before Submission
 
-1. Replace the `PENDING_*` fields in `metamask-directory.json`.
-2. Replace the `PENDING_*` fields in `ALLOWLIST_SUBMISSION.md`.
+1. Track the remaining external fields in `EXTERNAL_GATES.md`.
+2. Replace the remaining `PENDING_*` fields in `metamask-directory.json` and `ALLOWLIST_SUBMISSION.md`.
 3. Capture screenshots into `submission/screenshots/` using `LISTING.md`.
 4. Record the demo video using `DEMO_SCRIPT.md`.
 5. Attach the third-party audit report required for `snap_getBip32Entropy`.

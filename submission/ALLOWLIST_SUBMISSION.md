@@ -2,7 +2,7 @@
 
 Date prepared: 2026-06-12
 
-Use this file as the working copy for the MetaMask Snaps Directory Information form. Replace all `PENDING_*` values before submission.
+Use this file as the working copy for the MetaMask Snaps Directory Information form. Replace the remaining `PENDING_*` values before submission.
 
 ## Snap Identity
 
@@ -13,7 +13,7 @@ Use this file as the working copy for the MetaMask Snaps Directory Information f
 - Repository URL: https://github.com/DUCAT-UNIT/ducat-snap
 - npm URL: https://www.npmjs.com/package/@ducat-unit/ducat-snap
 - Builder name: `DUCAT-UNIT`
-- Builder URL: `PENDING_BUILDER_URL`
+- Builder URL: https://github.com/DUCAT-UNIT
 - Snap website URL: https://app.ducatprotocol.com
 
 ## Description
@@ -71,13 +71,13 @@ Mainnet is intentionally not enabled in this release.
 
 ## Support
 
-- Public support URL or email: `PENDING_SUPPORT_URL_OR_EMAIL`
+- Public support URL or email: https://github.com/DUCAT-UNIT/ducat-snap/issues
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: `PENDING_SECURITY_CONTACT_OR_PROCESS`
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-confirmation-polish/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: `PENDING_PRIVACY_POLICY_URL`
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-confirmation-polish/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo
