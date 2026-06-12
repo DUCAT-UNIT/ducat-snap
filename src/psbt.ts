@@ -1,4 +1,5 @@
 import { address as btcAddress, crypto, opcodes, Psbt, script as btcScript } from 'bitcoinjs-lib';
+import { rootHashFromPath, tapleafHash, tweakKey } from 'bitcoinjs-lib/src/payments/bip341';
 import { Buffer } from 'buffer';
 
 import { type AccountKeySet, getRoleForAddress } from './accounts';
@@ -46,6 +47,53 @@ function sameScript(left: Buffer, right: Buffer): boolean {
   return left.length === right.length && left.equals(right);
 }
 
+function parseP2trOutputKey(outputScript: Buffer): Buffer | null {
+  if (outputScript.length !== 34 || outputScript[0] !== opcodes.OP_1 || outputScript[1] !== 0x20) {
+    return null;
+  }
+
+  return outputScript.subarray(2, 34);
+}
+
+function tapLeafContainsPubkey(script: Buffer, xOnlyPubkey: Buffer): boolean {
+  const chunks = btcScript.decompile(script);
+
+  return chunks?.some((chunk) => Buffer.isBuffer(chunk) && chunk.equals(xOnlyPubkey)) ?? false;
+}
+
+function tapLeafCommitsToOutputKey(
+  tapLeaf: { controlBlock: Uint8Array; leafVersion: number; script: Uint8Array },
+  outputKey: Buffer,
+): boolean {
+  try {
+    const controlBlock = Buffer.from(tapLeaf.controlBlock);
+    const leafHash = tapleafHash({
+      output: Buffer.from(tapLeaf.script),
+      version: tapLeaf.leafVersion,
+    });
+    const merkleRoot = rootHashFromPath(controlBlock, leafHash);
+    const internalKey = controlBlock.subarray(1, 33);
+    const tweakedKey = tweakKey(internalKey, merkleRoot);
+
+    return tweakedKey?.x.equals(outputKey) ?? false;
+  } catch {
+    return false;
+  }
+}
+
+function hasOwnedTaprootScriptPathInput(input: Psbt['data']['inputs'][number], outputScript: Buffer, keySet: AccountKeySet): boolean {
+  const outputKey = parseP2trOutputKey(outputScript);
+
+  if (!outputKey || !input.tapLeafScript?.length) {
+    return false;
+  }
+
+  return input.tapLeafScript.some(
+    (tapLeaf) =>
+      tapLeafContainsPubkey(Buffer.from(tapLeaf.script), keySet.taprootInternalPubkey) && tapLeafCommitsToOutputKey(tapLeaf, outputKey),
+  );
+}
+
 function assertInputMatchesAddress(psbt: Psbt, index: number, address: string, keySet: AccountKeySet): void {
   const role = getRoleForAddress(keySet, address);
 
@@ -61,9 +109,14 @@ function assertInputMatchesAddress(psbt: Psbt, index: number, address: string, k
   }
 
   const expectedScript = role === 'sats' ? keySet.satsOutputScript : keySet.taprootOutputScript;
+  const inputScript = Buffer.from(witnessUtxo.script);
 
-  if (!sameScript(Buffer.from(witnessUtxo.script), expectedScript)) {
-    const actualAddress = parseOutputAddress(Buffer.from(witnessUtxo.script), keySet.network);
+  if (!sameScript(inputScript, expectedScript)) {
+    if (role !== 'sats' && hasOwnedTaprootScriptPathInput(input, inputScript, keySet)) {
+      return;
+    }
+
+    const actualAddress = parseOutputAddress(inputScript, keySet.network);
 
     throw new Error(
       `PSBT input ${index} for ${address} does not match the Ducat Snap ${role} account. Actual input address: ${actualAddress}.`,
@@ -167,17 +220,25 @@ export function signPreparedPsbt(psbt: Psbt, keySet: AccountKeySet, signInputs: 
       if (role === 'sats') {
         psbt.signInput(index, toSigner(keySet.satsNode));
       } else {
-        const currentTapInternalKey = psbt.data.inputs[index].tapInternalKey;
+        const input = psbt.data.inputs[index];
+        const inputScript = input.witnessUtxo ? Buffer.from(input.witnessUtxo.script) : null;
+        const isKeyPathSpend = !!inputScript && sameScript(inputScript, keySet.taprootOutputScript);
 
-        if (currentTapInternalKey && !Buffer.from(currentTapInternalKey).equals(keySet.taprootInternalPubkey)) {
-          throw new Error(`PSBT input ${index} has a tapInternalKey that does not match the Ducat Snap account.`);
+        if (isKeyPathSpend) {
+          const currentTapInternalKey = input.tapInternalKey;
+
+          if (currentTapInternalKey && !Buffer.from(currentTapInternalKey).equals(keySet.taprootInternalPubkey)) {
+            throw new Error(`PSBT input ${index} has a tapInternalKey that does not match the Ducat Snap account.`);
+          }
+
+          if (!currentTapInternalKey) {
+            psbt.updateInput(index, { tapInternalKey: keySet.taprootInternalPubkey });
+          }
+
+          psbt.signTaprootInput(index, taprootSigner(keySet.taprootNode));
+        } else {
+          psbt.signTaprootInput(index, toSigner(keySet.taprootNode));
         }
-
-        if (!currentTapInternalKey) {
-          psbt.updateInput(index, { tapInternalKey: keySet.taprootInternalPubkey });
-        }
-
-        psbt.signTaprootInput(index, taprootSigner(keySet.taprootNode));
       }
     }
   }
