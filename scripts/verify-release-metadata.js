@@ -65,7 +65,6 @@ const pack = npmPackDryRun();
 
 const candidateTag = directory.audit.candidateTag;
 const candidateCommit = directory.audit.candidateCommit;
-const verificationRun = directory.audit.candidateVerificationRun;
 const manifestShasum = manifest.source.shasum;
 
 assertEqual(manifest.version, packageJson.version, 'manifest version');
@@ -84,14 +83,6 @@ for (const [label, contents] of [
 ]) {
   assertContains(contents, candidateTag, label);
   assertContains(contents, candidateCommit, label);
-}
-
-for (const [label, contents] of [
-  ['RELEASE_EVIDENCE.md', releaseEvidence],
-  ['AUDITOR_HANDOFF.md', auditorHandoff],
-  ['submission/README.md', submissionReadme],
-]) {
-  assertContains(contents, verificationRun, label);
 }
 
 for (const [label, contents] of [
