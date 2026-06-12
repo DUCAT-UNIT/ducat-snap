@@ -4,6 +4,12 @@ This directory holds the local inputs for the MetaMask allowlist/directory submi
 
 Use `ALLOWLIST_SUBMISSION.md` as the working copy for the MetaMask form fields. Use `../AUDITOR_HANDOFF.md` and `../AUDIT_SCOPE.md` for the third-party audit packet.
 
+Current audit candidate:
+
+- Tag: `audit-candidate-0.1.0-20260613-signet-mutinynet`
+- Commit: `e6c39b1dfc57f7951d4092683ed2ba438c2f675a`
+- Verification run: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27446702134
+
 ## Before Submission
 
 1. Replace the `PENDING_*` fields in `metamask-directory.json`.

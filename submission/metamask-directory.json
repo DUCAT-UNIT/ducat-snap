@@ -4,7 +4,7 @@
     "proposedName": "Ducat",
     "version": "0.1.0",
     "snapId": "npm:@ducat-unit/ducat-snap",
-    "repositoryUrl": "https://github.com/ducat-unit/ducat-snap",
+    "repositoryUrl": "https://github.com/DUCAT-UNIT/ducat-snap",
     "npmUrl": "https://www.npmjs.com/package/@ducat-unit/ducat-snap",
     "manifestPath": "snap.manifest.json",
     "iconPath": "images/icon.svg"
@@ -35,6 +35,9 @@
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
+    "candidateTag": "audit-candidate-0.1.0-20260613-signet-mutinynet",
+    "candidateCommit": "e6c39b1dfc57f7951d4092683ed2ba438c2f675a",
+    "candidateVerificationRun": "https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27446702134",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
     "fixedCommit": "PENDING_AUDIT_FIX_COMMIT",
@@ -48,6 +51,9 @@
   },
   "verification": {
     "commands": ["npm ci", "npm run verify:release"],
+    "packageShasum": "8111e4369d2df3e474046d781578c13b6efa1d8f",
+    "packageIntegrity": "sha512-0ajZJv8h7hinwLsU4Dub4+csmFXZOKD1Ceq9QathjDqc6dcEYj+RucEebMgiaMJfwit1ZQHsl+cjvHud6vikgg==",
+    "manifestSourceShasum": "gR2z1FUeF6YR0FLYW9pw+4fENZDoZ/5dSGja6792vKs=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
   }
