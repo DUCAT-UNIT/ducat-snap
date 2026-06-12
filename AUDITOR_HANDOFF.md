@@ -13,7 +13,7 @@ Assess whether the Ducat Snap can safely derive signet/mutinynet Bitcoin account
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Audit candidate tag: `audit-candidate-0.1.0-20260613-metadata-guard`
 - Audit candidate commit: `bd9202402fae808e1815f68de51b147bf428c80e`
-- GitHub Actions verification run: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27447233313
+- GitHub Actions verification run: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27447316338
 - npm package name: `@ducat-unit/ducat-snap`
 - Package version: `0.1.0`
 - Package dry-run shasum: `76a39fd69b33beceee65f090545d25787f513b0a`

@@ -39,5 +39,8 @@ jobs:
       - name: Snapper Scan
         run: npm run snapper
 
+      - name: Release Metadata Consistency
+        run: npm run verify:metadata
+
       - name: Package Dry Run
         run: npm run pack:dry-run
