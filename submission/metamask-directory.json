@@ -32,18 +32,18 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-submission-readiness/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-snapper-evidence/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-submission-readiness/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-snapper-evidence/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.0-20260613-submission-readiness",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260613-submission-readiness",
+    "candidateTag": "audit-candidate-0.1.0-20260613-snapper-evidence",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260613-snapper-evidence",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/1",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
@@ -58,8 +58,8 @@
   },
   "verification": {
     "commands": ["npm ci", "npm run verify:release"],
-    "packageShasum": "4ef1d5730ca5f1eca12d1efe11ab9ac168864ec2",
-    "packageIntegrity": "sha512-saV0C1Xrqm53kaLk8anrJ5XAc6b7N+G5xy4Hds2J6W0f67LHGvbHDjPkX0TuLugnMQgdtFvmdkwlN8t6kThjxA==",
+    "packageShasum": "a2b168ede2cd55e974c501d585c715aaa7c1a307",
+    "packageIntegrity": "sha512-gPmlC+r3bMiNv5wf3MJbgPL/ycrceIwoSxL1QgBbB/J25tE9MPPBCGZVQeiI1S5EUi3pE6TjRZTXJoxycbQFGw==",
     "manifestSourceShasum": "xV+8/xPUsmWIh/CSiUcLhi5gOtkPF7AV+qtNroShZ8k=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"

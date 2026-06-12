@@ -40,8 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.0-20260613-submission-readiness`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-submission-readiness`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-snapper-evidence`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-snapper-evidence`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,8 +55,8 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `4ef1d5730ca5f1eca12d1efe11ab9ac168864ec2`
-- npm package integrity: `sha512-saV0C1Xrqm53kaLk8anrJ5XAc6b7N+G5xy4Hds2J6W0f67LHGvbHDjPkX0TuLugnMQgdtFvmdkwlN8t6kThjxA==`
+- npm package shasum: `a2b168ede2cd55e974c501d585c715aaa7c1a307`
+- npm package integrity: `sha512-gPmlC+r3bMiNv5wf3MJbgPL/ycrceIwoSxL1QgBbB/J25tE9MPPBCGZVQeiI1S5EUi3pE6TjRZTXJoxycbQFGw==`
 - Snap manifest source shasum: `xV+8/xPUsmWIh/CSiUcLhi5gOtkPF7AV+qtNroShZ8k=`
 
 ## Permissions Summary
@@ -75,9 +75,9 @@ Mainnet is intentionally not enabled in this release.
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-submission-readiness/SECURITY.md
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-snapper-evidence/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-submission-readiness/PRIVACY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-snapper-evidence/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo
