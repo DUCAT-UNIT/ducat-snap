@@ -81,17 +81,53 @@ function tapLeafCommitsToOutputKey(
   }
 }
 
-function hasOwnedTaprootScriptPathInput(input: Psbt['data']['inputs'][number], outputScript: Buffer, keySet: AccountKeySet): boolean {
+type TaprootScriptPathOwnership = {
+  ok: boolean;
+  reason: string;
+};
+
+function checkOwnedTaprootScriptPathInput(
+  input: Psbt['data']['inputs'][number],
+  outputScript: Buffer,
+  keySet: AccountKeySet,
+): TaprootScriptPathOwnership {
   const outputKey = parseP2trOutputKey(outputScript);
 
-  if (!outputKey || !input.tapLeafScript?.length) {
-    return false;
+  if (!outputKey) {
+    return { ok: false, reason: 'prevout is not a P2TR output' };
   }
 
-  return input.tapLeafScript.some(
-    (tapLeaf) =>
-      tapLeafContainsPubkey(Buffer.from(tapLeaf.script), keySet.taprootInternalPubkey) && tapLeafCommitsToOutputKey(tapLeaf, outputKey),
+  if (!input.tapLeafScript?.length) {
+    return { ok: false, reason: 'missing tapLeafScript data' };
+  }
+
+  const pubkeyLeafIndex = input.tapLeafScript.findIndex((tapLeaf) =>
+    tapLeafContainsPubkey(Buffer.from(tapLeaf.script), keySet.taprootInternalPubkey),
   );
+
+  if (pubkeyLeafIndex === -1) {
+    return { ok: false, reason: `no tapLeafScript contains the Ducat Snap vault pubkey (${input.tapLeafScript.length} provided)` };
+  }
+
+  const committedLeafIndex = input.tapLeafScript.findIndex((tapLeaf) => tapLeafCommitsToOutputKey(tapLeaf, outputKey));
+
+  if (committedLeafIndex === -1) {
+    return { ok: false, reason: `no tapLeafScript commits to the prevout Taproot output (${input.tapLeafScript.length} provided)` };
+  }
+
+  if (
+    !input.tapLeafScript.some(
+      (tapLeaf) =>
+        tapLeafContainsPubkey(Buffer.from(tapLeaf.script), keySet.taprootInternalPubkey) && tapLeafCommitsToOutputKey(tapLeaf, outputKey),
+    )
+  ) {
+    return {
+      ok: false,
+      reason: `vault pubkey tapleaf ${pubkeyLeafIndex} and committed tapleaf ${committedLeafIndex} are different leaves`,
+    };
+  }
+
+  return { ok: true, reason: 'owned committed Taproot script-path input' };
 }
 
 function assertInputMatchesAddress(psbt: Psbt, index: number, address: string, keySet: AccountKeySet): void {
@@ -112,14 +148,18 @@ function assertInputMatchesAddress(psbt: Psbt, index: number, address: string, k
   const inputScript = Buffer.from(witnessUtxo.script);
 
   if (!sameScript(inputScript, expectedScript)) {
-    if (role !== 'sats' && hasOwnedTaprootScriptPathInput(input, inputScript, keySet)) {
+    const scriptPathOwnership = role !== 'sats' ? checkOwnedTaprootScriptPathInput(input, inputScript, keySet) : null;
+
+    if (scriptPathOwnership?.ok) {
       return;
     }
 
     const actualAddress = parseOutputAddress(inputScript, keySet.network);
 
     throw new Error(
-      `PSBT input ${index} for ${address} does not match the Ducat Snap ${role} account. Actual input address: ${actualAddress}.`,
+      `PSBT input ${index} for ${address} does not match the Ducat Snap ${role} account. Actual input address: ${actualAddress}.${
+        scriptPathOwnership ? ` Taproot script-path check: ${scriptPathOwnership.reason}.` : ''
+      }`,
     );
   }
 }
