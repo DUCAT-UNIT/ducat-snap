@@ -7,8 +7,9 @@ This document captures the current local audit and submission handoff state for 
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Implementation commit: pending cleanup commit
-- Implementation tag: pending cleanup tag
+- Implementation branch: `feat/btc-snap-mutinynet-tx-open`
+- Implementation commit: branch HEAD when the audit candidate tag is cut
+- Implementation tag: pending audit candidate tag
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -20,7 +21,7 @@ This document captures the current local audit and submission handoff state for 
 - Local release command: `npm run verify:release`
 - Local release command result: passed
 - GitHub Actions workflow: `Verify Ducat Snap`
-- GitHub Actions status for this cleanup commit: pending until pushed
+- GitHub Actions status for this cleanup branch: pending PR or manual workflow run; the workflow runs on PRs, `main`, and `workflow_dispatch`
 
 `npm run verify:release` covers:
 
@@ -126,8 +127,8 @@ Known frontend CI note:
 
 ## Remaining External Gates
 
-- Push this cleanup/evidence state.
-- Wait for GitHub Actions on the pushed commit.
+- Open a pull request or manually dispatch GitHub Actions for this cleanup branch.
+- Wait for GitHub Actions on the PR or audit candidate commit.
 - Tag the audit candidate.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
