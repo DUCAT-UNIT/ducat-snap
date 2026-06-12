@@ -40,6 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-signet-mutinynet`
+- Audit candidate commit: `e6c39b1dfc57f7951d4092683ed2ba438c2f675a`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`

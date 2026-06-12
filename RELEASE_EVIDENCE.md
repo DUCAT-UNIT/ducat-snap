@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation commit: branch HEAD when the audit candidate tag is cut
-- Implementation tag: pending audit candidate tag
+- Implementation commit: `e6c39b1dfc57f7951d4092683ed2ba438c2f675a`
+- Implementation tag: `audit-candidate-0.1.0-20260613-signet-mutinynet`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -23,7 +23,8 @@ This document captures the current local audit and submission handoff state for 
 - Pull request: https://github.com/DUCAT-UNIT/ducat-snap/pull/1
 - Pull request status: draft
 - GitHub Actions workflow: `Verify Ducat Snap`
-- GitHub Actions status for this cleanup PR: passed
+- GitHub Actions status for audit candidate commit: passed
+- GitHub Actions run: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27446702134
 
 `npm run verify:release` covers:
 
@@ -129,8 +130,8 @@ Known frontend CI note:
 
 ## Remaining External Gates
 
-- Keep GitHub Actions green on the cleanup PR and audit candidate commit.
-- Tag the audit candidate.
+- Keep GitHub Actions green on the cleanup PR.
+- Send `audit-candidate-0.1.0-20260613-signet-mutinynet` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
