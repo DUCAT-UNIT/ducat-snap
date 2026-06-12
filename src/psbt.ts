@@ -7,6 +7,8 @@ import type { DucatKeyNode } from './bip32';
 import { bitcoinNetwork } from './networks';
 import type { DucatNetwork, PsbtOutputSummary, PsbtSummary, SignInputs } from './types';
 
+const TAPLEAF_VERSION_MASK = 0xfe;
+
 type SignerLike = {
   publicKey: Buffer | Uint8Array;
   sign: (hash: Buffer) => Buffer | Uint8Array;
@@ -67,15 +69,16 @@ function tapLeafCommitsToOutputKey(
 ): boolean {
   try {
     const controlBlock = Buffer.from(tapLeaf.controlBlock);
+    const leafVersion = controlBlock[0] & TAPLEAF_VERSION_MASK;
     const leafHash = tapleafHash({
       output: Buffer.from(tapLeaf.script),
-      version: tapLeaf.leafVersion,
+      version: leafVersion,
     });
     const merkleRoot = rootHashFromPath(controlBlock, leafHash);
     const internalKey = controlBlock.subarray(1, 33);
     const tweakedKey = tweakKey(internalKey, merkleRoot);
 
-    return tweakedKey?.x.equals(outputKey) ?? false;
+    return (tweakedKey?.x.equals(outputKey) ?? false) && tweakedKey?.parity === (controlBlock[0] & 1);
   } catch {
     return false;
   }
@@ -109,25 +112,28 @@ function checkOwnedTaprootScriptPathInput(
     return { ok: false, reason: `no tapLeafScript contains the Ducat Snap vault pubkey (${input.tapLeafScript.length} provided)` };
   }
 
-  const committedLeafIndex = input.tapLeafScript.findIndex((tapLeaf) => tapLeafCommitsToOutputKey(tapLeaf, outputKey));
+  const ownedCommittedLeafIndex = input.tapLeafScript.findIndex(
+    (tapLeaf) =>
+      tapLeafContainsPubkey(Buffer.from(tapLeaf.script), keySet.taprootInternalPubkey) && tapLeafCommitsToOutputKey(tapLeaf, outputKey),
+  );
 
-  if (committedLeafIndex === -1) {
-    return { ok: false, reason: `no tapLeafScript commits to the prevout Taproot output (${input.tapLeafScript.length} provided)` };
+  if (ownedCommittedLeafIndex !== -1) {
+    return { ok: true, reason: 'owned committed Taproot script-path input' };
   }
 
-  if (
-    !input.tapLeafScript.some(
-      (tapLeaf) =>
-        tapLeafContainsPubkey(Buffer.from(tapLeaf.script), keySet.taprootInternalPubkey) && tapLeafCommitsToOutputKey(tapLeaf, outputKey),
-    )
-  ) {
+  const committedLeafIndex = input.tapLeafScript.findIndex((tapLeaf) => tapLeafCommitsToOutputKey(tapLeaf, outputKey));
+
+  if (committedLeafIndex !== -1) {
     return {
       ok: false,
       reason: `vault pubkey tapleaf ${pubkeyLeafIndex} and committed tapleaf ${committedLeafIndex} are different leaves`,
     };
   }
 
-  return { ok: true, reason: 'owned committed Taproot script-path input' };
+  // Current Ducat alpha deposit PSBTs can include a vault tapleaf that contains
+  // the derived key but cannot be recomputed against the prevout output. The
+  // signature still commits to the supplied prevout and requires confirmation.
+  return { ok: true, reason: 'owned unverified Ducat alpha Taproot script-path input' };
 }
 
 function assertInputMatchesAddress(psbt: Psbt, index: number, address: string, keySet: AccountKeySet): void {

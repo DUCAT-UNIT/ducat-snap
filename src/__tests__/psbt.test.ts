@@ -140,4 +140,38 @@ describe('PSBT signing', () => {
     expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
     expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
   });
+
+  it('signs alpha Ducat vault script-path inputs when the vault leaf is not committed to the prevout', () => {
+    const keySet = makeKeySet();
+    const scriptPath = makeScriptPathPayment(keySet.taprootInternalPubkey);
+    const differentScriptPath = makeScriptPathPayment(Buffer.alloc(32, 9));
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '44'.repeat(32),
+      index: 0,
+      tapLeafScript: [
+        {
+          controlBlock: scriptPath.controlBlock,
+          leafVersion: 0xc0,
+          script: scriptPath.redeemScript,
+        },
+      ],
+      witnessUtxo: {
+        script: differentScriptPath.output,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    const signInputs = { [keySet.record.vault.address]: [0] };
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
+    const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
+
+    expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
+    expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
+  });
 });
