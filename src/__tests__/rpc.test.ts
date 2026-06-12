@@ -103,6 +103,18 @@ describe('RPC router', () => {
     );
   });
 
+  it('rejects unsupported networks before requesting entropy', async () => {
+    const request = setSnapMock();
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_getAccounts',
+        params: { network: 'mainnet' },
+      }),
+    ).rejects.toThrow('supports signet and mutinynet only');
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it('validates signPsbt params before requesting entropy', async () => {
     await expect(
       handleRpcRequest(ORIGIN, {
@@ -149,6 +161,19 @@ describe('RPC router', () => {
     ).rejects.toThrow('User rejected Ducat transaction signing');
   });
 
+  it('rejects unknown PSBT input indexes before showing confirmation', async () => {
+    const request = setSnapMock();
+    const { keySet, psbt } = makePsbt(100_000, 6);
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signPsbt',
+        params: { network: 'signet', psbt, signInputs: { [keySet.record.sats.address]: [1] } },
+      }),
+    ).rejects.toThrow('Invalid PSBT input index 1');
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
   it('batch signing preserves PSBT order', async () => {
     setSnapMock();
     const first = makePsbt(100_000, 4);
@@ -168,5 +193,25 @@ describe('RPC router', () => {
     expect(result.psbts).toHaveLength(2);
     expect(Psbt.fromBase64(result.psbts[0], { network: bitcoinNetwork('signet') }).txOutputs[0].value).toBe(99_000);
     expect(Psbt.fromBase64(result.psbts[1], { network: bitcoinNetwork('signet') }).txOutputs[0].value).toBe(199_000);
+  });
+
+  it('batch signing rejects the whole batch before confirmation when one entry is invalid', async () => {
+    const request = setSnapMock();
+    const first = makePsbt(100_000, 7);
+    const second = makePsbt(200_000, 8);
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signBatch',
+        params: {
+          network: 'signet',
+          entries: [
+            { psbt: first.psbt, signInputs: { [first.keySet.record.sats.address]: [0] } },
+            { psbt: second.psbt, signInputs: { [second.keySet.record.sats.address]: [1] } },
+          ],
+        },
+      }),
+    ).rejects.toThrow('Invalid PSBT input index 1');
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 });
