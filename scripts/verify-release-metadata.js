@@ -67,6 +67,25 @@ const pack = npmPackDryRun();
 
 const candidateTag = directory.audit.candidateTag;
 const manifestShasum = manifest.source.shasum;
+const packagedFiles = new Set(pack.files.map((file) => file.path));
+
+const requiredPackageFiles = [
+  'AUDIT_SCOPE.md',
+  'DEMO_SCRIPT.md',
+  'DEPENDENCY_AUDIT.md',
+  'LICENSE',
+  'LISTING.md',
+  'PRIVACY.md',
+  'README.md',
+  'RELEASE_CHECKLIST.md',
+  'SECURITY.md',
+  'SNAPPER_REVIEW.md',
+  'SUPPORT.md',
+  'dist/bundle.js',
+  'images/icon.svg',
+  'package.json',
+  'snap.manifest.json',
+];
 
 assertEqual(manifest.version, packageJson.version, 'manifest version');
 assertEqual(directory.snap.version, packageJson.version, 'submission version');
@@ -75,6 +94,10 @@ assertEqual(directory.snap.proposedName, manifest.proposedName, 'submission prop
 assertEqual(directory.verification.manifestSourceShasum, manifestShasum, 'submission manifest shasum');
 assertEqual(directory.verification.packageShasum, pack.shasum, 'submission package shasum');
 assertEqual(directory.verification.packageIntegrity, pack.integrity, 'submission package integrity');
+
+for (const requiredFile of requiredPackageFiles) {
+  assert(packagedFiles.has(requiredFile), `npm package is missing required release artifact ${requiredFile}.`);
+}
 
 for (const [label, contents] of [
   ['RELEASE_EVIDENCE.md', releaseEvidence],
