@@ -28,6 +28,10 @@ function assertContains(contents, expected, label) {
   assert(contents.includes(expected), `${label} does not contain ${expected}.`);
 }
 
+function assertJsonEqual(actual, expected, label) {
+  assertEqual(JSON.stringify(actual), JSON.stringify(expected), label);
+}
+
 function npmPackDryRun() {
   const output = execFileSync('npm', ['pack', '--dry-run', '--json'], {
     cwd: root,
@@ -80,6 +84,7 @@ const pack = npmPackDryRun();
 const candidateTag = directory.audit.candidateTag;
 const manifestShasum = manifest.source.shasum;
 const packagedFiles = new Set(pack.files.map((file) => file.path));
+const manifestPermissions = manifest.initialPermissions ?? {};
 
 const requiredPackageFiles = [
   'AUDIT_SCOPE.md',
@@ -106,6 +111,32 @@ assertEqual(directory.snap.proposedName, manifest.proposedName, 'submission prop
 assertEqual(directory.verification.manifestSourceShasum, manifestShasum, 'submission manifest shasum');
 assertEqual(directory.verification.packageShasum, pack.shasum, 'submission package shasum');
 assertEqual(directory.verification.packageIntegrity, pack.integrity, 'submission package integrity');
+assertEqual(directory.launchScope.mainnetEnabled, false, 'submission mainnet flag');
+assertJsonEqual([...directory.launchScope.networks].sort(), ['mutinynet', 'signet'], 'submission networks');
+assertJsonEqual([...directory.launchScope.derivationPaths].sort(), ["m/84'/1'", "m/86'/1'"], 'submission derivation paths');
+
+const rpcOrigins = manifestPermissions['endowment:rpc']?.allowedOrigins;
+assert(Array.isArray(rpcOrigins), 'manifest endowment:rpc.allowedOrigins must be an array.');
+assertJsonEqual([...rpcOrigins].sort(), [...directory.launchScope.frontendOrigins].sort(), 'manifest RPC origins');
+
+for (const origin of rpcOrigins) {
+  assert(!origin.includes('*'), `manifest RPC origin must not use a wildcard: ${origin}`);
+
+  const url = new URL(origin);
+  const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+
+  assert(url.protocol === 'https:' || (isLocal && url.protocol === 'http:'), `manifest RPC origin must be HTTPS unless local: ${origin}`);
+}
+
+const bip32Permissions = manifestPermissions.snap_getBip32Entropy;
+assert(Array.isArray(bip32Permissions), 'manifest snap_getBip32Entropy must be an array.');
+const bip32Paths = bip32Permissions.map((permission) => permission.path.join('/'));
+
+assertJsonEqual([...bip32Paths].sort(), [...directory.launchScope.derivationPaths].sort(), 'manifest BIP32 derivation paths');
+for (const permission of bip32Permissions) {
+  assertEqual(permission.curve, 'secp256k1', `BIP32 curve for ${permission.path.join('/')}`);
+  assert(permission.path[2] === "1'", `BIP32 path ${permission.path.join('/')} must stay on Bitcoin testnet coin type 1'.`);
+}
 
 for (const requiredFile of requiredPackageFiles) {
   assert(packagedFiles.has(requiredFile), `npm package is missing required release artifact ${requiredFile}.`);
