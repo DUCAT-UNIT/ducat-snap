@@ -136,7 +136,7 @@ MetaMask confirmations are intentionally action-specific and use structured sect
 - Message signing shows the Ducat action label, origin, testnet network, signing account, BIP322 signature type, message length, message fingerprint, and copyable message body.
 - PSBT signing shows the Ducat action label, origin, testnet network, compact summary rows, signed input details, output details, fee, warnings, and Ducat app metadata.
 - Batch signing shows transaction count, all-or-nothing semantics, total fee, per-transaction summaries, and warning count.
-- Simple BTC transfer shows amount, estimated fee, total debit, change, sender, recipient, selected UTXO count/value, and broadcast endpoint.
+- Simple BTC transfer shows amount, estimated fee, the `You pay` amount, change, sender, recipient, selected UTXO count/value, and broadcast endpoint.
 - Snap Home shows structured cards for the last connected network, copyable BTC/UNIT/vault addresses, BTC and UNIT balances when services are available, vault status, recent action status, clickable links for HTTPS Ducat app origins, and copyable local routes during development. Approved Ducat origins can request a confirmed recent-action history clear.
 
 Errors returned to the frontend are friendly by default and include a stable `code` plus diagnostic `details` for developers. The frontend should display the `message` and keep details available for expanded debugging.

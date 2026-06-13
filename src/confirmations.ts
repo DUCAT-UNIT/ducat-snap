@@ -103,6 +103,15 @@ function amountCard(title: string, sats: number | null, description: string, emp
   });
 }
 
+function countCard(title: string, value: string, description: string, extra?: string): SnapElement {
+  return uiCard({
+    description,
+    extra,
+    title,
+    value,
+  });
+}
+
 function warningTitle(warnings: string[]): string {
   if (warnings.some((warning) => warning.startsWith('Alpha compatibility path'))) {
     return 'Alpha compatibility';
@@ -251,6 +260,8 @@ export async function confirmPsbt(params: {
   const externalOutputCount = recipientOutputs.filter(({ output }) => !output.isMine).length;
   const changeOutputCount = recipientOutputs.filter(({ output }) => output.isMine).length;
   const dataOutputCount = summary.outputs.length - recipientOutputs.length;
+  const externalOutputs = recipientOutputs.filter(({ output }) => !output.isMine);
+  const primaryExternalOutput = externalOutputs[0]?.output;
   const visibleOutputs = recipientOutputs.slice(0, 8);
   const hiddenOutputs = recipientOutputs.slice(visibleOutputs.length);
   const hiddenExternalSats = hiddenOutputs.filter(({ output }) => !output.isMine).reduce((total, { output }) => total + output.valueSats, 0);
@@ -258,6 +269,11 @@ export async function confirmPsbt(params: {
   const visibleDataOutputs = dataOutputs.slice(0, 4);
   const visibleSignedInputs = [...summary.signedInputs].sort((left, right) => left.index - right.index).slice(0, 6);
   const inputRoleLabel = [...new Set(summary.signedInputs.map((input) => roleLabel(input.role)))].join(' + ') || 'No Ducat account inputs';
+  const recipientTitle = externalOutputCount === 1 ? 'Recipient' : 'Recipients';
+  const recipientDescription =
+    externalOutputCount === 1 && primaryExternalOutput
+      ? `${outputDetailLabel(primaryExternalOutput)} - ${truncateMiddle(primaryExternalOutput.address, 12, 8)}`
+      : compactCount(externalOutputCount, 'external output');
   const statusTitle = visibleWarnings.length ? warningTitle(visibleWarnings) : 'Verified by Ducat Snap';
   const statusSeverity = visibleWarnings.length ? 'warning' : 'success';
   const statusBody = visibleWarnings.length
@@ -309,7 +325,7 @@ export async function confirmPsbt(params: {
       content: uiBox([
         uiCard({
           description: `${originNameLabel(origin)} - ${networkLabel(summary.network)}`,
-          extra: leavesWalletSats === null ? 'review details' : 'total debit',
+          extra: leavesWalletSats === null ? 'review details' : 'you pay',
           image: DUCAT_MARK_SVG,
           title: action,
           value: formatMaybeBtcValue(leavesWalletSats),
@@ -318,15 +334,14 @@ export async function confirmPsbt(params: {
         uiSection([
           uiHeading('Approval summary'),
           uiMuted(actionIntent(context)),
-          amountCard('Total debit', leavesWalletSats, 'Recipient value plus Bitcoin miner fee'),
-          amountCard('Recipient total', summary.externalOutputSats, compactCount(externalOutputCount, 'external output')),
-          compactReviewLine('Change returns', summary.selfOutputSats, compactCount(changeOutputCount, 'Ducat output')),
+          amountCard('You pay', leavesWalletSats, 'Recipient value plus Bitcoin miner fee'),
+          amountCard(recipientTitle, summary.externalOutputSats, recipientDescription),
+          amountCard('Change', summary.selfOutputSats, compactCount(changeOutputCount, 'Ducat output')),
           compactReviewLine('Network fee', summary.feeSats, 'Bitcoin miner fee', summary.feeSats === null ? 'warning' : undefined),
         ]),
         uiSection([
           uiHeading('Signing check'),
-          uiRow('Inputs', detailValue(`${summary.signedInputIndexes.length} of ${summary.inputCount}`, signedInputs || 'No requested inputs')),
-          uiRow('Accounts', inputRoleLabel),
+          countCard('Ducat signs', `${summary.signedInputIndexes.length} of ${summary.inputCount}`, inputRoleLabel, signedInputs || 'No requested inputs'),
           uiRow(
             'Safety',
             inlineSecurity(
@@ -409,15 +424,13 @@ export async function confirmBatch(params: {
         uiSection([
           uiHeading('Approval summary'),
           uiMuted(actionIntent(params.context)),
-          amountCard('Total debit', netTotal, 'Recipient values plus Bitcoin miner fees'),
-          amountCard('Recipient total', externalTotal, 'Total external outputs'),
+          amountCard('You pay', netTotal, 'Recipient values plus Bitcoin miner fees'),
+          amountCard('Recipients', externalTotal, 'Total external outputs'),
           compactReviewLine('Network fees', feeTotal, 'across the full batch', feeTotal === null ? 'warning' : undefined),
         ]),
         uiSection([
           uiHeading('Signing check'),
-          uiRow('Transactions', `${summaries.length}`),
-          uiRow('Inputs', `${signedInputCount} input${signedInputCount === 1 ? '' : 's'}`),
-          uiRow('Approval', 'All-or-nothing'),
+          countCard('Transactions', `${summaries.length}`, 'All-or-nothing approval', `${signedInputCount} input${signedInputCount === 1 ? '' : 's'}`),
           uiRow(
             'Safety',
             inlineSecurity(
@@ -483,7 +496,7 @@ export async function confirmTransfer(params: {
       content: uiBox([
         uiCard({
           description: `${originNameLabel(params.origin)} - ${networkLabel(params.network)}`,
-          extra: 'total debit',
+          extra: 'you pay',
           image: DUCAT_MARK_SVG,
           title: 'Send BTC',
           value: formatBtcValue(params.amountSats + params.feeSats),
@@ -491,14 +504,14 @@ export async function confirmTransfer(params: {
         uiBanner('Ready to broadcast', 'warning', 'Approving signs and broadcasts this testnet BTC transfer. Check the recipient before continuing.'),
         uiSection([
           uiHeading('Approval summary'),
-          amountCard('Total debit', params.amountSats + params.feeSats, 'Recipient value plus Bitcoin miner fee'),
-          amountCard('Recipient gets', params.amountSats, 'BTC transfer amount'),
-          compactReviewLine('Change returns', params.changeSats, 'returns to BTC account'),
+          amountCard('You pay', params.amountSats + params.feeSats, 'Recipient value plus Bitcoin miner fee'),
+          amountCard('Recipient gets', params.amountSats, `To ${truncateMiddle(params.to, 12, 8)}`),
+          amountCard('Change', params.changeSats, 'Returns to BTC account'),
           compactReviewLine('Network fee', params.feeSats, `${params.feeRate} sat/vB`),
         ]),
         uiSection([
           uiHeading('Broadcast check'),
-          uiRow('Selected UTXOs', detailValue(`${params.inputCount} input${params.inputCount === 1 ? '' : 's'}`, formatSats(params.inputValueSats, params.network))),
+          countCard('Selected UTXOs', `${params.inputCount} input${params.inputCount === 1 ? '' : 's'}`, 'BTC account funds selected for this transfer', formatSats(params.inputValueSats, params.network)),
           uiRow('Broadcast', inlineSecurity('Signs and broadcasts', 'warning'), 'warning'),
           uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
@@ -512,7 +525,7 @@ export async function confirmTransfer(params: {
           uiRow('Broadcast endpoint', uiCopyable(params.broadcastEndpoint)),
         ]),
         uiDivider(),
-        uiMuted('Approve only if the recipient and total debit are correct.'),
+        uiMuted('Approve only if the recipient and the amount shown under You pay are correct.'),
       ]),
     },
   });

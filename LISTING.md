@@ -30,7 +30,7 @@ Mainnet is intentionally not enabled in this release.
 - PSBT confirmation for create or deposit showing an action title, origin, testnet network, compact summary rows, signed input details, output details, fees, warnings, and Ducat app metadata.
 - Batch confirmation for liquidation or repossess showing all-or-nothing signing, per-transaction rows, total fee, and warnings.
 - Message signing confirmation showing origin, network, signing account, BIP322 signature type, message fingerprint, message length, and copyable message body.
-- Transfer confirmation showing amount, fee, total debit, change, sender, recipient, selected UTXOs, and broadcast endpoint.
+- Transfer confirmation showing amount, fee, the `You pay` amount, change, sender, recipient, selected UTXOs, and broadcast endpoint.
 - Snap home showing structured cards for accounts, BTC balance, UNIT balance, vault status, recent actions, clickable HTTPS app links, and copyable local development routes.
 
 ## Listing Asset Checklist

@@ -12,7 +12,7 @@ Use the same Snap package, manifest shasum, frontend environment, and testnet ne
 4. `04-psbt-confirmation.png`: Single PSBT confirmation showing action title, net spend, origin, network, fee, and collapsed details.
 5. `05-batch-confirmation.png`: Liquidation or repossess batch confirmation showing all-or-nothing signing and per-transaction rows.
 6. `06-message-confirmation.png`: BIP322 message confirmation with account, message length, fingerprint, and copyable message body.
-7. `07-transfer-confirmation.png`: BTC transfer confirmation with recipient amount, total debit, fee, change, route, and broadcast endpoint.
+7. `07-transfer-confirmation.png`: BTC transfer confirmation with recipient amount, the `You pay` amount, fee, change, route, and broadcast endpoint.
 8. `08-snap-home.png`: Snap Home showing accounts, balances, vault status, recent actions, app links, and local route copy fields.
 
 ## Capture Notes

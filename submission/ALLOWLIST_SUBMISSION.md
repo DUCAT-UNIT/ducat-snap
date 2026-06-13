@@ -40,8 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.0-20260613-transfer-session-polish`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-transfer-session-polish`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-receipt-ui-polish`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-receipt-ui-polish`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,9 +55,9 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `413cc9ff1a3e9900531db3f1b065228c7ecf71d3`
-- npm package integrity: `sha512-Yx57uwRDcpMTDfYEPLSBJwUERFMdKmEntccLa1nQHOI+cWksE4w0u/fIrJA5GX/qo501Fp3MdtNwEF2nxp14Uw==`
-- Snap manifest source shasum: `dciJQcqPROyLVhYN8/E5pFWpgJIRuRas2mcS+Y8WyQs=`
+- npm package shasum: `fa1501fb2d22ece337983ebc570874ffebf14be8`
+- npm package integrity: `sha512-K1P98XhCSkbh0TlxPIaOS5p35s46rl4YG9HF7aDbYvZTioM2WVQBqUkhm4VgjbTM1trERiw2blbnCiodk+Kuyw==`
+- Snap manifest source shasum: `RJrQuCEsOj8twIgcYxBWO0XY0JmQzTiVYcBdN6z0sks=`
 
 ## Permissions Summary
 
@@ -75,9 +75,9 @@ Mainnet is intentionally not enabled in this release.
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-transfer-session-polish/SECURITY.md
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-receipt-ui-polish/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-transfer-session-polish/PRIVACY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-receipt-ui-polish/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo
@@ -96,7 +96,7 @@ Required screenshots:
 - PSBT confirmation for create or deposit showing an action title, origin, testnet network, compact summary rows, signed input details, output details, fees, warnings, and Ducat app metadata.
 - Batch confirmation for liquidation or repossess showing all-or-nothing signing, per-transaction rows, total fee, and warnings.
 - Message signing confirmation showing origin, network, signing account, BIP322 signature type, message fingerprint, message length, and copyable message body.
-- Transfer confirmation showing amount, fee, total debit, change, sender, recipient, selected UTXOs, and broadcast endpoint.
+- Transfer confirmation showing amount, fee, the `You pay` amount, change, sender, recipient, selected UTXOs, and broadcast endpoint.
 - Snap home showing structured cards for accounts, BTC balance, UNIT balance, vault status, recent actions, clickable HTTPS app links, and copyable local development routes.
 
 Required demo coverage:

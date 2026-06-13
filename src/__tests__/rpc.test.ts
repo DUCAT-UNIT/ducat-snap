@@ -327,9 +327,11 @@ describe('RPC router', () => {
     expect(rendered).toContain('Deposit BTC');
     expect(rendered).toContain('Approval summary');
     expect(rendered).toContain('Check collateral, change, and fee.');
-    expect(rendered).toContain('Total debit');
-    expect(rendered).toContain('Recipient total');
+    expect(rendered).toContain('You pay');
+    expect(rendered).toContain('Recipient');
+    expect(rendered).toContain('Change');
     expect(rendered).toContain('Signing check');
+    expect(rendered).toContain('Ducat signs');
     expect(rendered).toContain('Only Snap-managed inputs');
     expect(rendered).toContain('Request details');
     expect(rendered).toContain('Inspect signed inputs');
