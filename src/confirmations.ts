@@ -7,11 +7,9 @@ import {
   formatBtcValue,
   formatMetadataKey,
   formatMaybeBtcValue,
-  formatMaybeSats,
   formatSats,
   formatSatsOnly,
   networkLabel,
-  originLabel,
   originNameLabel,
   originUrlLabel,
   roleLabel,
@@ -39,21 +37,22 @@ function detailValue(primary: string, secondary?: string): SnapElement {
   return secondary ? uiValue(primary, secondary) : uiText(primary, { alignment: 'end', fontWeight: 'medium' });
 }
 
-function amountCard(title: string, sats: number | null, description: string): SnapElement {
-  return uiCard({
-    description,
-    extra: sats === null ? undefined : formatSatsOnly(sats),
-    title,
-    value: formatMaybeBtcValue(sats),
-  });
-}
-
 function compactCount(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function maybeAddSats(left: number | null, right: number | null): number | null {
   return left === null || right === null ? null : left + right;
+}
+
+function sumNullable(values: (number | null)[]): number | null {
+  return values.reduce<number | null>((total, value) => {
+    if (total === null || value === null) {
+      return null;
+    }
+
+    return total + value;
+  }, 0);
 }
 
 function signedInputTitle(role: DucatAddressRole): string {
@@ -101,7 +100,7 @@ function warningTitle(warnings: string[]): string {
   return 'Review before signing';
 }
 
-function contextSection(context?: DucatActionContext): SnapElement[] {
+function contextSection(context?: DucatActionContext, note = 'App labels are shown for context. Parsed PSBT values above are what the Snap signs.'): SnapElement[] {
   const metadata = Object.entries(context?.metadata ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== '');
 
   if (!metadata.length) {
@@ -110,7 +109,7 @@ function contextSection(context?: DucatActionContext): SnapElement[] {
 
   return [
     uiCollapsibleSection('Ducat app context', [
-      uiMuted('App labels are shown for context. Parsed PSBT values above are what the Snap signs.'),
+      uiMuted(note),
       ...metadata.slice(0, 8).map(([key, value]) => uiRow(formatMetadataKey(key), String(value).slice(0, 140))),
     ]),
   ];
@@ -134,25 +133,32 @@ export async function confirmMessage(params: {
       type: 'confirmation',
       content: uiBox([
         uiCard({
-          description: `${originLabel(params.origin)} - ${networkLabel(params.network)}`,
+          description: `${originNameLabel(params.origin)} - ${networkLabel(params.network)}`,
           extra: roleLabel(params.role),
           image: DUCAT_MARK_SVG,
           title: actionLabel(params.context, 'Message signing'),
           value: 'BIP322',
         }),
+        uiBanner('Message signature', 'info', 'This signs a message only. It does not sign a Bitcoin transaction or broadcast funds.'),
         uiSection([
-          uiHeading('Signature'),
+          uiHeading('At a glance'),
           uiRow('Account', detailValue(roleLabel(params.role), truncateMiddle(params.address))),
           uiRow('Type', 'BIP322 simple'),
           uiRow('Message length', `${params.message.length} characters`),
           uiRow('SHA256', `${messageSha256.slice(0, 16)}...${messageSha256.slice(-8)}`),
         ]),
         uiSection([
+          uiHeading('Security check'),
+          uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
+          uiRow('Network', networkLabel(params.network)),
+          uiRow('Private keys', 'Stay inside MetaMask'),
+        ]),
+        uiSection([
           uiHeading(isTruncated ? 'Message preview' : 'Message'),
           ...(isTruncated ? [uiMuted('Showing the first 800 characters. Copyable value is exactly what will be signed.')] : []),
           uiCopyable(displayedMessage),
         ]),
-        ...contextSection(params.context),
+        ...contextSection(params.context, 'App labels are shown for context. The copyable message above is exactly what the Snap signs.'),
         uiDivider(),
         uiMuted('Approve only if this message matches the Ducat app request.'),
       ]),
@@ -280,16 +286,18 @@ export async function confirmBatch(params: {
   context?: DucatActionContext;
 }): Promise<void> {
   const summaries = params.entries.map((entry) => entry.summary);
-  const feeTotal = summaries.reduce<number | null>((total, summary) => {
-    if (total === null || summary.feeSats === null) {
-      return null;
-    }
-
-    return total + summary.feeSats;
-  }, 0);
+  const feeTotal = sumNullable(summaries.map((summary) => summary.feeSats));
+  const externalTotal = summaries.reduce((total, summary) => total + summary.externalOutputSats, 0);
+  const netTotal = maybeAddSats(externalTotal, feeTotal);
+  const signedInputCount = summaries.reduce((total, summary) => total + summary.signedInputIndexes.length, 0);
   const network = summaries[0]?.network ?? 'mutinynet';
   const warningCount = summaries.reduce((total, summary) => total + summary.warnings.length, 0);
   const visibleEntries = params.entries.slice(0, 6);
+  const statusTitle = warningCount ? 'Batch warnings' : 'Batch ready';
+  const statusSeverity = warningCount ? 'warning' : 'success';
+  const statusBody = warningCount
+    ? `${warningCount} warning${warningCount === 1 ? '' : 's'} across this batch. Review each transaction before approving.`
+    : 'Rejecting this request signs no PSBTs. Approving signs the full batch in order.';
 
   const confirmed = await snap.request<boolean>({
     method: 'snap_dialog',
@@ -297,33 +305,37 @@ export async function confirmBatch(params: {
       type: 'confirmation',
       content: uiBox([
         uiCard({
-          description: `${originLabel(params.origin)} - ${networkLabel(network)}`,
-          extra: 'transactions',
+          description: `${originNameLabel(params.origin)} - ${networkLabel(network)}`,
+          extra: 'all-or-nothing',
           image: DUCAT_MARK_SVG,
           title: `${actionLabel(params.context, 'Ducat')} batch`,
-          value: `${summaries.length}`,
+          value: formatMaybeBtcValue(netTotal),
         }),
-        ...(warningCount ? [uiBanner('Batch warnings', 'warning', `${warningCount} warning${warningCount === 1 ? '' : 's'} across this batch.`)] : []),
+        uiBanner(statusTitle, statusSeverity, statusBody),
         uiSection([
           uiHeading('At a glance'),
-          uiCard({
-            description: 'Signed together',
-            title: 'Transactions',
-            value: `${summaries.length}`,
-          }),
-          amountCard('Total fee', feeTotal, 'Across the full batch'),
+          uiRow('Transactions', `${summaries.length}`),
+          compactReviewLine('Net spend', netTotal, 'recipient amount plus network fees', netTotal === null ? 'warning' : undefined),
+          compactReviewLine('Recipients', externalTotal, 'total external outputs'),
+          compactReviewLine('Network fees', feeTotal, 'across the full batch', feeTotal === null ? 'warning' : undefined),
+          uiRow('Signing', `${signedInputCount} input${signedInputCount === 1 ? '' : 's'}`),
+        ]),
+        uiSection([
+          uiHeading('Security check'),
+          uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
+          uiRow('Network', networkLabel(network)),
           uiRow('Approval', 'All-or-nothing'),
-          uiMuted('Rejecting this request signs no PSBTs.'),
+          uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
         uiCollapsibleSection(
-          'Transactions',
+          `Transactions (${summaries.length})`,
           [
             ...visibleEntries.map(({ summary, context }, index) =>
               uiRow(
                 `#${index + 1} ${actionLabel(context, 'Transaction')}`,
                 detailValue(
-                  `${summary.signedInputIndexes.length} input${summary.signedInputIndexes.length === 1 ? '' : 's'}`,
-                  `External ${formatBtcValue(summary.externalOutputSats)} - fee ${formatMaybeSats(summary.feeSats, summary.network)}`,
+                  formatMaybeBtcValue(maybeAddSats(summary.externalOutputSats, summary.feeSats)),
+                  `${summary.signedInputIndexes.length} input${summary.signedInputIndexes.length === 1 ? '' : 's'} - fee ${formatMaybeBtcValue(summary.feeSats)}`,
                 ),
               ),
             ),
@@ -362,18 +374,25 @@ export async function confirmTransfer(params: {
       type: 'confirmation',
       content: uiBox([
         uiCard({
-          description: `${originLabel(params.origin)} - ${networkLabel(params.network)}`,
-          extra: 'recipient gets',
+          description: `${originNameLabel(params.origin)} - ${networkLabel(params.network)}`,
+          extra: 'total debit',
           image: DUCAT_MARK_SVG,
           title: 'Send BTC',
-          value: formatBtcValue(params.amountSats),
+          value: formatBtcValue(params.amountSats + params.feeSats),
         }),
+        uiBanner('Ready to broadcast', 'warning', 'Approving signs and broadcasts this testnet BTC transfer. Check the recipient before continuing.'),
         uiSection([
-          uiHeading('Money movement'),
-          amountCard('Recipient gets', params.amountSats, 'BTC transfer amount'),
-          amountCard('Total debit', params.amountSats + params.feeSats, 'Amount plus network fee'),
-          amountCard('Network fee', params.feeSats, `${params.feeRate} sat/vB`),
-          amountCard('Change', params.changeSats, 'Returns to BTC account'),
+          uiHeading('At a glance'),
+          compactReviewLine('Total debit', params.amountSats + params.feeSats, 'recipient amount plus network fee'),
+          compactReviewLine('Recipient gets', params.amountSats, 'BTC transfer amount'),
+          compactReviewLine('Network fee', params.feeSats, `${params.feeRate} sat/vB`),
+          compactReviewLine('Change back', params.changeSats, 'returns to BTC account'),
+        ]),
+        uiSection([
+          uiHeading('Security check'),
+          uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
+          uiRow('Network', networkLabel(params.network)),
+          uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
         uiCollapsibleSection('Route', [
           uiRow('From', detailValue('BTC account', truncateMiddle(params.from))),
@@ -398,10 +417,18 @@ export async function confirmClearRecentActions(origin: string): Promise<void> {
     params: {
       type: 'confirmation',
       content: uiBox([
-        uiHeading('Clear recent actions', 'lg'),
+        uiCard({
+          description: originNameLabel(origin),
+          image: DUCAT_MARK_SVG,
+          title: 'Clear recent actions',
+          value: 'History',
+        }),
+        uiBanner('Snap Home only', 'info', 'This clears only the recent Ducat action history shown on Snap Home.'),
         uiSection([
-          uiRow('Origin', originLabel(origin)),
-          uiMuted('This clears only the recent Ducat action history shown on Snap Home. Accounts, keys, vaults, balances, and transactions are unchanged.'),
+          uiHeading('Security check'),
+          uiRow('App', detailValue(originNameLabel(origin), originUrlLabel(origin))),
+          uiRow('Accounts and keys', 'Unchanged'),
+          uiRow('Balances and vaults', 'Unchanged'),
         ]),
       ]),
     },

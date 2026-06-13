@@ -40,8 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.0-20260613-runtime-hygiene-guard`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-runtime-hygiene-guard`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-confirmation-surface-polish`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-confirmation-surface-polish`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,9 +55,9 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `581190651c2ccb8da55ab7b39f466d8f0553d3d6`
-- npm package integrity: `sha512-QHi6Hjv1EtGtNZ6O4aYs21XQWYg+PMXWYqSylGTBGjjmLDMHQeLr5T/7qlkyomucp/WZC8O3u9Bue27Bd0ooDA==`
-- Snap manifest source shasum: `wQ5iyboNxmGF6M85qLrJ1AOadkEMEjF6GOfRGM5IFFc=`
+- npm package shasum: `90a9cc846dd3971c9e35d77b2140fbce6c70c4f8`
+- npm package integrity: `sha512-0dGN922Uw4boLmHsg4wKDJVRZoLZSf7KdkNC17Ge/PmSeVTtzYmFwhhuWeCJCgY6zWlFBTgc5cCMl/snk4nWbw==`
+- Snap manifest source shasum: `BmzAlLQvjMqyddb4x4TwatmHDaW4WZkrF3QdIe77JTs=`
 
 ## Permissions Summary
 
@@ -75,9 +75,9 @@ Mainnet is intentionally not enabled in this release.
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-runtime-hygiene-guard/SECURITY.md
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-confirmation-surface-polish/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-runtime-hygiene-guard/PRIVACY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-confirmation-surface-polish/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo
