@@ -7,7 +7,7 @@
     "url": "git+https://github.com/DUCAT-UNIT/ducat-snap.git"
   },
   "source": {
-    "shasum": "Qg2RnorMQcjCHSYW3QLgjyeak60cS/JCaeH1AJC5c1E=",
+    "shasum": "luCHJXxaxGJOxswzzMW4zxEmJ3O9X3bqRP/zsYWUNqo=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",

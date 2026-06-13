@@ -150,6 +150,26 @@ function makeVaultReturnPsbt(value: number, seed: number) {
   return { keySet, psbt: psbt.toBase64() };
 }
 
+function makeVaultInputPsbt(value: number, seed: number) {
+  const keySet = testKeySet();
+  const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+  psbt.addInput({
+    hash: Buffer.alloc(32, seed).toString('hex'),
+    index: 0,
+    witnessUtxo: {
+      script: keySet.taprootOutputScript,
+      value,
+    },
+  });
+  psbt.addOutput({
+    address: keySet.record.sats.address,
+    value: value - 1_000,
+  });
+
+  return { keySet, psbt: psbt.toBase64() };
+}
+
 function dialogValues(request: jest.Mock): string[] {
   const dialogCall = request.mock.calls.find(([arg]) => arg.method === 'snap_dialog');
 
@@ -442,6 +462,24 @@ describe('RPC router', () => {
     expect(rendered).not.toContain('Ducat OP_RETURN');
     expect(rendered).not.toContain('Vault Action Flag');
     expect(rendered).not.toContain('Request details');
+  });
+
+  it('labels signed vault inputs as multisig in PSBT confirmations', async () => {
+    const request = setSnapMock();
+    const { keySet, psbt } = makeVaultInputPsbt(100_000, 11);
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signPsbt',
+      params: {
+        network: 'signet',
+        psbt,
+        signInputs: { [keySet.record.vault.address]: [0] },
+      },
+    });
+
+    const rendered = dialogValues(request).join('\n');
+
+    expect(rendered).toContain('UNIT / Vault multisig');
   });
 
   it('rejects unknown PSBT input indexes before showing confirmation', async () => {

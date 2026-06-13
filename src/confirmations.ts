@@ -67,7 +67,7 @@ function sumNullable(values: (number | null)[]): number | null {
 }
 
 function signedInputTitle(role: DucatAddressRole): string {
-  return role === 'sats' ? 'BTC account' : 'UNIT / Vault';
+  return role === 'sats' ? 'BTC account' : 'UNIT / Vault multisig';
 }
 
 function outputDetailLabel(output: PsbtOutputSummary): string {
@@ -453,7 +453,7 @@ export async function confirmPsbt(params: {
   const dataOutputs = summary.outputs.map((output, index) => ({ index, output })).filter(({ output }) => isDataOutput(output));
   const visibleDataOutputs = dataOutputs.slice(0, 4);
   const visibleSignedInputs = [...summary.signedInputs].sort((left, right) => left.index - right.index).slice(0, 6);
-  const inputRoleLabel = [...new Set(summary.signedInputs.map((input) => roleLabel(input.role)))].join(' + ') || 'No Ducat account inputs';
+  const inputRoleLabel = [...new Set(summary.signedInputs.map((input) => signedInputTitle(input.role)))].join(' + ') || 'No Ducat account inputs';
   const recipientTitle = externalOutputCount === 1 ? 'Recipient' : 'Recipients';
   const recipientDescription =
     externalOutputCount === 1 && primaryExternalOutput

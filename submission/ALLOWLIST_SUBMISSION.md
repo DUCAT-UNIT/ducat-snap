@@ -40,8 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.0-20260613-confirmation-trim`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-confirmation-trim`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-multisig-label`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-multisig-label`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,9 +55,9 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `43c148ce3cfc1e62fe5ad10afbdac398c38eeff9`
-- npm package integrity: `sha512-itPOxtA3VSpQKt/5dMzTpPdjrl22OhzjjO6ZMn+ZqfO+aEo7c9uq8cw5N9RVhxnGULiT7MuYHJyacmIckZyGlA==`
-- Snap manifest source shasum: `Qg2RnorMQcjCHSYW3QLgjyeak60cS/JCaeH1AJC5c1E=`
+- npm package shasum: `2e97e25a73851bef2f0741f09496855ff4886d15`
+- npm package integrity: `sha512-a5gLo0Sdns9yNZjLtIOnsGj2pDhJInB2xIVMU2s5kb6DJqdQX6drKv3wqWwftkYhfHWrOmfU3rb9FchuJOVORw==`
+- Snap manifest source shasum: `luCHJXxaxGJOxswzzMW4zxEmJ3O9X3bqRP/zsYWUNqo=`
 
 ## Permissions Summary
 
@@ -75,9 +75,9 @@ Mainnet is intentionally not enabled in this release.
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-confirmation-trim/SECURITY.md
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-multisig-label/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-confirmation-trim/PRIVACY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-multisig-label/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo
