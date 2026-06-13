@@ -103,6 +103,16 @@ const manifestShasum = manifest.source.shasum;
 const packagedFiles = new Set(pack.files.map((file) => file.path));
 const manifestPermissions = manifest.initialPermissions ?? {};
 
+const expectedManifestPermissions = [
+  'endowment:lifecycle-hooks',
+  'endowment:network-access',
+  'endowment:page-home',
+  'endowment:rpc',
+  'snap_dialog',
+  'snap_getBip32Entropy',
+  'snap_manageState',
+];
+
 const requiredPackageFiles = [
   'AUDIT_SCOPE.md',
   'DEMO_SCRIPT.md',
@@ -125,12 +135,17 @@ assertEqual(manifest.version, packageJson.version, 'manifest version');
 assertEqual(directory.snap.version, packageJson.version, 'submission version');
 assertEqual(directory.snap.packageName, packageJson.name, 'submission package name');
 assertEqual(directory.snap.proposedName, manifest.proposedName, 'submission proposed name');
+assertEqual(manifest.source.location.npm.packageName, packageJson.name, 'manifest npm package name');
+assertEqual(manifest.source.location.npm.filePath, 'dist/bundle.js', 'manifest npm bundle path');
+assertEqual(manifest.source.location.npm.iconPath, 'images/icon.svg', 'manifest npm icon path');
+assertEqual(manifest.source.location.npm.registry, 'https://registry.npmjs.org/', 'manifest npm registry');
 assertEqual(directory.verification.manifestSourceShasum, manifestShasum, 'submission manifest shasum');
 assertEqual(directory.verification.packageShasum, pack.shasum, 'submission package shasum');
 assertEqual(directory.verification.packageIntegrity, pack.integrity, 'submission package integrity');
 assertEqual(directory.launchScope.mainnetEnabled, false, 'submission mainnet flag');
 assertJsonEqual([...directory.launchScope.networks].sort(), ['mutinynet', 'signet'], 'submission networks');
 assertJsonEqual([...directory.launchScope.derivationPaths].sort(), ["m/84'/1'", "m/86'/1'"], 'submission derivation paths');
+assertJsonEqual(Object.keys(manifestPermissions).sort(), expectedManifestPermissions, 'manifest permission keys');
 
 const rpcOrigins = manifestPermissions['endowment:rpc']?.allowedOrigins;
 assert(Array.isArray(rpcOrigins), 'manifest endowment:rpc.allowedOrigins must be an array.');
