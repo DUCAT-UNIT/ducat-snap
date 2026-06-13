@@ -217,16 +217,6 @@ function vaultAmountText(context?: DucatActionContext): string | undefined {
   return parts.length ? parts.join(' + ') : undefined;
 }
 
-function transitionValue(
-  before: number | null | undefined,
-  after: number | null | undefined,
-  formatter: (value: number | null | undefined) => string,
-): SnapElement {
-  const afterText = formatter(after);
-
-  return before === undefined ? detailValue(afterText) : detailValue(afterText, `was ${formatter(before)}`);
-}
-
 function vaultActionSection(context?: DucatActionContext): SnapElement[] {
   const vault = context?.vault;
 
@@ -238,39 +228,39 @@ function vaultActionSection(context?: DucatActionContext): SnapElement[] {
   const rows: SnapElement[] = [];
 
   if (vault.collateralAfterSats !== undefined) {
-    rows.push(uiRow('Collateral', transitionValue(vault.collateralBeforeSats, vault.collateralAfterSats, formatMaybeBtcVaultValue)));
+    rows.push(uiRow('Collateral', detailValue(formatMaybeBtcVaultValue(vault.collateralAfterSats))));
   }
 
   if (vault.debtAfterUnit !== undefined) {
-    rows.push(uiRow('UNIT debt', transitionValue(vault.debtBeforeUnit, vault.debtAfterUnit, formatMaybeUnitValue)));
+    rows.push(uiRow('UNIT debt', detailValue(formatMaybeUnitValue(vault.debtAfterUnit))));
   }
 
   if (vault.healthAfter !== undefined) {
-    rows.push(uiRow('Health factor', transitionValue(vault.healthBefore, vault.healthAfter, formatMaybeHealth)));
+    rows.push(uiRow('Health factor', detailValue(formatMaybeHealth(vault.healthAfter))));
   }
 
   if (vault.liquidationPrice !== undefined) {
-    rows.push(uiRow('Liquidation threshold', detailValue(formatMaybeUsd(vault.liquidationPrice), 'BTC price threshold')));
+    rows.push(uiRow('Liquidation threshold', detailValue(formatMaybeUsd(vault.liquidationPrice))));
   }
 
   return [
     uiSection([
-      uiHeading('Vault action'),
+      uiHeading('Vault update'),
       uiCard({
         description: vault.effect ?? actionIntent(context),
-        extra: amount,
-        title: 'You are signing',
-        value: actionLabel(context, 'Vault transaction'),
+        extra: vault.source === 'op_return' ? 'decoded from vault data' : undefined,
+        title: actionLabel(context, 'Vault transaction'),
+        value: amount ?? 'Review request',
       }),
-      ...(vault.effect ? [uiRow('Effect', vault.effect)] : []),
-      ...(amount ? [uiRow('Amount', amount)] : []),
-      ...rows,
-      uiMuted(
-        vault.source === 'op_return'
-          ? 'Vault action and after-state were decoded from the vault data in this PSBT. App context supplies requested amounts and previous values.'
-          : 'Vault status comes from the Ducat app. Bitcoin amounts below are parsed from the PSBT and are what the Snap signs.',
-      ),
     ]),
+    ...(rows.length
+      ? [
+          uiSection([
+            uiHeading('Updated vault state'),
+            ...rows,
+          ]),
+        ]
+      : []),
   ];
 }
 

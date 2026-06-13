@@ -204,6 +204,7 @@ function collectDialogText(value: unknown): string[] {
     typeof record.title === 'string' ? record.title : null,
     typeof props.value === 'string' ? props.value : null,
     typeof props.extra === 'string' ? props.extra : null,
+    typeof props.description === 'string' ? props.description : null,
     typeof props.label === 'string' ? props.label : null,
     typeof props.title === 'string' ? props.title : null,
     typeof props.tooltip === 'string' ? props.tooltip : null,
@@ -402,16 +403,18 @@ describe('RPC router', () => {
     const rendered = dialogValues(request).join('\n');
 
     expect(rendered).toContain('Deposit BTC');
-    expect(rendered).toContain('Vault action');
-    expect(rendered).toContain('You are signing');
+    expect(rendered).toContain('Vault update');
     expect(rendered).toContain('Adds BTC collateral to your existing vault.');
-    expect(rendered).toContain('Amount');
     expect(rendered).toContain('0.00100000 BTC');
+    expect(rendered).toContain('Updated vault state');
     expect(rendered).toContain('Collateral');
     expect(rendered).toContain('UNIT debt');
     expect(rendered).toContain('Health factor');
     expect(rendered).toContain('Liquidation threshold');
-    expect(rendered).toContain('Vault status comes from the Ducat app.');
+    expect(rendered).not.toContain('You are signing');
+    expect(rendered).not.toContain('Effect');
+    expect(rendered).not.toContain('Amount');
+    expect(rendered).not.toContain('Vault status comes from the Ducat app.');
     expect(rendered).toContain('Approval summary');
     expect(rendered).toContain('Check collateral, change, and fee.');
     expect(rendered).toContain('You pay');
@@ -452,6 +455,7 @@ describe('RPC router', () => {
 
     expect(rendered).toContain('Deposit BTC');
     expect(rendered).toContain('Adds BTC collateral to the vault.');
+    expect(rendered).toContain('decoded from vault data');
     expect(rendered).toContain('Collateral');
     expect(rendered).toContain('0.01100000 BTC');
     expect(rendered).toContain('UNIT debt');
