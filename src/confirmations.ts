@@ -5,10 +5,12 @@ import { DUCAT_MARK_SVG } from './brand';
 import {
   actionLabel,
   formatBtcValue,
+  formatInteger,
   formatMetadataKey,
   formatMaybeBtcValue,
   formatSats,
   formatSatsOnly,
+  formatUnit,
   networkLabel,
   originNameLabel,
   originUrlLabel,
@@ -101,6 +103,99 @@ function amountCard(title: string, sats: number | null, description: string, emp
     title,
     value: formatMaybeBtcValue(sats),
   });
+}
+
+function isFiniteNumber(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function formatMaybeUnitValue(value: number | null | undefined): string {
+  return isFiniteNumber(value) ? formatUnit(value) : 'Unavailable';
+}
+
+function formatMaybeBtcVaultValue(value: number | null | undefined): string {
+  return isFiniteNumber(value) ? formatBtcValue(value) : 'Unavailable';
+}
+
+function formatMaybeHealth(value: number | null | undefined): string {
+  if (value === null) {
+    return 'No UNIT debt';
+  }
+
+  return isFiniteNumber(value) ? `${formatInteger(value)}%` : 'Unavailable';
+}
+
+function formatMaybeUsd(value: number | null | undefined): string {
+  return isFiniteNumber(value)
+    ? `$${value.toLocaleString('en-US', {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 2,
+      })}`
+    : 'Unavailable';
+}
+
+function vaultAmountText(context?: DucatActionContext): string | undefined {
+  const amountSats = context?.vault?.amountSats;
+  const amountUnit = context?.vault?.amountUnit;
+  const parts = [
+    isFiniteNumber(amountSats) ? formatBtcValue(amountSats) : undefined,
+    isFiniteNumber(amountUnit) ? formatUnit(amountUnit) : undefined,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(' + ') : undefined;
+}
+
+function transitionValue(
+  before: number | null | undefined,
+  after: number | null | undefined,
+  formatter: (value: number | null | undefined) => string,
+): SnapElement {
+  const afterText = formatter(after);
+
+  return before === undefined ? detailValue(afterText, 'after signing') : detailValue(afterText, `was ${formatter(before)}`);
+}
+
+function vaultActionSection(context?: DucatActionContext): SnapElement[] {
+  const vault = context?.vault;
+
+  if (!vault) {
+    return [];
+  }
+
+  const amount = vaultAmountText(context);
+  const rows: SnapElement[] = [];
+
+  if (vault.collateralAfterSats !== undefined) {
+    rows.push(uiRow('Collateral', transitionValue(vault.collateralBeforeSats, vault.collateralAfterSats, formatMaybeBtcVaultValue)));
+  }
+
+  if (vault.debtAfterUnit !== undefined) {
+    rows.push(uiRow('UNIT debt', transitionValue(vault.debtBeforeUnit, vault.debtAfterUnit, formatMaybeUnitValue)));
+  }
+
+  if (vault.healthAfter !== undefined) {
+    rows.push(uiRow('Health factor', transitionValue(vault.healthBefore, vault.healthAfter, formatMaybeHealth)));
+  }
+
+  if (vault.liquidationPrice !== undefined) {
+    rows.push(uiRow('Liquidation threshold', detailValue(formatMaybeUsd(vault.liquidationPrice), 'BTC price threshold')));
+  }
+
+  return [
+    uiSection([
+      uiHeading('Vault action'),
+      uiCard({
+        description: vault.effect ?? actionIntent(context),
+        extra: amount,
+        title: 'You are signing',
+        value: actionLabel(context, 'Vault transaction'),
+      }),
+      ...(vault.effect ? [uiRow('Effect', vault.effect)] : []),
+      ...(amount ? [uiRow('Amount', amount)] : []),
+      ...rows,
+      uiMuted('Vault status comes from the Ducat app. Bitcoin amounts below are parsed from the PSBT and are what the Snap signs.'),
+    ]),
+  ];
 }
 
 function countCard(title: string, value: string, description: string, extra?: string): SnapElement {
@@ -331,6 +426,7 @@ export async function confirmPsbt(params: {
           value: formatMaybeBtcValue(leavesWalletSats),
         }),
         uiBanner(statusTitle, statusSeverity, statusBody),
+        ...vaultActionSection(context),
         uiSection([
           uiHeading('Approval summary'),
           uiMuted(actionIntent(context)),
@@ -421,6 +517,7 @@ export async function confirmBatch(params: {
           value: formatMaybeBtcValue(netTotal),
         }),
         uiBanner(statusTitle, statusSeverity, statusBody),
+        ...vaultActionSection(params.context),
         uiSection([
           uiHeading('Approval summary'),
           uiMuted(actionIntent(params.context)),

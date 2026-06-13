@@ -6,7 +6,7 @@ Last local command:
 npx --yes @sayfer_io/snapper --path . --output snapper-report.json
 ```
 
-Local result: 182 findings, all risk 1 and all under the `ESLinting` category.
+Local result: 192 findings, all risk 1 and all under the `ESLinting` category.
 
 ## Addressed Findings
 

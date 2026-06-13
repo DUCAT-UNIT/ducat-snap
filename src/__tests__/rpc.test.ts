@@ -318,6 +318,17 @@ describe('RPC router', () => {
           metadata: {
             vault_id: 'vault-alpha',
           },
+          vault: {
+            effect: 'Adds BTC collateral to your existing vault.',
+            amountSats: 100_000,
+            collateralBeforeSats: 1_000_000,
+            collateralAfterSats: 1_100_000,
+            debtBeforeUnit: 500,
+            debtAfterUnit: 500,
+            healthBefore: 200,
+            healthAfter: 220,
+            liquidationPrice: 45_000,
+          },
         },
       },
     });
@@ -325,6 +336,16 @@ describe('RPC router', () => {
     const rendered = dialogValues(request).join('\n');
 
     expect(rendered).toContain('Deposit BTC');
+    expect(rendered).toContain('Vault action');
+    expect(rendered).toContain('You are signing');
+    expect(rendered).toContain('Adds BTC collateral to your existing vault.');
+    expect(rendered).toContain('Amount');
+    expect(rendered).toContain('0.00100000 BTC');
+    expect(rendered).toContain('Collateral');
+    expect(rendered).toContain('UNIT debt');
+    expect(rendered).toContain('Health factor');
+    expect(rendered).toContain('Liquidation threshold');
+    expect(rendered).toContain('Vault status comes from the Ducat app.');
     expect(rendered).toContain('Approval summary');
     expect(rendered).toContain('Check collateral, change, and fee.');
     expect(rendered).toContain('You pay');

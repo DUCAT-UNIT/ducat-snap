@@ -28,6 +28,19 @@ export type DucatActionContext = {
   title?: string;
   flow?: string;
   metadata?: Record<string, string | number | boolean | null | undefined>;
+  vault?: {
+    effect?: string;
+    amountSats?: number;
+    amountUnit?: number;
+    collateralBeforeSats?: number;
+    collateralAfterSats?: number;
+    debtBeforeUnit?: number;
+    debtAfterUnit?: number;
+    healthBefore?: number | null;
+    healthAfter?: number | null;
+    liquidationPrice?: number;
+    price?: number;
+  };
 };
 
 export type PsbtOutputSummary = {

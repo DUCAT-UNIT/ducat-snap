@@ -45,6 +45,32 @@ function assertAllowedOrigin(origin: string): void {
   }
 }
 
+function isOptionalNumber(value: unknown): boolean {
+  return value === undefined || value === null || (typeof value === 'number' && Number.isFinite(value));
+}
+
+function isVaultContext(value: unknown): value is NonNullable<DucatActionContext['vault']> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const vault = value as NonNullable<DucatActionContext['vault']>;
+
+  return (
+    (vault.effect === undefined || typeof vault.effect === 'string') &&
+    isOptionalNumber(vault.amountSats) &&
+    isOptionalNumber(vault.amountUnit) &&
+    isOptionalNumber(vault.collateralBeforeSats) &&
+    isOptionalNumber(vault.collateralAfterSats) &&
+    isOptionalNumber(vault.debtBeforeUnit) &&
+    isOptionalNumber(vault.debtAfterUnit) &&
+    isOptionalNumber(vault.healthBefore) &&
+    isOptionalNumber(vault.healthAfter) &&
+    isOptionalNumber(vault.liquidationPrice) &&
+    isOptionalNumber(vault.price)
+  );
+}
+
 function isActionContext(value: unknown): value is DucatActionContext {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -56,7 +82,8 @@ function isActionContext(value: unknown): value is DucatActionContext {
     (context.actionType === undefined || typeof context.actionType === 'string') &&
     (context.title === undefined || typeof context.title === 'string') &&
     (context.flow === undefined || typeof context.flow === 'string') &&
-    (context.metadata === undefined || (typeof context.metadata === 'object' && context.metadata !== null && !Array.isArray(context.metadata)))
+    (context.metadata === undefined || (typeof context.metadata === 'object' && context.metadata !== null && !Array.isArray(context.metadata))) &&
+    (context.vault === undefined || isVaultContext(context.vault))
   );
 }
 
