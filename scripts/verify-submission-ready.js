@@ -62,7 +62,13 @@ function assertNoPendingTokens(label, value) {
 function assertHttpsUrl(label, value) {
   assert(typeof value === 'string' && value.length > 0, `${label} must be a non-empty URL.`);
 
-  const url = new URL(value);
+  let url;
+
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${label} must be a valid HTTPS URL.`);
+  }
 
   assert(url.protocol === 'https:', `${label} must use HTTPS: ${value}`);
 }
@@ -132,41 +138,84 @@ function assertE2eEvidence() {
 }
 
 function npmPackageMetadata(packageName, version) {
-  const output = execFileSync('npm', ['view', `${packageName}@${version}`, 'version', 'dist.shasum', 'dist.integrity', '--json'], {
-    cwd: root,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  let output;
+
+  try {
+    output = execFileSync('npm', ['view', `${packageName}@${version}`, 'version', 'dist.shasum', 'dist.integrity', '--json'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch {
+    throw new Error(`${packageName}@${version} is not published to npm or npm metadata is unavailable.`);
+  }
 
   return JSON.parse(output);
+}
+
+function formatError(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function runCheck(failures, label, fn) {
+  try {
+    fn();
+  } catch (error) {
+    failures.push(`${label}: ${formatError(error)}`);
+  }
 }
 
 const directory = readJson('submission/metamask-directory.json');
 const allowlistSubmission = readText('submission/ALLOWLIST_SUBMISSION.md');
 const externalGates = readText('submission/EXTERNAL_GATES.md');
 const packageJson = readJson('package.json');
+const failures = [];
 
-assertNoPendingTokens('submission/metamask-directory.json', JSON.stringify(directory));
-assertNoPendingTokens('submission/ALLOWLIST_SUBMISSION.md', allowlistSubmission);
-assertNoPendingTokens('submission/EXTERNAL_GATES.md', externalGates);
+runCheck(failures, 'Pending placeholders in submission metadata', () => {
+  assertNoPendingTokens('submission/metamask-directory.json', JSON.stringify(directory));
+});
 
-assertHttpsUrl('audit report URL', directory.audit.auditReportUrl);
-assertHttpsUrl('demo video URL', directory.submissionAssets.demoVideoUrl);
+runCheck(failures, 'Pending placeholders in allowlist draft', () => {
+  assertNoPendingTokens('submission/ALLOWLIST_SUBMISSION.md', allowlistSubmission);
+});
+
+runCheck(failures, 'Pending placeholders in external gate tracker', () => {
+  assertNoPendingTokens('submission/EXTERNAL_GATES.md', externalGates);
+});
+
+runCheck(failures, 'Audit report URL', () => {
+  assertHttpsUrl('audit report URL', directory.audit.auditReportUrl);
+});
+
+runCheck(failures, 'Demo video URL', () => {
+  assertHttpsUrl('demo video URL', directory.submissionAssets.demoVideoUrl);
+});
 
 for (const fileName of requiredScreenshots) {
-  assertPng(path.join('submission/screenshots', fileName));
+  runCheck(failures, `Screenshot ${fileName}`, () => {
+    assertPng(path.join('submission/screenshots', fileName));
+  });
 }
 
 for (const action of requiredFixtureActions) {
-  assertRealPsbtFixture(action);
+  runCheck(failures, `Fixture ${action}`, () => {
+    assertRealPsbtFixture(action);
+  });
 }
 
-assertE2eEvidence();
+runCheck(failures, 'E2E evidence', assertE2eEvidence);
 
-const npmMetadata = npmPackageMetadata(packageJson.name, packageJson.version);
+runCheck(failures, 'Published npm package metadata', () => {
+  const npmMetadata = npmPackageMetadata(packageJson.name, packageJson.version);
 
-assert(npmMetadata.version === packageJson.version, `Published npm version mismatch. Expected ${packageJson.version}, got ${npmMetadata.version}.`);
-assert(npmMetadata['dist.shasum'] === directory.verification.packageShasum, 'Published npm shasum does not match submission metadata.');
-assert(npmMetadata['dist.integrity'] === directory.verification.packageIntegrity, 'Published npm integrity does not match submission metadata.');
+  assert(npmMetadata.version === packageJson.version, `Published npm version mismatch. Expected ${packageJson.version}, got ${npmMetadata.version}.`);
+  assert(npmMetadata['dist.shasum'] === directory.verification.packageShasum, 'Published npm shasum does not match submission metadata.');
+  assert(npmMetadata['dist.integrity'] === directory.verification.packageIntegrity, 'Published npm integrity does not match submission metadata.');
+});
 
-console.log('Submission packet is ready for MetaMask directory review.');
+if (failures.length > 0) {
+  console.error(`Submission packet is not ready for MetaMask directory review:\n- ${failures.join('\n- ')}`);
+  process.exitCode = 1;
+} else {
+  console.log('Submission packet is ready for MetaMask directory review.');
+}
