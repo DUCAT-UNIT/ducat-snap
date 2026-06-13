@@ -4,7 +4,7 @@ import { getAccountKeySet } from './accounts';
 import { confirmTransfer } from './confirmations';
 import { ducatError } from './errors';
 import { bitcoinNetwork, esploraUrl, normalizeNetwork } from './networks';
-import { notifyAction, notifyActionFailure } from './notifications';
+import { notifyAction } from './notifications';
 import { appendRecentAction, rememberDucatSession } from './state';
 
 type EsploraUtxo = {
@@ -177,25 +177,19 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
 
   await rememberDucatSession(network, origin);
   await notifyAction({ title: 'Send BTC', status: 'pending', detail: 'Transfer approval requested' });
-
-  try {
-    await confirmTransfer({
-      origin,
-      network,
-      from: keySet.record.sats.address,
-      to: recipient,
-      amountSats,
-      feeSats,
-      feeRate,
-      changeSats,
-      inputCount: selected.length,
-      inputValueSats,
-      broadcastEndpoint: endpoint,
-    });
-  } catch (error) {
-    await notifyActionFailure('Send BTC', error);
-    throw error;
-  }
+  await confirmTransfer({
+    origin,
+    network,
+    from: keySet.record.sats.address,
+    to: recipient,
+    amountSats,
+    feeSats,
+    feeRate,
+    changeSats,
+    inputCount: selected.length,
+    inputValueSats,
+    broadcastEndpoint: endpoint,
+  });
 
   selected.forEach((_, index) => psbt.signInput(index, keySet.satsNode));
   psbt.finalizeAllInputs();
@@ -215,7 +209,6 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
       amountSats,
       summary: `Broadcast failed for ${amountSats} sats to ${recipient}`,
     });
-    await notifyActionFailure('Send BTC', error);
 
     throw error;
   }

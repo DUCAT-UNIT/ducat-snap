@@ -165,13 +165,7 @@ async function signMessage(origin: string, rawParams: unknown) {
   const title = actionLabel(context, 'Sign Ducat message');
 
   await notifyAction({ title, status: 'pending', detail: 'Message signature approval requested' });
-
-  try {
-    await confirmMessage({ origin, network, address, role, message, context });
-  } catch (error) {
-    await notifyActionFailure(title, error);
-    throw error;
-  }
+  await confirmMessage({ origin, network, address, role, message, context });
 
   const signature = signBip322SimpleMessage({
     keySet,
@@ -218,13 +212,7 @@ async function signPsbt(origin: string, rawParams: unknown) {
 
   await rememberDucatSession(network, origin);
   await notifyAction({ title, status: 'pending', detail: 'Transaction approval requested' });
-
-  try {
-    await confirmPsbt({ origin, summary: prepared.summary, context });
-  } catch (error) {
-    await notifyActionFailure(title, error);
-    throw error;
-  }
+  await confirmPsbt({ origin, summary: prepared.summary, context });
 
   const psbt = signPreparedPsbt(prepared.psbt, keySet, signInputs);
 
@@ -320,17 +308,11 @@ async function signBatch(origin: string, rawParams: unknown) {
 
   await rememberDucatSession(network, origin);
   await notifyAction({ title, status: 'pending', detail: `${prepared.length} transaction approval requested` });
-
-  try {
-    await confirmBatch({
-      origin,
-      entries: prepared.map((item) => ({ summary: item.summary, context: item.context })),
-      context,
-    });
-  } catch (error) {
-    await notifyActionFailure(title, error);
-    throw error;
-  }
+  await confirmBatch({
+    origin,
+    entries: prepared.map((item) => ({ summary: item.summary, context: item.context })),
+    context,
+  });
 
   const psbts = prepared.map((item) => signPreparedPsbt(item.psbt, keySet, item.signInputs));
 
@@ -345,6 +327,21 @@ async function signBatch(origin: string, rawParams: unknown) {
   await notifyAction({ title, status: 'completed', detail: `Signed ${psbts.length} PSBTs` });
 
   return { psbts };
+}
+
+async function withFailureNotification<T>(title: string, action: () => Promise<T>): Promise<T> {
+  try {
+    return await action();
+  } catch (error) {
+    await notifyActionFailure(title, error);
+    throw error;
+  }
+}
+
+function actionTitleFromParams(rawParams: unknown, fallback: string): string {
+  const params = paramsObject<{ context?: unknown }>(rawParams);
+
+  return actionLabel(optionalContext(params.context), fallback);
 }
 
 export async function handleRpcRequest(origin: string, request: JsonRpcRequest) {
@@ -370,16 +367,16 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest) 
       return capabilities();
 
     case 'ducat_signMessage':
-      return signMessage(origin, request.params);
+      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat message'), () => signMessage(origin, request.params));
 
     case 'ducat_signPsbt':
-      return signPsbt(origin, request.params);
+      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat transaction'), () => signPsbt(origin, request.params));
 
     case 'ducat_signBatch':
-      return signBatch(origin, request.params);
+      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat batch'), () => signBatch(origin, request.params));
 
     case 'ducat_sendTransfer':
-      return sendTransfer(origin, paramsObject(request.params));
+      return withFailureNotification('Send BTC', () => sendTransfer(origin, paramsObject(request.params)));
 
     case 'ducat_getHomeState': {
       const params = paramsObject<{ network?: unknown }>(request.params);
