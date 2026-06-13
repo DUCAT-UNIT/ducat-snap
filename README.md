@@ -2,7 +2,7 @@
 
 `@ducat-unit/ducat-snap` is the Ducat Bitcoin account and signing Snap for MetaMask.
 
-The Snap derives deterministic Bitcoin testnet accounts from the user's MetaMask Secret Recovery Phrase and exposes a small Ducat JSON-RPC API to the Ducat frontend. The Ducat web app remains the action surface. Users create, deposit, borrow, repay, withdraw, swap, and liquidate in the web app; the Snap handles account derivation, MetaMask confirmations, PSBT/message signing, transfer signing, recent action state, and a Snap home page.
+The Snap derives deterministic Bitcoin testnet accounts from the user's MetaMask Secret Recovery Phrase and exposes a small Ducat JSON-RPC API to the Ducat frontend. The Ducat web app remains the action surface. Users create, deposit, borrow, repay, withdraw, swap, and liquidate in the web app; the Snap handles account derivation, MetaMask confirmations, PSBT/message signing, transfer signing, recent action state, action notifications, and a Snap home page.
 
 ## Launch Scope
 
@@ -138,6 +138,7 @@ MetaMask confirmations are intentionally action-specific and use structured sect
 - Batch signing shows transaction count, all-or-nothing semantics, total fee, per-transaction summaries, and warning count.
 - Simple BTC transfer shows amount, estimated fee, the `You pay` amount, change, sender, recipient, selected UTXO count/value, and broadcast endpoint.
 - Snap Home shows structured cards for the last connected network, copyable BTC/UNIT/vault addresses, BTC and UNIT balances when services are available, vault status, recent action status, clickable links for HTTPS Ducat app origins, and copyable local routes during development. Approved Ducat origins can request a confirmed recent-action history clear.
+- MetaMask notifications announce pending approvals, completed signing/broadcast actions, and non-rejection failures. Notifications are informational only and never gate signing behavior.
 
 Errors returned to the frontend are friendly by default and include a stable `code` plus diagnostic `details` for developers. The frontend should display the `message` and keep details available for expanded debugging.
 
