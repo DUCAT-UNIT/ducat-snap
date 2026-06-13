@@ -4,7 +4,7 @@ import { Buffer } from 'buffer';
 import { deriveAccountSetFromBaseNodes } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 import { renderHomePage } from '../home';
-import { bitcoinNetwork } from '../networks';
+import { bitcoinNetwork, validatorUrls } from '../networks';
 import { ALLOWED_ORIGINS, handleRpcRequest } from '../rpc';
 import manifest from '../../snap.manifest.json';
 
@@ -227,6 +227,11 @@ function collectDialogText(value: unknown): string[] {
 }
 
 describe('RPC router', () => {
+  it('uses the dev validator for Snap home data', () => {
+    expect(validatorUrls('signet')).toEqual(['https://validator.dev.ducatprotocol.com']);
+    expect(validatorUrls('mutinynet')).toEqual(['https://validator.dev.ducatprotocol.com']);
+  });
+
   it('rejects unknown RPC methods', async () => {
     await expect(handleRpcRequest(ORIGIN, { method: 'ducat_unknown' })).rejects.toMatchObject({ code: 'METHOD_NOT_FOUND' });
   });

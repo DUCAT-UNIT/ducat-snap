@@ -20,9 +20,11 @@ const ESPLORA_ENDPOINTS: Record<DucatNetwork, string> = {
   mutinynet: 'https://mutinynet.com/api',
 };
 
+const DUCAT_DEV_VALIDATOR_URL = 'https://validator.dev.ducatprotocol.com';
+
 const VALIDATOR_ENDPOINTS: Record<DucatNetwork, string[]> = {
-  signet: ['https://validator.ducatprotocol.com', 'https://validator.staging.ducatprotocol.com'],
-  mutinynet: ['https://validator.staging.ducatprotocol.com'],
+  signet: [DUCAT_DEV_VALIDATOR_URL],
+  mutinynet: [DUCAT_DEV_VALIDATOR_URL],
 };
 
 export function normalizeNetwork(network: unknown): DucatNetwork {
