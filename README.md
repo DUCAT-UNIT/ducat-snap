@@ -107,7 +107,20 @@ Allowed local origins are:
 - `http://localhost:3002`
 - `http://localhost:3003`
 
-These localhost origins are intentionally present for local development and Snap QA only. Before third-party audit finalization or MetaMask directory submission, prepare a release manifest that removes localhost origins or split the repo into explicit development and production manifest targets. The submitted manifest should keep only approved HTTPS Ducat app origins, then regenerate `snap.manifest.json`, refresh release metadata, and retag the audited candidate.
+These localhost origins are intentionally present for local development and Snap QA only. Do not remove them from the development manifest during local testing.
+
+### Deferred Release Manifest Cleanup
+
+`snap.manifest.json` currently includes localhost origins. That is acceptable for the local audit candidate and developer QA, but it must be cleaned up before MetaMask directory submission.
+
+Plan for the release candidate:
+
+1. Keep this development manifest available for local Snap testing.
+2. Create a release manifest path or manifest-generation mode that removes every localhost origin.
+3. Keep only approved HTTPS Ducat frontend origins in `endowment:rpc.allowedOrigins`.
+4. Run `npm run build`, `npm run manifest`, `npm run verify:release-manifest`, and `npm run verify:release`.
+5. Refresh submission metadata, package evidence, manifest shasum, and release notes from that exact build.
+6. Retag the audited release candidate after the release manifest and metadata are synced.
 
 ## MetaMask Local Update Flow
 
@@ -175,7 +188,7 @@ Mainnet support still requires a separate audit pass, but the signet/mutinynet S
 
 Use this plan to move the current audit candidate from "ready to review" to "ready to submit". Do not change `snap.manifest.json` localhost origins as part of this note; handle that as a dedicated release-manifest task before external submission.
 
-Current candidate progress: duplicate previous-output rejection, missing previous-output data rejection, suspicious data-output warnings, hostile app-context containment for decoded vault data, create/borrow/repay/withdraw/repo/liquidate vault action decode coverage, a HTTPS-only release-manifest verifier, and a final submission-readiness gate for fixtures, E2E evidence, screenshots, audit/demo URLs, and npm metadata are implemented. Remaining external evidence work is real transaction fixture capture, full E2E recording, final support/privacy/escalation details, npm publish evidence, and the third-party audit report.
+Current candidate progress: duplicate previous-output rejection, missing previous-output data rejection, oversized signing request rejection, PSBT input/output size guard coverage, suspicious data-output warnings, hostile app-context containment for decoded vault data, create/borrow/repay/withdraw/repo/liquidate vault action decode coverage, a HTTPS-only release-manifest verifier, and a final submission-readiness gate for fixtures, E2E evidence, screenshots, audit/demo URLs, and npm metadata are implemented. Remaining external evidence work is real transaction fixture capture, full E2E recording, final support/privacy/escalation details, npm publish evidence, and the third-party audit report.
 
 1. Expand the Ducat transaction fixture corpus. Capture real client-sdk/validator PSBT fixtures for create, deposit, borrow, repay, withdraw, swap, liquidation, and repossess flows on mutinynet/signet. Add golden tests for OP_RETURN decoding, action labels, vault state summaries, data-output labels, warning behavior, and confirmation rendering.
 2. Harden PSBT policy tests. Add adversarial cases for wrong network, unknown sign indexes, duplicate inputs, mixed account ownership, malicious frontend context, malformed data outputs, uncommitted Taproot script-path inputs, missing previous-output data, and suspicious zero-value outputs.

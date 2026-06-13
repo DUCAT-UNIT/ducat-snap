@@ -326,6 +326,72 @@ describe('PSBT signing', () => {
     }
   });
 
+  it('rejects PSBTs with too many inputs before signing', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    for (let inputIndex = 0; inputIndex < 81; inputIndex += 1) {
+      psbt.addInput({
+        hash: Buffer.alloc(32, inputIndex + 1).toString('hex'),
+        index: 0,
+        witnessUtxo: {
+          script: keySet.satsOutputScript,
+          value: 1_000,
+        },
+      });
+    }
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 80_000,
+    });
+
+    try {
+      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+      throw new Error('Expected preparePsbtForSigning to fail.');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'PSBT_TOO_LARGE',
+        details: expect.objectContaining({
+          inputCount: 81,
+          maxInputs: 80,
+        }),
+      });
+    }
+  });
+
+  it('rejects PSBTs with too many outputs before signing', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '59'.repeat(32),
+      index: 0,
+      witnessUtxo: {
+        script: keySet.satsOutputScript,
+        value: 200_000,
+      },
+    });
+    for (let outputIndex = 0; outputIndex < 121; outputIndex += 1) {
+      psbt.addOutput({
+        address: keySet.record.sats.address,
+        value: 1,
+      });
+    }
+
+    try {
+      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+      throw new Error('Expected preparePsbtForSigning to fail.');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'PSBT_TOO_LARGE',
+        details: expect.objectContaining({
+          maxOutputs: 120,
+          outputCount: 121,
+        }),
+      });
+    }
+  });
+
   it('labels bare OP_RETURN outputs as data outputs', () => {
     const keySet = makeKeySet();
     const psbt = new Psbt({ network: bitcoinNetwork('signet') });

@@ -572,6 +572,23 @@ describe('RPC router', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
+  it('rejects oversized PSBT signing requests before requesting entropy', async () => {
+    const request = setSnapMock();
+    const { keySet, psbt } = makePsbt(100_000, 17);
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signPsbt',
+        params: { network: 'signet', psbt, signInputs: { [keySet.record.sats.address]: Array.from({ length: 81 }, (_, index) => index) } },
+      }),
+    ).rejects.toMatchObject({
+      code: 'INVALID_PARAMS',
+      details: expect.objectContaining({ maxSignInputs: 80 }),
+    });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
   it('batch signing preserves PSBT order', async () => {
     setSnapMock();
     const first = makePsbt(100_000, 4);

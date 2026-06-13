@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260613-signinput-guard`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-signinput-guard`
+- Implementation tag: `audit-candidate-0.1.0-20260613-size-guards`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-size-guards`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -41,7 +41,7 @@ This document captures the current local audit and submission handoff state for 
 ## Test Evidence
 
 - Jest suites: 6 passed
-- Jest tests: 55 passed
+- Jest tests: 58 passed
 - Covered areas:
   - Deterministic signet/mutinynet account derivation
   - `ducat_getAccounts`
@@ -60,8 +60,10 @@ This document captures the current local audit and submission handoff state for 
   - Value-bearing OP_RETURN and zero-value unknown-script warning behavior
   - PSBT input ownership and network validation
   - Duplicate requested PSBT input index rejection before entropy or confirmation
+  - Oversized requested sign-input rejection before entropy or confirmation
   - Duplicate previous-output rejection for hostile serialized PSBTs
   - Missing previous-output value data rejection before signing
+  - PSBT input/output count guard rejection before signing
   - Committed Taproot script-path signing
   - Uncommitted Taproot script-path rejection
   - RPC origin validation
@@ -79,11 +81,11 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1326582`
-- Dry-run unpacked size: `2257983`
+- Dry-run package size: `1326759`
+- Dry-run unpacked size: `2258577`
 - Dry-run file count: `15`
-- npm package shasum: `160061b541a85931e51a3d9c043d9382e478c683`
-- npm package integrity: `sha512-DT82Cvw+bqkLRz8AUh4yJgo4mVGpCWiCmCUsv9zwV7dD9gFk4wQ+jyU5cKWZABFP1lSuHe9H5anKyCDS3AwDkA==`
+- npm package shasum: `08a9c889899d4e86bc565987b173e44377b23952`
+- npm package integrity: `sha512-OtZ3EIdwO0oPnTLUKWtQhurT1TcUQDLWqkm+odzFbnp6RADXQnK3IcATPOQYc6DkkcrEWCCgSg9RGYWevPJLCQ==`
 - Snap manifest source shasum: `mrFbA8UeBZKk1uMtPtQ4GvYE9AJj3K247OvFLTGM24I=`
 - Actual npm publish: blocked until npm auth is configured
 
@@ -147,7 +149,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260613-signinput-guard` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260613-size-guards` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
