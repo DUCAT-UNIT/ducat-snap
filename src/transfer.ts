@@ -259,7 +259,13 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
   let txid: string;
 
   try {
-    txid = await postText(`${endpoint}/tx`, txHex);
+    txid = (await postText(`${endpoint}/tx`, txHex)).trim();
+
+    if (!TXID_PATTERN.test(txid)) {
+      throw ducatError('BROADCAST_FAILED', 'The Bitcoin network returned a malformed transaction id after broadcast.', {
+        response: txid,
+      });
+    }
   } catch (error) {
     await appendRecentAction({
       actionType: 'transfer',
