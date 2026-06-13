@@ -27,8 +27,8 @@ function testKeySet() {
   return deriveAccountSetFromBaseNodes('signet', testNode(1), testNode(2));
 }
 
-function setSnapMock(dialogResult = true) {
-  let managedState: unknown = null;
+function setSnapMock(dialogResult = true, initialState: unknown = null) {
+  let managedState: unknown = initialState;
   const request = jest.fn(async ({ method, params }: SnapRequestArgs) => {
     if (method === 'snap_getBip32Entropy') {
       const byte = params?.path?.[1] === "84'" ? 1 : 2;
@@ -394,7 +394,28 @@ describe('RPC router', () => {
   });
 
   it('renders Snap Home from the last connected network and origin', async () => {
-    setSnapMock();
+    setSnapMock(true, {
+      recentActions: [
+        {
+          id: 'recent-borrow',
+          actionType: 'borrow',
+          title: 'Borrow UNIT',
+          network: 'signet',
+          origin: 'http://localhost:3002',
+          timestamp: Date.now() - 60_000,
+          status: 'broadcast',
+          txid: 'a'.repeat(64),
+          summary: 'Borrowed UNIT against Alpha vault',
+          amountSats: 12_345,
+          unitAmount: 100,
+          details: {
+            vault_id: 'vault-1',
+          },
+        },
+      ],
+      lastNetwork: 'signet',
+      lastOrigin: 'http://localhost:3002',
+    });
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const href = String(url);
 
@@ -452,6 +473,11 @@ describe('RPC router', () => {
       expect(rendered).not.toContain('[Deposit](http://localhost:3002/?action=deposit)');
       expect(rendered).toContain('Alpha vault');
       expect(rendered).toContain('45,000 sats');
+      expect(rendered).toContain('Borrowed UNIT against Alpha vault');
+      expect(rendered).toContain('100 UNIT');
+      expect(rendered).toContain('Action #1 details');
+      expect(rendered).toContain('Vault Id');
+      expect(rendered).toContain('vault-1');
     } finally {
       globalThis.fetch = originalFetch;
     }

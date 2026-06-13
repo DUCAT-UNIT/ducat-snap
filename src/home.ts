@@ -1,6 +1,6 @@
 import { getAccountKeySet } from './accounts';
 import { DUCAT_MARK_SVG } from './brand';
-import { actionLabel, formatMaybeBtcValue, formatSats, formatSatsOnly, formatUnit, networkLabel } from './display';
+import { actionLabel, formatMetadataKey, formatMaybeBtcValue, formatSats, formatSatsOnly, formatUnit, networkLabel } from './display';
 import { ducatAppUrl, esploraUrl, normalizeNetwork, validatorUrls } from './networks';
 import { getState } from './state';
 import type { DucatNetwork, RecentActionStatus } from './types';
@@ -239,23 +239,51 @@ function statusVariant(status?: RecentActionStatus): 'default' | 'warning' | 'cr
   return undefined;
 }
 
+function recentActionAmount(action: Awaited<ReturnType<typeof getState>>['recentActions'][number]): string | undefined {
+  const amounts = [
+    action.amountSats === undefined ? undefined : formatSatsOnly(action.amountSats),
+    action.unitAmount === undefined ? undefined : formatUnit(action.unitAmount),
+  ].filter((amount): amount is string => Boolean(amount));
+
+  return amounts.length ? amounts.join(' / ') : undefined;
+}
+
+function detailsValue(value: string | number | boolean | null): string {
+  return value === null ? 'None' : String(value);
+}
+
+function recentActionDetails(action: Awaited<ReturnType<typeof getState>>['recentActions'][number]): SnapElement[] {
+  const details = Object.entries(action.details ?? {}).slice(0, 8);
+
+  return [
+    uiRow('When', relativeTime(action.timestamp)),
+    uiRow('Network', networkLabel(action.network)),
+    uiRow('Status', statusLabel(action.status ?? 'signed'), statusVariant(action.status)),
+    ...(action.amountSats === undefined ? [] : [uiRow('BTC amount', formatSats(action.amountSats, action.network))]),
+    ...(action.unitAmount === undefined ? [] : [uiRow('UNIT amount', formatUnit(action.unitAmount))]),
+    ...(action.txid ? [uiRow('Txid', uiCopyable(action.txid))] : []),
+    ...details.map(([key, value]) => uiRow(formatMetadataKey(key), detailsValue(value).slice(0, 140))),
+  ];
+}
+
 function recentActionComponents(actions: Awaited<ReturnType<typeof getState>>['recentActions']): SnapElement[] {
   if (!actions.length) {
     return [uiMuted('No recent Ducat actions yet.')];
   }
 
-  return actions.flatMap((action) => {
+  return actions.flatMap((action, index) => {
     const status = statusLabel(action.status ?? 'signed');
-    const amount = action.amountSats === undefined ? undefined : formatSats(action.amountSats, action.network);
+    const amount = recentActionAmount(action);
+    const title = actionLabel({ title: action.title, actionType: action.actionType });
 
     return [
-      uiRow(
-        actionLabel({ title: action.title, actionType: action.actionType }),
-        amount ? `${status} - ${amount}` : status,
-        statusVariant(action.status),
-        relativeTime(action.timestamp),
-      ),
-      ...(action.txid ? [uiRow('Txid', uiCopyable(action.txid))] : []),
+      uiCard({
+        description: action.summary ?? `${relativeTime(action.timestamp)} - ${networkLabel(action.network)}`,
+        extra: amount,
+        title,
+        value: status,
+      }),
+      uiCollapsibleSection(`Action #${index + 1} details`, recentActionDetails(action)),
     ];
   });
 }

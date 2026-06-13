@@ -6,7 +6,7 @@ Last local command:
 npx --yes @sayfer_io/snapper --path . --output snapper-report.json
 ```
 
-Local result: 178 findings, all risk 1 and all under the `ESLinting` category.
+Local result: 181 findings, all risk 1 and all under the `ESLinting` category.
 
 ## Addressed Findings
 
@@ -22,7 +22,7 @@ The first local scan reported 105 findings. The implementation now fixes the non
 
 ## Remaining Finding Summary
 
-- 136 missing JSDoc comments.
+- 139 missing JSDoc comments.
 - 7 missing explicit return type annotations.
 - 13 unnecessary type assertion warnings.
 - 4 generic type parameter naming warnings.
