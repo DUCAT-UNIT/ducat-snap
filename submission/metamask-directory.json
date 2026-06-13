@@ -32,18 +32,18 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-dev-validator/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-audit-plan/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-dev-validator/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-audit-plan/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.0-20260613-dev-validator",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260613-dev-validator",
+    "candidateTag": "audit-candidate-0.1.0-20260613-audit-plan",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260613-audit-plan",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/1",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
@@ -58,8 +58,8 @@
   },
   "verification": {
     "commands": ["npm ci", "npm run verify:release"],
-    "packageShasum": "1456ee0af676215995eee73b081a205c5baa0d7e",
-    "packageIntegrity": "sha512-LgbjUMlnCpWhfao+Azb3wW+atV5SvHbrcGCGeq4L138JedcGrY+BSg+2Jp2mYVZM1GRzJtaCYmNVy4rrRGRv6w==",
+    "packageShasum": "a33669d923862f17b681a70b5d254a96676066bc",
+    "packageIntegrity": "sha512-IKVUDAs8XezaUZNOHPH6yTCOb2KJZ8RnGEdnrMhh2AKw7YP21wr2BNpEVC8fOu0oAGIoDDaPjvR3EtjALD7LhA==",
     "manifestSourceShasum": "Q7F1B8Yp4HK2A/z01yX6Fi7K6o6whYs3CH0dWhlvxVo=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"

@@ -107,6 +107,8 @@ Allowed local origins are:
 - `http://localhost:3002`
 - `http://localhost:3003`
 
+These localhost origins are intentionally present for local development and Snap QA only. Before third-party audit finalization or MetaMask directory submission, prepare a release manifest that removes localhost origins or split the repo into explicit development and production manifest targets. The submitted manifest should keep only approved HTTPS Ducat app origins, then regenerate `snap.manifest.json`, refresh release metadata, and retag the audited candidate.
+
 ## MetaMask Local Update Flow
 
 1. Run `npm run serve` in this repo.
@@ -168,6 +170,16 @@ Errors returned to the frontend are friendly by default and include a stable `co
 Vault PSBTs that spend Taproot script-path inputs must include tapleaf and control-block data that recomputes to the prevout P2TR output key. The Snap rejects uncommitted script-path inputs even if the leaf contains the derived Ducat vault key.
 
 Mainnet support still requires a separate audit pass, but the signet/mutinynet Snap no longer contains the earlier alpha fallback that accepted uncommitted tapleaf data.
+
+## Audit Readiness Plan
+
+Use this plan to move the current audit candidate from "ready to review" to "ready to submit". Do not change `snap.manifest.json` localhost origins as part of this note; handle that as a dedicated release-manifest task before external submission.
+
+1. Expand the Ducat transaction fixture corpus. Capture real client-sdk/validator PSBT fixtures for create, deposit, borrow, repay, withdraw, swap, liquidation, and repossess flows on mutinynet/signet. Add golden tests for OP_RETURN decoding, action labels, vault state summaries, data-output labels, warning behavior, and confirmation rendering.
+2. Harden PSBT policy tests. Add adversarial cases for wrong network, unknown sign indexes, duplicate inputs, mixed account ownership, malicious frontend context, malformed data outputs, uncommitted Taproot script-path inputs, missing previous-output data, and suspicious zero-value outputs.
+3. Split development and release configuration. Keep localhost origins and `local:http://localhost:8080` for development, but create a release manifest path that allows only approved HTTPS Ducat origins. Update CI to verify the release manifest, package shasum, and submission metadata together.
+4. Complete E2E evidence. Record install, update, connect, reload reconnect, create, deposit, borrow, repay, withdraw, swap, liquidation, repossess, rejection, and disabled/re-enabled Snap flows using the same candidate bundle submitted to audit.
+5. Lock the external submission packet. Finalize privacy/support/escalation contacts, screenshots, demo video, npm publish evidence, audited commit, fixed commit if needed, and the audit report. Update `submission/ALLOWLIST_SUBMISSION.md`, `submission/metamask-directory.json`, and `RELEASE_EVIDENCE.md` from that final candidate.
 
 ## Release Path
 

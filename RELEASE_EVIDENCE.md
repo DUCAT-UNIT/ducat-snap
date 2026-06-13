@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260613-dev-validator`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-dev-validator`
+- Implementation tag: `audit-candidate-0.1.0-20260613-audit-plan`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-audit-plan`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -73,11 +73,11 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1325328`
-- Dry-run unpacked size: `2253652`
+- Dry-run package size: `1326027`
+- Dry-run unpacked size: `2255908`
 - Dry-run file count: `15`
-- npm package shasum: `1456ee0af676215995eee73b081a205c5baa0d7e`
-- npm package integrity: `sha512-LgbjUMlnCpWhfao+Azb3wW+atV5SvHbrcGCGeq4L138JedcGrY+BSg+2Jp2mYVZM1GRzJtaCYmNVy4rrRGRv6w==`
+- npm package shasum: `a33669d923862f17b681a70b5d254a96676066bc`
+- npm package integrity: `sha512-IKVUDAs8XezaUZNOHPH6yTCOb2KJZ8RnGEdnrMhh2AKw7YP21wr2BNpEVC8fOu0oAGIoDDaPjvR3EtjALD7LhA==`
 - Snap manifest source shasum: `Q7F1B8Yp4HK2A/z01yX6Fi7K6o6whYs3CH0dWhlvxVo=`
 - Actual npm publish: blocked until npm auth is configured
 
@@ -139,7 +139,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260613-dev-validator` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260613-audit-plan` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
