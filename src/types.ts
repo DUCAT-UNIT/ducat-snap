@@ -49,6 +49,9 @@ export type DucatVaultActionFlag = 'o' | 'b' | 'r' | 'd' | 'w' | 'x' | 'l' | 'c'
 export type DucatVaultReturnData = {
   actionFlag: DucatVaultActionFlag;
   actionType: string;
+  protocolAction?: string;
+  sequenceCode?: number;
+  sequenceVersion?: number;
   outputIndex: number;
   isLocked: boolean;
   unitBalanceCents: number;

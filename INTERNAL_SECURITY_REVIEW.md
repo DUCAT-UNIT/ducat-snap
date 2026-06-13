@@ -117,6 +117,7 @@ Remediation:
 
 - Added current Ducat core OP_RETURN decoding for guardian index bytes and oracle price commit rows.
 - Added vault action decoding from sequence metadata instead of trusting frontend labels for the action.
+- Added explicit coverage for borrow, repay, repo, and liquidate/trim action codes.
 - Preserved warning behavior for malformed Ducat-looking OP_RETURN outputs.
 - Added regression tests for valid current core payloads and malformed Ducat-looking payloads.
 

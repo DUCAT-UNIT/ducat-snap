@@ -11,14 +11,14 @@ Assess whether the Ducat Snap can safely derive signet/mutinynet Bitcoin account
 ## Candidate Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Audit candidate tag: `audit-candidate-0.1.0-20260613-vault-decode`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-vault-decode`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-vault-actions`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-vault-actions`
 - GitHub Actions verification: see the current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/1
 - npm package name: `@ducat-unit/ducat-snap`
 - Package version: `0.1.0`
-- Package dry-run shasum: `e33f668c8288490ae620f0606409d60a668efb39`
-- Package dry-run integrity: `sha512-5IENk1vw4tstURw5cmHCPxTVzI+V3ksvfYE2JDkXl4HmBDMDZnnzMKYlY/IEM5UahOyYm56BHyDKWjOzpqt3lg==`
-- Snap manifest source shasum: `rwZS/OkFfBWqhUo7DTfyitpXlmhnmV7ABIq66po4BTw=`
+- Package dry-run shasum: `c54fab173f29d386dbcaea01431853daadd69aa3`
+- Package dry-run integrity: `sha512-REDyFx+rPfo9wyN1OFQ/x/y0pBtXmNxCLeVuaCxNAP4bps3nVLYv1RdRrjatpzUgzeczQHgCfqlfPwHkXU+F7w==`
+- Snap manifest source shasum: `4r4LaOdF3/O9HqPaPGnNtBriY9kSx1Z14mXlSA3+TEY=`
 - Proposed Snap name: `Ducat`
 - Intended launch scope: signet/mutinynet only
 - Mainnet support: intentionally out of scope for v0.1.0

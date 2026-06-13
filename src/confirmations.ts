@@ -153,10 +153,12 @@ function vaultEffect(actionType: string): string {
       return 'Creates or opens a Ducat vault.';
     case 'deposit':
       return 'Adds BTC collateral to the vault.';
+    case 'liquidate':
     case 'liquidation':
       return 'Signs a liquidation for an under-collateralized vault.';
     case 'repay':
       return 'Reduces UNIT debt on the vault.';
+    case 'repo':
     case 'repossess':
       return 'Repossesses collateral through the liquidation flow.';
     case 'withdraw':
@@ -287,8 +289,10 @@ function actionIntent(context?: DucatActionContext): string {
       return 'Check vault funding outputs and change.';
     case 'deposit':
       return 'Check collateral, change, and fee.';
+    case 'liquidate':
     case 'liquidation':
     case 'liquidation-or-repossess':
+    case 'repo':
     case 'repossess':
       return 'Check every spend and output carefully.';
     case 'repay':

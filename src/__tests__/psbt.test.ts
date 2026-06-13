@@ -82,6 +82,28 @@ function coreVaultReturnPayload(unitBalanceCents: number, unitPrice: number, uni
   ]);
 }
 
+function addCoreVaultActionPsbtOutputs(psbt: Psbt, keySet: ReturnType<typeof makeKeySet>, actionCode: number, vaultValueSats: number, payload: Buffer): void {
+  if (actionCode === 164) {
+    psbt.addOutput({
+      address: keySet.record.runes.address,
+      value: 1_000,
+    });
+  }
+
+  psbt.addOutput({
+    address: keySet.record.vault.address,
+    value: vaultValueSats,
+  });
+  psbt.addOutput({
+    address: keySet.record.sats.address,
+    value: 899_000,
+  });
+  psbt.addOutput({
+    script: btcScript.compile([opcodes.OP_RETURN, opcodes.OP_8, payload]),
+    value: 0,
+  });
+}
+
 describe('PSBT signing', () => {
   it('signs only explicit derived P2WPKH indexes', () => {
     const keySet = makeKeySet();
@@ -342,6 +364,48 @@ describe('PSBT signing', () => {
       unitBalanceUnit: 500,
       unitPrice: 60_000,
       unitTimestamp: 123_456,
+    });
+    expect(prepared.summary.warnings).toEqual([]);
+  });
+
+  it.each([
+    { actionCode: 164, actionFlag: 'b', actionType: 'borrow', protocolAction: 'borrow', vaultOutputIndex: 1 },
+    { actionCode: 165, actionFlag: 'r', actionType: 'repay', protocolAction: 'repay', vaultOutputIndex: 0 },
+    { actionCode: 168, actionFlag: 'x', actionType: 'repo', protocolAction: 'repo', vaultOutputIndex: 0 },
+    { actionCode: 169, actionFlag: 'l', actionType: 'liquidate', protocolAction: 'trim', vaultOutputIndex: 0 },
+  ])('decodes current Ducat core $actionType vault action data', ({ actionCode, actionFlag, actionType, protocolAction, vaultOutputIndex }) => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+    const payload = coreVaultReturnPayload(75_000, 58_000, 654_321, 43_500);
+
+    psbt.addInput({
+      hash: actionCode.toString(16).padStart(2, '0').repeat(32),
+      index: 0,
+      sequence: vaultSequence(actionCode),
+      witnessUtxo: {
+        script: keySet.satsOutputScript,
+        value: 2_500_000,
+      },
+    });
+    addCoreVaultActionPsbtOutputs(psbt, keySet, actionCode, 1_250_000, payload);
+
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+    const vaultData = prepared.summary.vaultUpdates[0];
+
+    expect(prepared.summary.vaultUpdates).toHaveLength(1);
+    expect(vaultData).toMatchObject({
+      actionFlag,
+      actionType,
+      collateralSats: 1_250_000,
+      outputIndex: vaultOutputIndex + 2,
+      protocolAction,
+      sequenceCode: actionCode,
+      sequenceVersion: 1,
+      tholdPrice: 43_500,
+      unitBalanceCents: 75_000,
+      unitBalanceUnit: 750,
+      unitPrice: 58_000,
+      unitTimestamp: 654_321,
     });
     expect(prepared.summary.warnings).toEqual([]);
   });

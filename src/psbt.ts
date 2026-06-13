@@ -32,26 +32,29 @@ const SEQUENCE_METADATA_DISABLE = 0x20000000;
 const SEQUENCE_METADATA_SHORT_MASK = 0xffff;
 const SEQUENCE_METADATA_BYTE_MASK = 0xff;
 const DUCAT_VAULT_SEQUENCE_VERSION = 1;
-const DUCAT_VAULT_ACTION_CODES: Record<number, { actionFlag: DucatVaultActionFlag; actionType: string; vaultOutputIndex: number }> = {
-  161: { actionFlag: 'o', actionType: 'create', vaultOutputIndex: 2 },
-  163: { actionFlag: 'c', actionType: 'close', vaultOutputIndex: -1 },
-  164: { actionFlag: 'b', actionType: 'borrow', vaultOutputIndex: 1 },
-  165: { actionFlag: 'r', actionType: 'repay', vaultOutputIndex: 0 },
-  166: { actionFlag: 'd', actionType: 'deposit', vaultOutputIndex: 0 },
-  167: { actionFlag: 'w', actionType: 'withdraw', vaultOutputIndex: 0 },
-  168: { actionFlag: 'x', actionType: 'repossess', vaultOutputIndex: 0 },
-  169: { actionFlag: 'l', actionType: 'liquidation', vaultOutputIndex: 0 },
+const DUCAT_VAULT_ACTION_CODES: Record<
+  number,
+  { actionFlag: DucatVaultActionFlag; actionType: string; protocolAction: string; vaultOutputIndex: number }
+> = {
+  161: { actionFlag: 'o', actionType: 'create', protocolAction: 'open', vaultOutputIndex: 2 },
+  163: { actionFlag: 'c', actionType: 'close', protocolAction: 'close', vaultOutputIndex: -1 },
+  164: { actionFlag: 'b', actionType: 'borrow', protocolAction: 'borrow', vaultOutputIndex: 1 },
+  165: { actionFlag: 'r', actionType: 'repay', protocolAction: 'repay', vaultOutputIndex: 0 },
+  166: { actionFlag: 'd', actionType: 'deposit', protocolAction: 'deposit', vaultOutputIndex: 0 },
+  167: { actionFlag: 'w', actionType: 'withdraw', protocolAction: 'withdraw', vaultOutputIndex: 0 },
+  168: { actionFlag: 'x', actionType: 'repo', protocolAction: 'repo', vaultOutputIndex: 0 },
+  169: { actionFlag: 'l', actionType: 'liquidate', protocolAction: 'trim', vaultOutputIndex: 0 },
 };
 
 const DUCAT_ACTION_TYPES: Record<DucatVaultActionFlag, string> = {
   b: 'borrow',
   c: 'close',
   d: 'deposit',
-  l: 'liquidation',
+  l: 'liquidate',
   o: 'create',
   r: 'repay',
   w: 'withdraw',
-  x: 'repossess',
+  x: 'repo',
 };
 
 type SignerLike = {
@@ -276,6 +279,9 @@ function actionFlag(value: number): DucatVaultActionFlag | null {
 type DecodedVaultAction = {
   actionFlag: DucatVaultActionFlag;
   actionType: string;
+  protocolAction?: string;
+  sequenceCode?: number;
+  sequenceVersion?: number;
   vaultOutputIndex: number;
 };
 
@@ -297,7 +303,11 @@ function decodeVaultActionFromSequences(inputs: Psbt['txInputs']): DecodedVaultA
     const action = DUCAT_VAULT_ACTION_CODES[code];
 
     if (version === DUCAT_VAULT_SEQUENCE_VERSION && action) {
-      return action;
+      return {
+        ...action,
+        sequenceCode: code,
+        sequenceVersion: version,
+      };
     }
   }
 
@@ -319,6 +329,7 @@ function legacyVaultAction(flag: DucatVaultActionFlag): DecodedVaultAction {
   return {
     actionFlag: flag,
     actionType: DUCAT_ACTION_TYPES[flag],
+    protocolAction: DUCAT_ACTION_TYPES[flag],
     vaultOutputIndex: flag === 'o' ? 2 : 0,
   };
 }
@@ -347,6 +358,9 @@ function decodeLegacyDucatVaultReturn(payload: Buffer, action: DecodedVaultActio
   const decoded: DucatVaultReturnData = {
     actionFlag: action.actionFlag,
     actionType: action.actionType,
+    protocolAction: action.protocolAction,
+    sequenceCode: action.sequenceCode,
+    sequenceVersion: action.sequenceVersion,
     outputIndex,
     isLocked,
     unitBalanceCents,
@@ -381,6 +395,9 @@ function decodeCoreDucatVaultReturn(payload: Buffer, action: DecodedVaultAction,
     return {
       actionFlag: action.actionFlag,
       actionType: action.actionType,
+      protocolAction: action.protocolAction,
+      sequenceCode: action.sequenceCode,
+      sequenceVersion: action.sequenceVersion,
       outputIndex,
       isLocked: false,
       unitBalanceCents: 0,
@@ -426,6 +443,9 @@ function decodeCoreDucatVaultReturn(payload: Buffer, action: DecodedVaultAction,
   return {
     actionFlag: action.actionFlag,
     actionType: action.actionType,
+    protocolAction: action.protocolAction,
+    sequenceCode: action.sequenceCode,
+    sequenceVersion: action.sequenceVersion,
     outputIndex,
     isLocked: unitBalanceCents > 0,
     unitBalanceCents,
