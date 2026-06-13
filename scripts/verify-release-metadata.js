@@ -54,6 +54,18 @@ function gitTagTarget(tag) {
   }
 }
 
+function gitHeadCommit() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
 const packageJson = readJson('package.json');
 const manifest = readJson('snap.manifest.json');
 const directory = readJson('submission/metamask-directory.json');
@@ -155,6 +167,12 @@ for (const token of documentedPendingTokens) {
 
 const tagTarget = gitTagTarget(candidateTag);
 if (tagTarget) {
+  const headCommit = gitHeadCommit();
+
+  if (headCommit) {
+    assertEqual(tagTarget, headCommit, 'audit candidate tag target');
+  }
+
   console.log(`Audit candidate tag ${candidateTag} resolves to ${tagTarget}.`);
 }
 
