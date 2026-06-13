@@ -628,7 +628,7 @@ describe('RPC router', () => {
             vaults: [
               {
                 btc_locked: 0.5,
-                collateral_ratio: 250,
+                collateral_ratio: 6.233342137488894,
                 liquidation_price: 40_000,
                 oracle_price: 100_000,
                 unit_borrowed: 1_000,
@@ -661,6 +661,7 @@ describe('RPC router', () => {
       expect(rendered).toContain('http://localhost:3002/?action=deposit');
       expect(rendered).not.toContain('[Deposit](http://localhost:3002/?action=deposit)');
       expect(rendered).toContain('Alpha vault');
+      expect(rendered).toContain('623.33% collateral');
       expect(rendered).toContain('45,000 sats');
       expect(rendered).toContain('Borrowed UNIT against Alpha vault');
       expect(rendered).toContain('100 UNIT');

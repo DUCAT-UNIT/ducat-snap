@@ -350,6 +350,17 @@ function usdLabel(value: number | null): string {
   return value === null ? 'Unknown' : `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
+function collateralRatioLabel(value: number | null): string | undefined {
+  if (value === null) {
+    return undefined;
+  }
+
+  const percent = value > 0 && value < 20 ? value * 100 : value;
+  const formatted = percent.toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+  return `${formatted}% collateral`;
+}
+
 function vaultComponents(vault: VaultSummary | null): SnapElement[] {
   if (!vault) {
     return [
@@ -365,7 +376,7 @@ function vaultComponents(vault: VaultSummary | null): SnapElement[] {
   return [
     uiCard({
       description: vault.tag ?? vault.id,
-      extra: vault.collateralRatio === null ? undefined : `${vault.collateralRatio}% collateral`,
+      extra: collateralRatioLabel(vault.collateralRatio),
       title: 'Vault',
       value: statusLabel(vault.status),
     }),
