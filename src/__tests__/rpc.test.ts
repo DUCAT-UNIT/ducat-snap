@@ -663,11 +663,9 @@ describe('RPC router', () => {
       expect(rendered).toContain('Alpha vault');
       expect(rendered).toContain('623.33% collateral');
       expect(rendered).toContain('45,000 sats');
-      expect(rendered).toContain('Borrowed UNIT against Alpha vault');
-      expect(rendered).toContain('100 UNIT');
-      expect(rendered).toContain('Action #1 details');
-      expect(rendered).toContain('Vault Id');
-      expect(rendered).toContain('vault-1');
+      expect(rendered).not.toContain('Recent actions');
+      expect(rendered).not.toContain('Borrowed UNIT against Alpha vault');
+      expect(rendered).not.toContain('Action #1 details');
     } finally {
       globalThis.fetch = originalFetch;
     }
