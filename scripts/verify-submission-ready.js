@@ -18,6 +18,7 @@ const requiredScreenshots = [
 const requiredFixtureActions = ['create', 'deposit', 'borrow', 'repay', 'withdraw', 'swap', 'liquidation', 'repossess'];
 const minimumScreenshotWidth = 360;
 const minimumScreenshotHeight = 360;
+const gitCommitHashPattern = /^[0-9a-f]{40}$/iu;
 const requiredE2eScenarios = [
   'install',
   'update',
@@ -118,6 +119,33 @@ function assertHex(label, value, bytes) {
   assert(new RegExp(`^[0-9a-f]{${bytes * 2}}$`, 'iu').test(value), `${label} must be ${bytes} bytes of hex.`);
 }
 
+function assertGitCommitHash(label, value) {
+  assertString(label, value);
+  assert(gitCommitHashPattern.test(value), `${label} must be a 40-character git commit hash.`);
+}
+
+let cachedAuditCandidateCommit;
+
+function auditCandidateCommit() {
+  if (cachedAuditCandidateCommit) {
+    return cachedAuditCandidateCommit;
+  }
+
+  try {
+    cachedAuditCandidateCommit = execFileSync('git', ['rev-list', '-n', '1', directory.audit.candidateTag], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    throw new Error(`Audit candidate tag does not resolve: ${directory.audit.candidateTag}`);
+  }
+
+  assertGitCommitHash(`audit candidate commit for ${directory.audit.candidateTag}`, cachedAuditCandidateCommit);
+
+  return cachedAuditCandidateCommit;
+}
+
 function assertAccount(label, value, pubkeyBytes) {
   assertObject(label, value);
   assertString(`${label}.address`, value.address);
@@ -149,10 +177,16 @@ function assertRealPsbtFixture(action) {
   assertArray(`${relativePath} expectedConfirmationText`, fixture.expectedConfirmationText);
   assertObject(`${relativePath} capturedFrom`, fixture.capturedFrom);
 
-  for (const field of ['frontendCommit', 'snapCommit', 'clientSdkVersion', 'validatorUrl']) {
+  for (const field of ['clientSdkVersion', 'validatorUrl']) {
     assertString(`${relativePath} capturedFrom.${field}`, fixture.capturedFrom[field]);
   }
 
+  assertGitCommitHash(`${relativePath} capturedFrom.frontendCommit`, fixture.capturedFrom.frontendCommit);
+  assertGitCommitHash(`${relativePath} capturedFrom.snapCommit`, fixture.capturedFrom.snapCommit);
+  assert(
+    fixture.capturedFrom.snapCommit === auditCandidateCommit(),
+    `${relativePath} capturedFrom.snapCommit must match ${directory.audit.candidateTag} (${auditCandidateCommit()}).`,
+  );
   assertHttpsUrl(`${relativePath} capturedFrom.frontendOrigin`, fixture.capturedFrom.frontendOrigin);
   assertHttpsUrl(`${relativePath} capturedFrom.validatorUrl`, fixture.capturedFrom.validatorUrl);
 }
@@ -191,11 +225,21 @@ function assertE2eEvidence() {
 
   assert(evidence.network === 'signet' || evidence.network === 'mutinynet', 'submission/e2e/evidence.json network must be signet or mutinynet.');
   assertString('submission/e2e/evidence.json snapCandidateTag', evidence.snapCandidateTag);
-  assertString('submission/e2e/evidence.json frontendCommit', evidence.frontendCommit);
+  assert(evidence.snapCandidateTag === directory.audit.candidateTag, `submission/e2e/evidence.json snapCandidateTag must match ${directory.audit.candidateTag}.`);
+  assertGitCommitHash('submission/e2e/evidence.json snapCommit', evidence.snapCommit);
+  assert(evidence.snapCommit === auditCandidateCommit(), `submission/e2e/evidence.json snapCommit must match ${directory.audit.candidateTag} (${auditCandidateCommit()}).`);
+  assertGitCommitHash('submission/e2e/evidence.json frontendCommit', evidence.frontendCommit);
+  assertString('submission/e2e/evidence.json packageShasum', evidence.packageShasum);
+  assertString('submission/e2e/evidence.json manifestSourceShasum', evidence.manifestSourceShasum);
+  assert(evidence.packageShasum === directory.verification.packageShasum, 'submission/e2e/evidence.json packageShasum must match submission metadata.');
+  assert(evidence.manifestSourceShasum === directory.verification.manifestSourceShasum, 'submission/e2e/evidence.json manifestSourceShasum must match submission metadata.');
   assertHttpsUrl('submission/e2e/evidence.json demoVideoUrl', evidence.demoVideoUrl);
+  assert(evidence.demoVideoUrl === directory.submissionAssets.demoVideoUrl, 'submission/e2e/evidence.json demoVideoUrl must match submission metadata.');
   assertArray('submission/e2e/evidence.json scenarios', evidence.scenarios);
 
   const scenarios = new Map(evidence.scenarios.map((scenario) => [scenario.name, scenario]));
+
+  assert(scenarios.size === evidence.scenarios.length, 'submission/e2e/evidence.json scenarios must not contain duplicate names.');
 
   for (const name of requiredE2eScenarios) {
     const scenario = scenarios.get(name);

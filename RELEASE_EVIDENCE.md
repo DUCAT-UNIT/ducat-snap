@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260614-screenshot-gate`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-screenshot-gate`
+- Implementation tag: `audit-candidate-0.1.0-20260614-evidence-pinning`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-evidence-pinning`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -123,7 +123,7 @@ Packaged files:
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 - Release manifest guard: `npm run verify:release-manifest` derives a submission manifest origin set from `submission/metamask-directory.json` and fails if any release origin is localhost, non-HTTPS, duplicated, wildcarded, or outside the current development manifest.
-- Submission-ready guard: `npm run verify:submission-ready` is intentionally separate from release CI and fails with a complete blocker list until pending external fields are replaced, real PSBT fixtures exist for every required Ducat flow, captured fixture confirmation text replays against the current Snap UI, final E2E scenario evidence is captured, final reviewable PNG screenshots exist, audit/demo URLs are HTTPS, and the published npm package metadata matches the submission packet.
+- Submission-ready guard: `npm run verify:submission-ready` is intentionally separate from release CI and fails with a complete blocker list until pending external fields are replaced, real PSBT fixtures exist for every required Ducat flow, captured fixture confirmation text replays against the current Snap UI, final E2E scenario evidence is captured against the exact audit candidate tag/commit and package hashes, final reviewable PNG screenshots exist, audit/demo URLs are HTTPS, and the published npm package metadata matches the submission packet.
 
 ## Frontend Integration Evidence
 
@@ -155,7 +155,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260614-screenshot-gate` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260614-evidence-pinning` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

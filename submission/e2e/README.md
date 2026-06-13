@@ -25,7 +25,10 @@ Use this shape:
 {
   "network": "mutinynet",
   "snapCandidateTag": "audit-candidate-0.1.0-YYYYMMDD-final",
-  "frontendCommit": "git-sha",
+  "snapCommit": "40-character-snap-git-sha",
+  "frontendCommit": "40-character-frontend-git-sha",
+  "packageShasum": "published-npm-package-shasum",
+  "manifestSourceShasum": "snap-manifest-source-shasum",
   "demoVideoUrl": "https://...",
   "scenarios": [
     {
@@ -37,4 +40,4 @@ Use this shape:
 }
 ```
 
-The `npm run verify:submission-ready` gate requires every scenario to have `status: "passed"` and a non-empty evidence string. Re-run and update this evidence if the audited Snap commit, package shasum, manifest shasum, frontend Snap ID, or frontend commit changes.
+The `npm run verify:submission-ready` gate requires the Snap tag, Snap commit, package shasum, manifest shasum, and demo video URL to match `../metamask-directory.json`. Every scenario must have `status: "passed"` and a non-empty evidence string. Re-run and update this evidence if the audited Snap commit, package shasum, manifest shasum, frontend Snap ID, or frontend commit changes.
