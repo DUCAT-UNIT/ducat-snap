@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260613-size-guards`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-size-guards`
+- Implementation tag: `audit-candidate-0.1.0-20260614-context-guard`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-context-guard`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -41,7 +41,7 @@ This document captures the current local audit and submission handoff state for 
 ## Test Evidence
 
 - Jest suites: 6 passed
-- Jest tests: 58 passed
+- Jest tests: 60 passed
 - Covered areas:
   - Deterministic signet/mutinynet account derivation
   - `ducat_getAccounts`
@@ -55,6 +55,8 @@ This document captures the current local audit and submission handoff state for 
   - Malformed Ducat-looking OP_RETURN warning behavior
   - Decoded Ducat vault action and after-state confirmation rendering
   - Decoded vault data takes precedence over hostile app-supplied action, effect, and amount context
+  - Bounded primitive app-context metadata rendering
+  - Structured app-context metadata ignored instead of stringified into confirmations
   - Multisig labeling for signed UNIT/vault Taproot inputs
   - OP_RETURN data-output labeling
   - Value-bearing OP_RETURN and zero-value unknown-script warning behavior
@@ -81,12 +83,12 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1326759`
-- Dry-run unpacked size: `2258577`
+- Dry-run package size: `1326832`
+- Dry-run unpacked size: `2258854`
 - Dry-run file count: `15`
-- npm package shasum: `08a9c889899d4e86bc565987b173e44377b23952`
-- npm package integrity: `sha512-OtZ3EIdwO0oPnTLUKWtQhurT1TcUQDLWqkm+odzFbnp6RADXQnK3IcATPOQYc6DkkcrEWCCgSg9RGYWevPJLCQ==`
-- Snap manifest source shasum: `mrFbA8UeBZKk1uMtPtQ4GvYE9AJj3K247OvFLTGM24I=`
+- npm package shasum: `f38c9e3bf179678521083ae30739ce19eeb7d80d`
+- npm package integrity: `sha512-dGmb3mNEGqGLW5wW2l0x7AHq6OYAVfopScLjxB18Wjk6vpF5dS+NKITBCfffWd7y98LSMxsmPKs6O5Y3Bjdtsw==`
+- Snap manifest source shasum: `/zrAp8K/A9KQqsPHdoMILPeQChuh1p4C2FGUpwR2+HY=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -113,7 +115,7 @@ Packaged files:
 - Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`.
 - Transitive dependency versions are locked by `package-lock.json`.
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
-- Snapper result: completed with 208 low-risk ESLinting findings
+- Snapper result: completed with 210 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 - Release manifest guard: `npm run verify:release-manifest` derives a submission manifest origin set from `submission/metamask-directory.json` and fails if any release origin is localhost, non-HTTPS, duplicated, wildcarded, or outside the current development manifest.
@@ -149,7 +151,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260613-size-guards` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260614-context-guard` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

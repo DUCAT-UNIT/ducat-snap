@@ -369,6 +369,64 @@ describe('RPC router', () => {
     ]);
   });
 
+  it('renders bounded primitive app metadata in message confirmations', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signMessage',
+      params: {
+        network: 'signet',
+        address: keySet.record.sats.address,
+        message: 'Authorize Ducat session',
+        context: {
+          metadata: {
+            confirmations: 2,
+            is_retry: false,
+            vault_id: 'vault-alpha',
+          },
+        },
+      },
+    });
+
+    const rendered = dialogValues(request).join('\n');
+
+    expect(rendered).toContain('Ducat app context');
+    expect(rendered).toContain('Confirmations');
+    expect(rendered).toContain('2');
+    expect(rendered).toContain('Is Retry');
+    expect(rendered).toContain('false');
+    expect(rendered).toContain('Vault Id');
+    expect(rendered).toContain('vault-alpha');
+  });
+
+  it('ignores structured app metadata instead of stringifying it into confirmations', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signMessage',
+      params: {
+        network: 'signet',
+        address: keySet.record.sats.address,
+        message: 'Authorize Ducat session',
+        context: {
+          actionType: 'borrow',
+          metadata: {
+            nested: { hostile: true },
+          },
+        },
+      },
+    });
+
+    const rendered = dialogValues(request).join('\n');
+
+    expect(rendered).not.toContain('Borrow UNIT');
+    expect(rendered).not.toContain('Ducat app context');
+    expect(rendered).not.toContain('Nested');
+    expect(rendered).not.toContain('[object Object]');
+  });
+
   it('rejects overlong messages before requesting entropy', async () => {
     const request = setSnapMock();
     const keySet = testKeySet();

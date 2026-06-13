@@ -39,6 +39,9 @@ type SignMessageParams = {
 const MAX_SIGN_INPUTS = 80;
 const MAX_BATCH_ENTRIES = 10;
 const MAX_MESSAGE_LENGTH = 800;
+const MAX_METADATA_ENTRIES = 16;
+const MAX_METADATA_KEY_LENGTH = 64;
+const MAX_METADATA_VALUE_LENGTH = 200;
 
 export const ALLOWED_ORIGINS = new Set<string>(DUCAT_ALLOWED_ORIGINS);
 
@@ -75,6 +78,31 @@ function isVaultContext(value: unknown): value is NonNullable<DucatActionContext
   );
 }
 
+function isMetadataValue(value: unknown): value is string | number | boolean | null | undefined {
+  if (value === undefined || value === null || typeof value === 'boolean') {
+    return true;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+
+  return typeof value === 'string' && value.length <= MAX_METADATA_VALUE_LENGTH;
+}
+
+function isMetadataContext(value: unknown): value is NonNullable<DucatActionContext['metadata']> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const entries = Object.entries(value);
+
+  return (
+    entries.length <= MAX_METADATA_ENTRIES &&
+    entries.every(([key, metadataValue]) => key.length > 0 && key.length <= MAX_METADATA_KEY_LENGTH && isMetadataValue(metadataValue))
+  );
+}
+
 function isActionContext(value: unknown): value is DucatActionContext {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -86,7 +114,7 @@ function isActionContext(value: unknown): value is DucatActionContext {
     (context.actionType === undefined || typeof context.actionType === 'string') &&
     (context.title === undefined || typeof context.title === 'string') &&
     (context.flow === undefined || typeof context.flow === 'string') &&
-    (context.metadata === undefined || (typeof context.metadata === 'object' && context.metadata !== null && !Array.isArray(context.metadata))) &&
+    (context.metadata === undefined || isMetadataContext(context.metadata)) &&
     (context.vault === undefined || isVaultContext(context.vault))
   );
 }
