@@ -68,6 +68,25 @@ export function originLabel(origin: string): string {
   }
 }
 
+export function originNameLabel(origin: string): string {
+  try {
+    const url = new URL(origin);
+    const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+
+    return isLocalhost ? 'Local Ducat app' : 'Ducat app';
+  } catch {
+    return 'Ducat app';
+  }
+}
+
+export function originUrlLabel(origin: string): string {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return origin;
+  }
+}
+
 export function truncateMiddle(value: string, prefix = 12, suffix = 8): string {
   if (value.length <= prefix + suffix + 3) {
     return value;
