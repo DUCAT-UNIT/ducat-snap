@@ -400,6 +400,46 @@ describe('RPC router', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
+  it('remembers transfer session before a declined confirmation', async () => {
+    const request = setSnapMock(false);
+    const keySet = testKeySet();
+    const recipient = deriveAccountSetFromBaseNodes('signet', testNode(7), testNode(8)).record.sats.address;
+    const originalFetch = globalThis.fetch;
+
+    globalThis.fetch = jest.fn(async (url: RequestInfo | URL) => {
+      const href = String(url);
+
+      if (href.endsWith(`/address/${keySet.record.sats.address}/utxo`)) {
+        return new Response(JSON.stringify([{ txid: 'a'.repeat(64), vout: 0, value: 20_000 }]), { status: 200 });
+      }
+
+      throw new Error(`Unexpected fetch ${href}`);
+    }) as typeof fetch;
+
+    try {
+      await expect(
+        handleRpcRequest('http://localhost:3002', {
+          method: 'ducat_sendTransfer',
+          params: { network: 'signet', address: recipient, amountSats: 10_000, feeRate: 1 },
+        }),
+      ).rejects.toMatchObject({ code: 'USER_REJECTED' });
+
+      const updates = request.mock.calls
+        .filter(([arg]) => arg.method === 'snap_manageState' && arg.params?.operation === 'update')
+        .map(([arg]) => arg.params?.newState);
+
+      expect(updates).toContainEqual(
+        expect.objectContaining({
+          lastNetwork: 'signet',
+          lastOrigin: 'http://localhost:3002',
+        }),
+      );
+      expect(updates).not.toContainEqual(expect.objectContaining({ recentActions: expect.arrayContaining([expect.objectContaining({ actionType: 'transfer' })]) }));
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('renders Snap Home from the last connected network and origin', async () => {
     setSnapMock(true, {
       recentActions: [

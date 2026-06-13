@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260613-approval-screen-polish`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-approval-screen-polish`
+- Implementation tag: `audit-candidate-0.1.0-20260613-transfer-session-polish`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-transfer-session-polish`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -41,7 +41,7 @@ This document captures the current local audit and submission handoff state for 
 ## Test Evidence
 
 - Jest suites: 6 passed
-- Jest tests: 33 passed
+- Jest tests: 34 passed
 - Covered areas:
   - Deterministic signet/mutinynet account derivation
   - `ducat_getAccounts`
@@ -67,12 +67,12 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1323201`
-- Dry-run unpacked size: `2246460`
+- Dry-run package size: `1323205`
+- Dry-run unpacked size: `2246474`
 - Dry-run file count: `15`
-- npm package shasum: `5739b98d3b8b0f13b7cf021c4e29ddbbf8a46ad7`
-- npm package integrity: `sha512-U4R3lGMP+AgExDT5JTphvkiNa/wzXBXNn56cbgn+eWPKrgh0ttDS9eTzF2kcUZadniXtcpA/5jmaQNpV6b/5WQ==`
-- Snap manifest source shasum: `d5iF4qctsqansQ9P3U48sK72n3JPW9kBrNn0WAIqB5w=`
+- npm package shasum: `413cc9ff1a3e9900531db3f1b065228c7ecf71d3`
+- npm package integrity: `sha512-Yx57uwRDcpMTDfYEPLSBJwUERFMdKmEntccLa1nQHOI+cWksE4w0u/fIrJA5GX/qo501Fp3MdtNwEF2nxp14Uw==`
+- Snap manifest source shasum: `dciJQcqPROyLVhYN8/E5pFWpgJIRuRas2mcS+Y8WyQs=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -133,7 +133,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260613-approval-screen-polish` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260613-transfer-session-polish` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

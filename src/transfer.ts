@@ -4,7 +4,7 @@ import { getAccountKeySet } from './accounts';
 import { confirmTransfer } from './confirmations';
 import { ducatError } from './errors';
 import { bitcoinNetwork, esploraUrl, normalizeNetwork } from './networks';
-import { appendRecentAction } from './state';
+import { appendRecentAction, rememberDucatSession } from './state';
 
 type EsploraUtxo = {
   txid: string;
@@ -174,6 +174,7 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
     psbt.addOutput({ address: keySet.record.sats.address, value: changeSats });
   }
 
+  await rememberDucatSession(network, origin);
   await confirmTransfer({
     origin,
     network,
