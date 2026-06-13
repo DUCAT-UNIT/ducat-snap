@@ -325,10 +325,12 @@ describe('RPC router', () => {
     const rendered = dialogValues(request).join('\n');
 
     expect(rendered).toContain('Deposit BTC');
-    expect(rendered).toContain('Money movement');
-    expect(rendered).toContain('BTC deposit: review the collateral amount, change, and Bitcoin fee before signing.');
-    expect(rendered).toContain('Leaves wallet');
-    expect(rendered).toContain('Recipients');
+    expect(rendered).toContain('Approval summary');
+    expect(rendered).toContain('Check collateral, change, and fee.');
+    expect(rendered).toContain('Total debit');
+    expect(rendered).toContain('Recipient total');
+    expect(rendered).toContain('Signing check');
+    expect(rendered).toContain('Only Snap-managed inputs');
     expect(rendered).toContain('Request details');
     expect(rendered).toContain('Inspect signed inputs');
     expect(rendered).toContain('Input #0');

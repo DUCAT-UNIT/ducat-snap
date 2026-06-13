@@ -55,6 +55,28 @@ export function uiCopyable(value: string, sensitive = false): SnapElement {
   return SnapJsx.Copyable({ value, sensitive }) as SnapElement;
 }
 
+/**
+ * Render a small built-in MetaMask icon inside compact confirmation rows.
+ * @param name - MetaMask icon name.
+ * @param color - MetaMask icon color.
+ * @returns The rendered icon element.
+ */
+export function uiIcon(
+  name: 'security-tick' | 'warning',
+  color: 'default' | 'primary' | 'muted' | 'error' | 'success' | 'warning' = 'default',
+): SnapElement {
+  return SnapJsx.Icon({ name, color, size: 'inherit' });
+}
+
+/**
+ * Align short icon-and-text indicators without custom CSS.
+ * @param children - Inline child elements.
+ * @returns The rendered inline group.
+ */
+export function uiInline(children: SnapElement[]): SnapElement {
+  return uiBox(children, { direction: 'horizontal', crossAlignment: 'center' });
+}
+
 export function uiLink(label: string, href: string): SnapElement {
   return SnapJsx.Link({ children: label, href }) as SnapElement;
 }

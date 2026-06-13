@@ -25,6 +25,8 @@ import {
   uiCopyable,
   uiDivider,
   uiHeading,
+  uiIcon,
+  uiInline,
   uiMuted,
   uiRow,
   uiSection,
@@ -118,24 +120,37 @@ function actionKey(context?: DucatActionContext): string | null {
 function actionIntent(context?: DucatActionContext): string {
   switch (actionKey(context)) {
     case 'borrow':
-      return 'Borrow request: review vault inputs, UNIT settlement outputs, and the Bitcoin fee before signing.';
+      return 'Check vault inputs, UNIT settlement, and fee.';
     case 'create':
-      return 'Vault creation: review the funding outputs and any change before signing.';
+      return 'Check vault funding outputs and change.';
     case 'deposit':
-      return 'BTC deposit: review the collateral amount, change, and Bitcoin fee before signing.';
+      return 'Check collateral, change, and fee.';
     case 'liquidation':
     case 'liquidation-or-repossess':
     case 'repossess':
-      return 'Liquidation flow: review every spend and output carefully before approving.';
+      return 'Check every spend and output carefully.';
     case 'repay':
-      return 'Repay request: review UNIT repayment outputs, vault inputs, and the Bitcoin fee before signing.';
+      return 'Check UNIT repayment, vault inputs, and fee.';
     case 'swap':
-      return 'Swap request: review the external output amount, change, and fee before signing.';
+      return 'Check recipient value, change, and fee.';
     case 'withdraw':
-      return 'BTC withdrawal: review the destination, returned change, and Bitcoin fee before signing.';
+      return 'Check destination, returned change, and fee.';
     default:
-      return 'Review parsed Bitcoin transaction amounts before signing.';
+      return 'Check parsed Bitcoin amounts before signing.';
   }
+}
+
+/**
+ * Build a short safety indicator for confirmation summaries.
+ * @param message - Safety copy displayed next to the icon.
+ * @param variant - Visual state for the indicator.
+ * @returns The rendered safety indicator.
+ */
+function inlineSecurity(message: string, variant: 'success' | 'warning'): SnapElement {
+  return uiInline([
+    uiIcon(variant === 'success' ? 'security-tick' : 'warning', variant),
+    uiText(message, { color: variant, fontWeight: 'medium' }),
+  ]);
 }
 
 function contextSection(context?: DucatActionContext, note = 'App labels are shown for context. Parsed PSBT values above are what the Snap signs.'): SnapElement[] {
@@ -301,18 +316,30 @@ export async function confirmPsbt(params: {
         }),
         uiBanner(statusTitle, statusSeverity, statusBody),
         uiSection([
-          uiHeading('Money movement'),
+          uiHeading('Approval summary'),
           uiMuted(actionIntent(context)),
-          amountCard('Leaves wallet', leavesWalletSats, 'Recipient value plus Bitcoin miner fee'),
-          amountCard('Recipients', summary.externalOutputSats, compactCount(externalOutputCount, 'external output')),
-          amountCard('Change back', summary.selfOutputSats, compactCount(changeOutputCount, 'Ducat output')),
+          amountCard('Total debit', leavesWalletSats, 'Recipient value plus Bitcoin miner fee'),
+          amountCard('Recipient total', summary.externalOutputSats, compactCount(externalOutputCount, 'external output')),
+          compactReviewLine('Change returns', summary.selfOutputSats, compactCount(changeOutputCount, 'Ducat output')),
           compactReviewLine('Network fee', summary.feeSats, 'Bitcoin miner fee', summary.feeSats === null ? 'warning' : undefined),
+        ]),
+        uiSection([
+          uiHeading('Signing check'),
+          uiRow('Inputs', detailValue(`${summary.signedInputIndexes.length} of ${summary.inputCount}`, signedInputs || 'No requested inputs')),
+          uiRow('Accounts', inputRoleLabel),
+          uiRow(
+            'Safety',
+            inlineSecurity(
+              visibleWarnings.length ? 'Warnings need review' : 'Only Snap-managed inputs',
+              visibleWarnings.length ? 'warning' : 'success',
+            ),
+            visibleWarnings.length ? 'warning' : undefined,
+          ),
         ]),
         uiCollapsibleSection('Request details', [
           uiRow('App', detailValue(originNameLabel(origin), originUrlLabel(origin))),
           uiRow('Network', networkLabel(summary.network)),
-          uiRow('Signing', detailValue(`${summary.signedInputIndexes.length} of ${summary.inputCount} inputs`, signedInputs || 'No requested inputs')),
-          uiRow('Accounts', inputRoleLabel),
+          uiRow('Action', action),
           uiRow('Private keys', 'Stay inside MetaMask'),
           ...(dataOutputCount ? [uiRow('Data outputs', `${dataOutputCount} non-spendable output${dataOutputCount === 1 ? '' : 's'}`)] : []),
         ]),
@@ -380,18 +407,29 @@ export async function confirmBatch(params: {
         }),
         uiBanner(statusTitle, statusSeverity, statusBody),
         uiSection([
-          uiHeading('Batch summary'),
-          uiRow('Transactions', `${summaries.length}`),
+          uiHeading('Approval summary'),
           uiMuted(actionIntent(params.context)),
-          amountCard('Leaves wallet', netTotal, 'Recipient values plus Bitcoin miner fees'),
-          amountCard('Recipients', externalTotal, 'Total external outputs'),
+          amountCard('Total debit', netTotal, 'Recipient values plus Bitcoin miner fees'),
+          amountCard('Recipient total', externalTotal, 'Total external outputs'),
           compactReviewLine('Network fees', feeTotal, 'across the full batch', feeTotal === null ? 'warning' : undefined),
-          uiRow('Signing', `${signedInputCount} input${signedInputCount === 1 ? '' : 's'}`),
+        ]),
+        uiSection([
+          uiHeading('Signing check'),
+          uiRow('Transactions', `${summaries.length}`),
+          uiRow('Inputs', `${signedInputCount} input${signedInputCount === 1 ? '' : 's'}`),
+          uiRow('Approval', 'All-or-nothing'),
+          uiRow(
+            'Safety',
+            inlineSecurity(
+              warningCount ? 'Warnings need review' : 'Full batch signs in order',
+              warningCount ? 'warning' : 'success',
+            ),
+            warningCount ? 'warning' : undefined,
+          ),
         ]),
         uiCollapsibleSection('Request details', [
           uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
           uiRow('Network', networkLabel(network)),
-          uiRow('Approval', 'All-or-nothing'),
           uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
         uiCollapsibleSection(
@@ -452,21 +490,25 @@ export async function confirmTransfer(params: {
         }),
         uiBanner('Ready to broadcast', 'warning', 'Approving signs and broadcasts this testnet BTC transfer. Check the recipient before continuing.'),
         uiSection([
-          uiHeading('Money movement'),
-          amountCard('Leaves wallet', params.amountSats + params.feeSats, 'Recipient value plus Bitcoin miner fee'),
+          uiHeading('Approval summary'),
+          amountCard('Total debit', params.amountSats + params.feeSats, 'Recipient value plus Bitcoin miner fee'),
           amountCard('Recipient gets', params.amountSats, 'BTC transfer amount'),
+          compactReviewLine('Change returns', params.changeSats, 'returns to BTC account'),
           compactReviewLine('Network fee', params.feeSats, `${params.feeRate} sat/vB`),
-          compactReviewLine('Change back', params.changeSats, 'returns to BTC account'),
+        ]),
+        uiSection([
+          uiHeading('Broadcast check'),
+          uiRow('Selected UTXOs', detailValue(`${params.inputCount} input${params.inputCount === 1 ? '' : 's'}`, formatSats(params.inputValueSats, params.network))),
+          uiRow('Broadcast', inlineSecurity('Signs and broadcasts', 'warning'), 'warning'),
+          uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
         uiCollapsibleSection('Request details', [
           uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
           uiRow('Network', networkLabel(params.network)),
-          uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
         uiCollapsibleSection('Inspect route', [
           uiRow('From', uiCopyable(params.from)),
           uiRow('To', uiCopyable(params.to)),
-          uiRow('Selected UTXOs', detailValue(`${params.inputCount} input${params.inputCount === 1 ? '' : 's'}`, formatSats(params.inputValueSats, params.network))),
           uiRow('Broadcast endpoint', uiCopyable(params.broadcastEndpoint)),
         ]),
         uiDivider(),
