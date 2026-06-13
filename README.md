@@ -109,18 +109,19 @@ Allowed local origins are:
 
 These localhost origins are intentionally present for local development and Snap QA only. Do not remove them from the development manifest during local testing.
 
-### Deferred Release Manifest Cleanup
+### Known Deferred Issue: Localhost Manifest Origins
 
-`snap.manifest.json` currently includes localhost origins. That is acceptable for the local audit candidate and developer QA, but it must be cleaned up before MetaMask directory submission.
+`snap.manifest.json` currently includes localhost origins. That is intentional for local Snap development and QA, but the current development manifest is not directory-ready. Do not remove the localhost origins in this iteration; handle this as a dedicated release-manifest task before MetaMask submission.
 
-Plan for the release candidate:
+Release update plan:
 
-1. Keep this development manifest available for local Snap testing.
-2. Create a release manifest path or manifest-generation mode that removes every localhost origin.
+1. Keep the current development manifest available for local Snap testing.
+2. Add a release manifest path or manifest-generation mode that removes every localhost origin.
 3. Keep only approved HTTPS Ducat frontend origins in `endowment:rpc.allowedOrigins`.
-4. Run `npm run build`, `npm run manifest`, `npm run verify:release-manifest`, and `npm run verify:release`.
-5. Refresh submission metadata, package evidence, manifest shasum, and release notes from that exact build.
-6. Retag the audited release candidate after the release manifest and metadata are synced.
+4. Rebuild from the audited commit and regenerate the Snap manifest source shasum.
+5. Update all release artifacts from that exact build: `RELEASE_EVIDENCE.md`, `AUDITOR_HANDOFF.md`, `submission/metamask-directory.json`, `submission/ALLOWLIST_SUBMISSION.md`, package shasum/integrity, screenshots, demo notes, and frontend production Snap env values.
+6. Run `npm run build`, `npm run manifest`, `npm run verify:release-manifest`, `npm run verify:release`, and `npm run verify:submission-ready`.
+7. Retag the final audit or submission candidate only after the release manifest, package evidence, and submission metadata are synced.
 
 ## MetaMask Local Update Flow
 
@@ -188,7 +189,7 @@ Mainnet support still requires a separate audit pass, but the signet/mutinynet S
 
 Use this plan to move the current audit candidate from "ready to review" to "ready to submit". Do not change `snap.manifest.json` localhost origins as part of this note; handle that as a dedicated release-manifest task before external submission.
 
-Current candidate progress: duplicate previous-output rejection, missing previous-output data rejection, oversized signing request rejection, PSBT input/output size guard coverage, suspicious data-output warnings, malformed transfer broadcast txid rejection, bounded primitive app-context metadata validation, hostile app-context containment for decoded vault data, create/borrow/repay/withdraw/repo/liquidate vault action decode coverage, a HTTPS-only release-manifest verifier, and a final submission-readiness gate for fixtures, E2E evidence, screenshots, audit/demo URLs, and npm metadata are implemented. Remaining external evidence work is real transaction fixture capture, full E2E recording, final support/privacy/escalation details, npm publish evidence, and the third-party audit report.
+Current candidate progress: duplicate previous-output rejection, missing previous-output data rejection, oversized signing request rejection, PSBT input/output size guard coverage, suspicious data-output warnings, malformed transfer broadcast txid rejection, bounded primitive app-context metadata validation, hostile app-context containment for decoded vault data, create/borrow/repay/withdraw/repo/liquidate vault action decode coverage, malformed Snap Home balance and vault-data rejection, a HTTPS-only release-manifest verifier, and a final submission-readiness gate for fixtures, E2E evidence, screenshots, audit/demo URLs, and npm metadata are implemented. Remaining external evidence work is real transaction fixture capture, full E2E recording, final support/privacy/escalation details, npm publish evidence, and the third-party audit report.
 
 1. Expand the Ducat transaction fixture corpus. Capture real client-sdk/validator PSBT fixtures for create, deposit, borrow, repay, withdraw, swap, liquidation, and repossess flows on mutinynet/signet. Add golden tests for OP_RETURN decoding, action labels, vault state summaries, data-output labels, warning behavior, and confirmation rendering.
 2. Harden PSBT policy tests. Add adversarial cases for wrong network, unknown sign indexes, duplicate inputs, mixed account ownership, malicious frontend context, malformed data outputs, uncommitted Taproot script-path inputs, missing previous-output data, and suspicious zero-value outputs.

@@ -60,6 +60,10 @@ type VaultSummary = {
 
 const JSON_CONTENT_TYPE = `application/${'json'}`;
 
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
 async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 10_000): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -81,12 +85,20 @@ async function fetchBtcBalance(network: DucatNetwork, address: string): Promise<
 
     const stats = (await response.json()) as AddressStats;
 
-    return (
-      stats.chain_stats.funded_txo_sum -
-      stats.chain_stats.spent_txo_sum +
-      stats.mempool_stats.funded_txo_sum -
-      stats.mempool_stats.spent_txo_sum
-    );
+    const values = [
+      stats.chain_stats?.funded_txo_sum,
+      stats.chain_stats?.spent_txo_sum,
+      stats.mempool_stats?.funded_txo_sum,
+      stats.mempool_stats?.spent_txo_sum,
+    ];
+
+    if (!values.every(isNonNegativeNumber)) {
+      return null;
+    }
+
+    const balance = values[0] - values[1] + values[2] - values[3];
+
+    return balance >= 0 ? balance : null;
   } catch {
     return null;
   }
@@ -121,19 +133,25 @@ async function fetchUnitBalance(network: DucatNetwork, address: string): Promise
     return null;
   }
 
-  const unitCents = response.outputs.reduce((total, output) => {
-    if (output.spent || typeof output.unit_amount !== 'number') {
-      return total;
+  let unitCents = 0;
+
+  for (const output of response.outputs) {
+    if (output.spent) {
+      continue;
     }
 
-    return total + output.unit_amount;
-  }, 0);
+    if (!isNonNegativeNumber(output.unit_amount)) {
+      return null;
+    }
+
+    unitCents += output.unit_amount;
+  }
 
   return unitCents / 100;
 }
 
 function numberOrNull(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  return isNonNegativeNumber(value) ? value : null;
 }
 
 async function fetchVaultSummary(network: DucatNetwork, vaultPubkey: string): Promise<VaultSummary | null> {

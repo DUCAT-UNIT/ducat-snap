@@ -1,6 +1,6 @@
 # MetaMask Allowlist Submission Draft
 
-Date prepared: 2026-06-13
+Date prepared: 2026-06-14
 
 Use this file as the working copy for the MetaMask Snaps Directory Information form. Replace the remaining `PENDING_*` values before submission.
 
@@ -40,8 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.0-20260614-broadcast-txid`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-broadcast-txid`
+- Audit candidate tag: `audit-candidate-0.1.0-20260614-home-data-guard`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-home-data-guard`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,9 +55,9 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `f8109cdba645f6f51836c2ae65688d5dd4c43240`
-- npm package integrity: `sha512-n86qTIo04m5fqfSUssu0tqVaawNKajaHgbILso6R4PGV2148NsQiOzlaj6ubqiIjkyc3Q6ej31+AgVLKDH3cng==`
-- Snap manifest source shasum: `jxzzX3eJ4L9/Zm/ZhL8cCO8gSsuuhwWESX3OtDJhwTU=`
+- npm package shasum: `f9cc86661464ebc413bea04f032c611bdb43351e`
+- npm package integrity: `sha512-g1ziJw6EwnZIHAn6OTCuJ95SWkE0D4fTBiekEM1/PHXoaTf8ho0BusqZuYeV7lDhuv0HIFYtWYrWOa8aAaAoTA==`
+- Snap manifest source shasum: `33nzukIWk+TySkR9mkqz+xijVJmkyS3EfpelnOjDDM0=`
 
 ## Permissions Summary
 
@@ -75,9 +75,9 @@ Mainnet is intentionally not enabled in this release.
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-broadcast-txid/SECURITY.md
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-home-data-guard/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-broadcast-txid/PRIVACY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-home-data-guard/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo

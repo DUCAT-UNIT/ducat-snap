@@ -927,4 +927,70 @@ describe('RPC router', () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it('treats malformed Snap Home network balances as unavailable', async () => {
+    setSnapMock(true, {
+      recentActions: [],
+      lastNetwork: 'signet',
+      lastOrigin: 'http://localhost:3002',
+    });
+    const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const href = String(url);
+
+      if (href.includes('/address/')) {
+        return new Response(
+          JSON.stringify({
+            chain_stats: { funded_txo_sum: 10_000, spent_txo_sum: 20_000 },
+            mempool_stats: { funded_txo_sum: 0, spent_txo_sum: 0 },
+          }),
+          { status: 200 },
+        );
+      }
+
+      if (href.includes('/api/unit_utxos_by_address')) {
+        return new Response(JSON.stringify({ outputs: [{ spent: false, unit_amount: -1 }] }), { status: 200 });
+      }
+
+      if (href.includes('/api/vault_list')) {
+        return new Response(
+          JSON.stringify({
+            vaults: [
+              {
+                btc_locked: -0.5,
+                collateral_ratio: -6,
+                liquidation_price: -40_000,
+                oracle_price: -100_000,
+                unit_borrowed: -1_000,
+                vault_id: 'vault-invalid',
+                vault_last_action: 'active',
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+
+      throw new Error(`Unexpected fetch ${href} ${init?.method ?? 'GET'}`);
+    });
+    const originalFetch = globalThis.fetch;
+
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const home = await renderHomePage();
+      const rendered = JSON.stringify(home.content);
+
+      expect(rendered).toContain('Balance lookup unavailable');
+      expect(rendered).toContain('BTC');
+      expect(rendered).toContain('Unavailable');
+      expect(rendered).toContain('UNIT');
+      expect(rendered).toContain('Vault');
+      expect(rendered).toContain('Unknown');
+      expect(rendered).not.toContain('-0.5');
+      expect(rendered).not.toContain('-1,000');
+      expect(rendered).not.toContain('$-');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

@@ -1,6 +1,6 @@
 # Ducat Snap Release Evidence
 
-Date: 2026-06-13
+Date: 2026-06-14
 
 This document captures the current local audit and submission handoff state for `@ducat-unit/ducat-snap` v0.1.0.
 
@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260614-broadcast-txid`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-broadcast-txid`
+- Implementation tag: `audit-candidate-0.1.0-20260614-home-data-guard`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-home-data-guard`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -41,7 +41,7 @@ This document captures the current local audit and submission handoff state for 
 ## Test Evidence
 
 - Jest suites: 6 passed
-- Jest tests: 61 passed
+- Jest tests: 62 passed
 - Covered areas:
   - Deterministic signet/mutinynet account derivation
   - `ducat_getAccounts`
@@ -73,6 +73,7 @@ This document captures the current local audit and submission handoff state for 
   - `ducat_getCapabilities`
   - Confirmed recent-action clearing
   - Compact Snap Home status rendering from last connected network and origin
+  - Malformed Snap Home public balance and vault response values displayed as unavailable
   - Recent-action state validation, sorting, capping, and clearing
   - Transfer UTXO selection, dust-change fee display, and insufficient funds rejection
   - Malformed transfer broadcast txid rejection and failed-action recording
@@ -84,12 +85,12 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1326877`
-- Dry-run unpacked size: `2259040`
+- Dry-run package size: `1327033`
+- Dry-run unpacked size: `2259666`
 - Dry-run file count: `15`
-- npm package shasum: `f8109cdba645f6f51836c2ae65688d5dd4c43240`
-- npm package integrity: `sha512-n86qTIo04m5fqfSUssu0tqVaawNKajaHgbILso6R4PGV2148NsQiOzlaj6ubqiIjkyc3Q6ej31+AgVLKDH3cng==`
-- Snap manifest source shasum: `jxzzX3eJ4L9/Zm/ZhL8cCO8gSsuuhwWESX3OtDJhwTU=`
+- npm package shasum: `f9cc86661464ebc413bea04f032c611bdb43351e`
+- npm package integrity: `sha512-g1ziJw6EwnZIHAn6OTCuJ95SWkE0D4fTBiekEM1/PHXoaTf8ho0BusqZuYeV7lDhuv0HIFYtWYrWOa8aAaAoTA==`
+- Snap manifest source shasum: `33nzukIWk+TySkR9mkqz+xijVJmkyS3EfpelnOjDDM0=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -116,7 +117,7 @@ Packaged files:
 - Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`.
 - Transitive dependency versions are locked by `package-lock.json`.
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
-- Snapper result: completed with 210 low-risk ESLinting findings
+- Snapper result: completed with 211 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 - Release manifest guard: `npm run verify:release-manifest` derives a submission manifest origin set from `submission/metamask-directory.json` and fails if any release origin is localhost, non-HTTPS, duplicated, wildcarded, or outside the current development manifest.
@@ -152,7 +153,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260614-broadcast-txid` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260614-home-data-guard` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
