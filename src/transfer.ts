@@ -36,7 +36,7 @@ async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 12_
   }
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
+async function fetchJson<ResponseBody>(url: string): Promise<ResponseBody> {
   let response: Response;
 
   try {
@@ -56,7 +56,7 @@ async function fetchJson<T>(url: string): Promise<T> {
     });
   }
 
-  return response.json() as Promise<T>;
+  return response.json() as Promise<ResponseBody>;
 }
 
 async function postText(url: string, body: string): Promise<string> {

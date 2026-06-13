@@ -76,7 +76,7 @@ export function toSigner(node: SignerLike): PsbtSigner {
   return {
     publicKey: Buffer.from(node.publicKey),
     sign: (hash: Buffer) => Buffer.from(sign(hash)),
-    signSchnorr: signSchnorr ? (hash: Buffer) => Buffer.from(signSchnorr(hash)) : undefined,
+    signSchnorr: signSchnorr ? (hash: Buffer): Buffer => Buffer.from(signSchnorr(hash)) : undefined,
   };
 }
 

@@ -18,15 +18,15 @@ export function uiBox(
     center: options?.center,
     crossAlignment: options?.crossAlignment,
     direction: options?.direction,
-  }) as SnapElement;
+  });
 }
 
 export function uiSection(children: SnapElement[]): SnapElement {
-  return SnapJsx.Section({ children }) as SnapElement;
+  return SnapJsx.Section({ children });
 }
 
 export function uiHeading(value: string, size: 'sm' | 'md' | 'lg' = 'sm'): SnapElement {
-  return SnapJsx.Heading({ children: value, size }) as SnapElement;
+  return SnapJsx.Heading({ children: value, size });
 }
 
 export function uiText(
@@ -44,7 +44,7 @@ export function uiText(
     color: options?.color,
     size: options?.size,
     fontWeight: options?.fontWeight,
-  }) as SnapElement;
+  });
 }
 
 export function uiMuted(value: string): SnapElement {
@@ -52,7 +52,7 @@ export function uiMuted(value: string): SnapElement {
 }
 
 export function uiCopyable(value: string, sensitive = false): SnapElement {
-  return SnapJsx.Copyable({ value, sensitive }) as SnapElement;
+  return SnapJsx.Copyable({ value, sensitive });
 }
 
 /**
@@ -78,11 +78,11 @@ export function uiInline(children: SnapElement[]): SnapElement {
 }
 
 export function uiLink(label: string, href: string): SnapElement {
-  return SnapJsx.Link({ children: label, href }) as SnapElement;
+  return SnapJsx.Link({ children: label, href });
 }
 
 export function uiCard(params: { title: string; value: string; description?: string; extra?: string; image?: string }): SnapElement {
-  return SnapJsx.Card(params) as SnapElement;
+  return SnapJsx.Card(params);
 }
 
 export function uiCollapsibleSection(label: string, children: SnapElement[], isExpanded = false): SnapElement {
@@ -90,15 +90,15 @@ export function uiCollapsibleSection(label: string, children: SnapElement[], isE
     children,
     isExpanded,
     label,
-  }) as SnapElement;
+  });
 }
 
 export function uiDivider(): SnapElement {
-  return SnapJsx.Divider({}) as SnapElement;
+  return SnapJsx.Divider({});
 }
 
 export function uiValue(value: string, extra: string): SnapElement {
-  return SnapJsx.Value({ value, extra }) as SnapElement;
+  return SnapJsx.Value({ value, extra });
 }
 
 export function uiRow(label: string, value: string | SnapElement, variant?: 'default' | 'warning' | 'critical', tooltip?: string): SnapElement {
@@ -107,7 +107,7 @@ export function uiRow(label: string, value: string | SnapElement, variant?: 'def
     variant,
     tooltip,
     children: typeof value === 'string' ? uiText(value, { alignment: 'end' }) : value,
-  }) as SnapElement;
+  });
 }
 
 export function uiBanner(title: string, severity: 'danger' | 'info' | 'success' | 'warning', body: string): SnapElement {
@@ -115,5 +115,5 @@ export function uiBanner(title: string, severity: 'danger' | 'info' | 'success' 
     title,
     severity,
     children: uiText(body) as never,
-  }) as SnapElement;
+  });
 }

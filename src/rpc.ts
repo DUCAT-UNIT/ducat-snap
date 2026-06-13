@@ -1,3 +1,5 @@
+import type { Json } from '@metamask/snaps-sdk';
+
 import { getAccountKeySet, getRoleForAddress } from './accounts';
 import { confirmBatch, confirmClearRecentActions, confirmMessage, confirmPsbt } from './confirmations';
 import { actionLabel } from './display';
@@ -34,6 +36,39 @@ type SignMessageParams = {
   address?: unknown;
   message?: unknown;
   context?: unknown;
+};
+
+type SignMessageResponse = {
+  status: 'success';
+  result: {
+    address: string;
+    messageHash: string;
+    protocol: 'BIP322';
+    signature: string;
+  };
+};
+
+type SignPsbtResponse = {
+  psbt: string;
+};
+
+type SignBatchResponse = {
+  psbts: string[];
+};
+
+type CapabilitiesResponse = {
+  snap: string;
+  version: string;
+  networks: DucatNetwork[];
+  methods: string[];
+  features: {
+    batchSigning: boolean;
+    bip322MessageSigning: boolean;
+    mainnet: boolean;
+    psbtSigning: boolean;
+    simpleBtcTransfer: boolean;
+    snapHome: boolean;
+  };
 };
 
 const MAX_SIGN_INPUTS = 80;
@@ -165,16 +200,16 @@ function parseSignInputs(value: unknown, label: string): SignInputs {
   return parsed;
 }
 
-function paramsObject<T extends object>(params: unknown): Partial<T> {
+function paramsObject(params: unknown): Record<string, unknown> {
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
     return {};
   }
 
-  return params as Partial<T>;
+  return Object.fromEntries(Object.entries(params));
 }
 
-async function signMessage(origin: string, rawParams: unknown) {
-  const params = paramsObject<SignMessageParams>(rawParams);
+async function signMessage(origin: string, rawParams: unknown): Promise<SignMessageResponse> {
+  const params = paramsObject(rawParams) as SignMessageParams;
   const network = normalizeNetwork(params.network);
   const address = typeof params.address === 'string' ? params.address : '';
   const message = typeof params.message === 'string' ? params.message : '';
@@ -231,8 +266,8 @@ async function signMessage(origin: string, rawParams: unknown) {
   };
 }
 
-async function signPsbt(origin: string, rawParams: unknown) {
-  const params = paramsObject<SignPsbtParams>(rawParams);
+async function signPsbt(origin: string, rawParams: unknown): Promise<SignPsbtResponse> {
+  const params = paramsObject(rawParams) as SignPsbtParams;
   const network = normalizeNetwork(params.network);
 
   if (typeof params.psbt !== 'string') {
@@ -308,7 +343,7 @@ function assertSingleNetwork(summaries: { network: DucatNetwork }[]): void {
   }
 }
 
-function capabilities() {
+function capabilities(): CapabilitiesResponse {
   return {
     snap: '@ducat-unit/ducat-snap',
     version: '0.1.0',
@@ -334,8 +369,8 @@ function capabilities() {
   };
 }
 
-async function signBatch(origin: string, rawParams: unknown) {
-  const params = paramsObject<SignBatchParams>(rawParams);
+async function signBatch(origin: string, rawParams: unknown): Promise<SignBatchResponse> {
+  const params = paramsObject(rawParams) as SignBatchParams;
   const network = normalizeNetwork(params.network);
   const context = optionalContext(params.context);
   const entries = parseBatchEntries(params.entries);
@@ -373,7 +408,7 @@ async function signBatch(origin: string, rawParams: unknown) {
   return { psbts };
 }
 
-async function withFailureNotification<T>(title: string, action: () => Promise<T>): Promise<T> {
+async function withFailureNotification<Result>(title: string, action: () => Promise<Result>): Promise<Result> {
   try {
     return await action();
   } catch (error) {
@@ -383,12 +418,12 @@ async function withFailureNotification<T>(title: string, action: () => Promise<T
 }
 
 function actionTitleFromParams(rawParams: unknown, fallback: string): string {
-  const params = paramsObject<{ context?: unknown }>(rawParams);
+  const params = paramsObject(rawParams);
 
   return actionLabel(optionalContext(params.context), fallback);
 }
 
-export async function handleRpcRequest(origin: string, request: JsonRpcRequest) {
+export async function handleRpcRequest(origin: string, request: JsonRpcRequest): Promise<Json> {
   assertAllowedOrigin(origin);
 
   switch (request.method) {
@@ -399,7 +434,7 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest) 
       return { cleared: true };
 
     case 'ducat_getAccounts': {
-      const params = paramsObject<{ network?: unknown }>(request.params);
+      const params = paramsObject(request.params);
       const network = normalizeNetwork(params.network);
       const account = await getAccountKeySet(network);
       await rememberDucatSession(network, origin);
@@ -411,19 +446,19 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest) 
       return capabilities();
 
     case 'ducat_signMessage':
-      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat message'), () => signMessage(origin, request.params));
+      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat message'), async () => signMessage(origin, request.params));
 
     case 'ducat_signPsbt':
-      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat transaction'), () => signPsbt(origin, request.params));
+      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat transaction'), async () => signPsbt(origin, request.params));
 
     case 'ducat_signBatch':
-      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat batch'), () => signBatch(origin, request.params));
+      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat batch'), async () => signBatch(origin, request.params));
 
     case 'ducat_sendTransfer':
-      return withFailureNotification('Send BTC', () => sendTransfer(origin, paramsObject(request.params)));
+      return withFailureNotification('Send BTC', async () => sendTransfer(origin, paramsObject(request.params)));
 
     case 'ducat_getHomeState': {
-      const params = paramsObject<{ network?: unknown }>(request.params);
+      const params = paramsObject(request.params);
       return getHomeState(params.network);
     }
 

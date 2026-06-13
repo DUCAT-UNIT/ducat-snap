@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260614-fixture-replay`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-fixture-replay`
+- Implementation tag: `audit-candidate-0.1.0-20260614-snapper-cleanup`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-snapper-cleanup`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -87,12 +87,12 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1327158`
-- Dry-run unpacked size: `2259987`
+- Dry-run package size: `1327088`
+- Dry-run unpacked size: `2259845`
 - Dry-run file count: `15`
-- npm package shasum: `bbfcfd3cc3dee40941a53ce291631007ab24b460`
-- npm package integrity: `sha512-HKn7yBQb3eDjT77d5OSL9mv5osOIyqnNePXJlat476McbqXisOZrc9xGICryCGWZ3U5Gii4KBGn3BO9KXFqBEA==`
-- Snap manifest source shasum: `33nzukIWk+TySkR9mkqz+xijVJmkyS3EfpelnOjDDM0=`
+- npm package shasum: `ac86d47c7ee32dbe5ede087e3b77797648175cd3`
+- npm package integrity: `sha512-4uq2Hndhb4yD7Znpq/jA8CY8VhskzAFSfQln1tUMzJletd7eYgnfd05O95dzQ7wIZjphhEpy6RsjSIP1jLjx7w==`
+- Snap manifest source shasum: `Eehx+iUe2tE1fy1tFReBk15xYg4es5TwW6Q8/c//WrA=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -119,7 +119,7 @@ Packaged files:
 - Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`.
 - Transitive dependency versions are locked by `package-lock.json`.
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
-- Snapper result: completed with 213 low-risk ESLinting findings
+- Snapper result: completed with 184 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 - Release manifest guard: `npm run verify:release-manifest` derives a submission manifest origin set from `submission/metamask-directory.json` and fails if any release origin is localhost, non-HTTPS, duplicated, wildcarded, or outside the current development manifest.
@@ -155,7 +155,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260614-fixture-replay` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260614-snapper-cleanup` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

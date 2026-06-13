@@ -104,7 +104,7 @@ async function fetchBtcBalance(network: DucatNetwork, address: string): Promise<
   }
 }
 
-async function postValidatorJson<T>(network: DucatNetwork, path: string, body: Record<string, string>): Promise<T | null> {
+async function postValidatorJson<ResponseBody>(network: DucatNetwork, path: string, body: Record<string, string>): Promise<ResponseBody | null> {
   for (const baseUrl of validatorUrls(network)) {
     try {
       const response = await fetchWithTimeout(`${baseUrl}${path}`, {
@@ -114,7 +114,7 @@ async function postValidatorJson<T>(network: DucatNetwork, path: string, body: R
       });
 
       if (response.ok) {
-        return (await response.json()) as T;
+        return (await response.json()) as ResponseBody;
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -279,7 +279,7 @@ function vaultComponents(vault: VaultSummary | null): SnapElement[] {
   ];
 }
 
-export async function renderHomePage(networkInput?: unknown) {
+export async function renderHomePage(networkInput?: unknown): Promise<{ content: SnapElement }> {
   try {
     const homeState = await getHomeState(networkInput);
 
