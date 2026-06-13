@@ -6,7 +6,7 @@ Last local command:
 npx --yes @sayfer_io/snapper --path . --output snapper-report.json
 ```
 
-Local result: 200 findings, all risk 1 and all under the `ESLinting` category.
+Local result: 208 findings, all risk 1 and all under the `ESLinting` category.
 
 ## Addressed Findings
 
@@ -22,13 +22,13 @@ The first local scan reported 105 findings. The implementation now fixes the non
 
 ## Remaining Finding Summary
 
-- 159 missing JSDoc comments.
+- 162 missing JSDoc comments.
 - 7 missing explicit return type annotations.
 - 13 unnecessary type assertion warnings.
-- 4 generic type parameter naming warnings.
+- 5 generic type parameter naming warnings.
+- 4 async function policy warnings for promise-returning helpers.
 - External API response fields using snake_case, such as Esplora and Ducat validator fields.
 - One object literal key using `vault_pubkey`, matching the Ducat validator API.
-- One unbound method warning in signer adaptation code.
 - One `hmac(sha512, ...)` style warning in local BIP32 derivation.
 
 ## Review Notes

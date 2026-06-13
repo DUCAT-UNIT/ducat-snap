@@ -142,6 +142,7 @@ const expectedManifestPermissions = [
   'snap_dialog',
   'snap_getBip32Entropy',
   'snap_manageState',
+  'snap_notify',
 ];
 
 const requiredPackageFiles = [

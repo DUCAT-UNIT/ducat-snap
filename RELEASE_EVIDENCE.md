@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260613-multisig-label`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-multisig-label`
+- Implementation tag: `audit-candidate-0.1.0-20260613-ci-metadata`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-ci-metadata`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -70,12 +70,12 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1324811`
-- Dry-run unpacked size: `2251409`
+- Dry-run package size: `1325022`
+- Dry-run unpacked size: `2252262`
 - Dry-run file count: `15`
-- npm package shasum: `2e97e25a73851bef2f0741f09496855ff4886d15`
-- npm package integrity: `sha512-a5gLo0Sdns9yNZjLtIOnsGj2pDhJInB2xIVMU2s5kb6DJqdQX6drKv3wqWwftkYhfHWrOmfU3rb9FchuJOVORw==`
-- Snap manifest source shasum: `luCHJXxaxGJOxswzzMW4zxEmJ3O9X3bqRP/zsYWUNqo=`
+- npm package shasum: `ad7353fbbd5b56d4df4beeb082db74b441eb8547`
+- npm package integrity: `sha512-+96vNFHHPX2/XQ8V+KPm0/1vDJsghuHR02ZB72pdKDE/l/AxRoNc1Hy2Y+OKrs53b8HlNsi67JwwPqhX8e1mGg==`
+- Snap manifest source shasum: `aiG1Erlsmc7ZnnCgSOC3RW9dx7jIPEPGabQ989G0m0c=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -136,7 +136,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260613-multisig-label` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260613-ci-metadata` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

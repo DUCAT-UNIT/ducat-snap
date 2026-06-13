@@ -33,8 +33,9 @@ export async function notifyAction(params: ActionNotificationParams): Promise<vo
         message: notificationMessage(params),
       },
     });
-  } catch {
+  } catch (error) {
     // Notifications are advisory. Never fail signing or transfer flows because MetaMask rejected a notification.
+    void (error instanceof Error ? error.message : String(error));
   }
 }
 
