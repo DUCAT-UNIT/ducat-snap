@@ -1,6 +1,6 @@
 import { getAccountKeySet } from './accounts';
 import { DUCAT_MARK_SVG } from './brand';
-import { actionLabel, formatMaybeBtcValue, formatSatsOnly, formatUnit, networkLabel } from './display';
+import { formatMaybeBtcValue, formatSatsOnly, formatUnit, networkLabel } from './display';
 import { ducatAppUrl, esploraUrl, normalizeNetwork, validatorUrls } from './networks';
 import { getState } from './state';
 import type { DucatNetwork, RecentAction } from './types';
@@ -8,11 +8,7 @@ import {
   uiBanner,
   uiBox,
   uiCard,
-  uiCollapsibleSection,
-  uiCopyable,
   uiHeading,
-  uiLink,
-  uiMuted,
   uiRow,
   uiSection,
   type SnapElement,
@@ -208,64 +204,6 @@ function statusLabel(status: string): string {
     .replace(/\b\w/gu, (char: string) => char.toUpperCase());
 }
 
-function actionUrl(appUrl: string, path: string): string {
-  return `${appUrl}${path}`;
-}
-
-function canRenderSnapLink(url: string): boolean {
-  try {
-    const protocol = new URL(url).protocol;
-
-    return protocol === 'https:' || protocol === 'mailto:' || protocol === 'metamask:';
-  } catch {
-    return false;
-  }
-}
-
-function actionComponents(appUrl: string): SnapElement[] {
-  const actions = [
-    ['Create', '/?action=create'],
-    ['Deposit', '/?action=deposit'],
-    ['Borrow', '/?action=borrow'],
-    ['Repay', '/?action=repay'],
-    ['Withdraw', '/?action=withdraw'],
-    ['Swap', '/swap'],
-    ['Liquidations', '/liquidations'],
-  ] as const;
-
-  if (canRenderSnapLink(appUrl)) {
-    return actions.map(([label, path]) => uiRow(label, uiLink('Open', actionUrl(appUrl, path))));
-  }
-
-  return [
-    uiMuted('Local routes are copyable because MetaMask Snap Home only opens HTTPS, mailto, and metamask links.'),
-    ...actions.map(([label, path]) => uiRow(label, uiCopyable(actionUrl(appUrl, path)))),
-  ];
-}
-
-function appLaunchComponents(appUrl: string): SnapElement[] {
-  if (canRenderSnapLink(appUrl)) {
-    return [uiRow('Ducat app', uiLink('Open', appUrl))];
-  }
-
-  return [uiRow('Ducat app', uiCopyable(appUrl))];
-}
-
-function accountComponents(accounts: Awaited<ReturnType<typeof getHomeState>>['accounts']): SnapElement[] {
-  if (accounts.runes === accounts.vault) {
-    return [
-      uiRow('BTC account', uiCopyable(accounts.sats)),
-      uiRow('UNIT / Vault account', uiCopyable(accounts.runes)),
-    ];
-  }
-
-  return [
-    uiRow('BTC account', uiCopyable(accounts.sats)),
-    uiRow('UNIT account', uiCopyable(accounts.runes)),
-    uiRow('Vault account', uiCopyable(accounts.vault)),
-  ];
-}
-
 function usdLabel(value: number | null): string {
   return value === null ? 'Unknown' : `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
@@ -281,15 +219,31 @@ function collateralRatioLabel(value: number | null): string | undefined {
   return `${formatted}% collateral`;
 }
 
+function btcAmount(value: number | null): string {
+  return value === null
+    ? 'Unknown'
+    : `${value.toLocaleString('en-US', {
+        maximumFractionDigits: 8,
+        minimumFractionDigits: 0,
+      })} BTC`;
+}
+
+function btcBalance(value: number | null): string {
+  return value === null ? 'Unavailable' : `${formatMaybeBtcValue(value)} (${formatSatsOnly(value)})`;
+}
+
+function unitAmount(value: number | null): string {
+  return value === null ? 'Unknown' : `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} UNIT`;
+}
+
 function vaultComponents(vault: VaultSummary | null): SnapElement[] {
   if (!vault) {
     return [
       uiCard({
-        description: 'Create or connect a vault in the Ducat app',
+        description: 'Create or connect a vault in the Ducat app.',
         title: 'Vault',
-        value: 'Not found',
+        value: 'No vault found',
       }),
-      uiMuted('No vault found, or the Ducat validator is unavailable.'),
     ];
   }
 
@@ -300,86 +254,11 @@ function vaultComponents(vault: VaultSummary | null): SnapElement[] {
       title: 'Vault',
       value: statusLabel(vault.status),
     }),
-    uiRow('BTC locked', vault.btcLocked === null ? 'Unknown' : `${vault.btcLocked} BTC`),
-    uiRow('UNIT borrowed', vault.unitBorrowed === null ? 'Unknown' : `${vault.unitBorrowed} UNIT`),
+    uiRow('Collateral', btcAmount(vault.btcLocked)),
+    uiRow('Debt', unitAmount(vault.unitBorrowed)),
     uiRow('Liquidation price', usdLabel(vault.liquidationPrice)),
     uiRow('Oracle price', usdLabel(vault.oraclePrice)),
   ];
-}
-
-function relativeTime(timestamp: number): string {
-  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-
-  if (elapsedSeconds < 60) {
-    return 'Just now';
-  }
-
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-
-  if (elapsedMinutes < 60) {
-    return `${elapsedMinutes}m ago`;
-  }
-
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-
-  if (elapsedHours < 24) {
-    return `${elapsedHours}h ago`;
-  }
-
-  return `${Math.floor(elapsedHours / 24)}d ago`;
-}
-
-function actionStatusLabel(status: RecentAction['status']): string {
-  switch (status) {
-    case 'broadcast':
-      return 'Broadcast';
-    case 'failed':
-      return 'Failed';
-    case 'signed':
-    default:
-      return 'Signed';
-  }
-}
-
-function actionAmount(action: RecentAction): string | undefined {
-  const parts = [
-    typeof action.amountSats === 'number' ? formatMaybeBtcValue(action.amountSats) : undefined,
-    typeof action.unitAmount === 'number' ? formatUnit(action.unitAmount) : undefined,
-  ].filter(Boolean);
-
-  return parts.length ? parts.join(' + ') : undefined;
-}
-
-function recentActionComponents(actions: RecentAction[]): SnapElement[] {
-  if (!actions.length) {
-    return [
-      uiCard({
-        description: 'Signed Ducat requests will appear here',
-        title: 'Recent actions',
-        value: 'None yet',
-      }),
-    ];
-  }
-
-  return actions.slice(0, 5).flatMap((action, index) => {
-    const title = actionLabel({ actionType: action.actionType, title: action.title }, 'Ducat action');
-    const amount = actionAmount(action);
-    const description = [action.summary, networkLabel(action.network)].filter(Boolean).join(' - ');
-    const rows: SnapElement[] = [
-      uiCard({
-        description: description || networkLabel(action.network),
-        extra: amount ?? relativeTime(action.timestamp),
-        title,
-        value: actionStatusLabel(action.status),
-      }),
-    ];
-
-    if (action.txid) {
-      rows.push(uiRow(`Txid #${index + 1}`, uiCopyable(action.txid)));
-    }
-
-    return rows;
-  });
 }
 
 export async function renderHomePage(networkInput?: unknown) {
@@ -395,20 +274,11 @@ export async function renderHomePage(networkInput?: unknown) {
           title: 'Ducat Snap',
           value: networkLabel(homeState.network),
         }),
-        uiBanner('Testnet release', 'info', 'Mainnet is disabled. Use the Ducat app for create, deposit, borrow, repay, withdraw, swap, and liquidation flows.'),
         uiSection([
-          uiHeading('Balances'),
-          uiCard({
-            description: 'Spendable testnet BTC',
-            extra: homeState.balances.btcSats === null ? undefined : formatSatsOnly(homeState.balances.btcSats),
-            title: 'BTC balance',
-            value: formatMaybeBtcValue(homeState.balances.btcSats),
-          }),
-          uiCard({
-            description: 'Ducat validator balance',
-            title: 'UNIT balance',
-            value: formatUnit(homeState.balances.unit),
-          }),
+          uiHeading('Overview'),
+          uiRow('Network', networkLabel(homeState.network)),
+          uiRow('BTC', btcBalance(homeState.balances.btcSats)),
+          uiRow('UNIT', formatUnit(homeState.balances.unit)),
         ]),
         ...(homeState.balances.btcSats === null || homeState.balances.unit === null
           ? [uiBanner('Balance lookup unavailable', 'warning', 'One or more balance services are unavailable or timed out. Signing still works from PSBT data supplied by the Ducat app.')]
@@ -417,10 +287,6 @@ export async function renderHomePage(networkInput?: unknown) {
           uiHeading('Vault'),
           ...vaultComponents(homeState.vault),
         ]),
-        uiCollapsibleSection('Recent Ducat actions', recentActionComponents(homeState.recentActions), true),
-        uiCollapsibleSection('Accounts', accountComponents(homeState.accounts)),
-        uiCollapsibleSection('Open Ducat app', appLaunchComponents(homeState.appUrl), true),
-        uiCollapsibleSection('Ducat actions', actionComponents(homeState.appUrl)),
       ]),
     };
   } catch (error) {

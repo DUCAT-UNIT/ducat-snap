@@ -746,17 +746,17 @@ describe('RPC router', () => {
       const rendered = JSON.stringify(home.content);
 
       expect(rendered).toContain('Signet testnet');
-      expect(rendered).toContain('http://localhost:3002/?action=deposit');
-      expect(rendered).not.toContain('[Deposit](http://localhost:3002/?action=deposit)');
       expect(rendered).toContain('Alpha vault');
       expect(rendered).toContain('623.33% collateral');
       expect(rendered).toContain('45,000 sats');
-      expect(rendered).toContain('Recent Ducat actions');
-      expect(rendered).toContain('Borrow UNIT');
-      expect(rendered).toContain('Broadcast');
-      expect(rendered).toContain('Borrowed UNIT against Alpha vault');
-      expect(rendered).toContain('0.00012345 BTC');
-      expect(rendered).toContain('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+      expect(rendered).toContain('Collateral');
+      expect(rendered).toContain('Debt');
+      expect(rendered).not.toContain('Recent Ducat actions');
+      expect(rendered).not.toContain('Accounts');
+      expect(rendered).not.toContain('Open Ducat app');
+      expect(rendered).not.toContain('Ducat actions');
+      expect(rendered).not.toContain('http://localhost:3002/?action=deposit');
+      expect(rendered).not.toContain('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     } finally {
       globalThis.fetch = originalFetch;
     }

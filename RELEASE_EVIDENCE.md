@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260613-vault-actions`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-vault-actions`
+- Implementation tag: `audit-candidate-0.1.0-20260613-home-cleanup`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-home-cleanup`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -62,7 +62,7 @@ This document captures the current local audit and submission handoff state for 
   - Manifest/RPC allowed-origin sync
   - `ducat_getCapabilities`
   - Confirmed recent-action clearing
-  - Snap Home rendering from last connected network and origin
+  - Compact Snap Home status rendering from last connected network and origin
   - Recent-action state validation, sorting, capping, and clearing
   - Transfer UTXO selection, dust-change fee display, and insufficient funds rejection
   - Malformed PSBT rejection
@@ -73,12 +73,12 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1326082`
-- Dry-run unpacked size: `2255861`
+- Dry-run package size: `1325339`
+- Dry-run unpacked size: `2253731`
 - Dry-run file count: `15`
-- npm package shasum: `c54fab173f29d386dbcaea01431853daadd69aa3`
-- npm package integrity: `sha512-REDyFx+rPfo9wyN1OFQ/x/y0pBtXmNxCLeVuaCxNAP4bps3nVLYv1RdRrjatpzUgzeczQHgCfqlfPwHkXU+F7w==`
-- Snap manifest source shasum: `4r4LaOdF3/O9HqPaPGnNtBriY9kSx1Z14mXlSA3+TEY=`
+- npm package shasum: `914ad7c061438425c7f96280a5e9a20ca16d8dba`
+- npm package integrity: `sha512-O37rOoi9RQHKKgfzTmHu268lJkErmw9stP9ps2QNx0gPD+KnlaGLSQknXlufew3LXJMhAf5kQ81QzCrhl5l64w==`
+- Snap manifest source shasum: `rScl6pZqOtKMdjUJe2gzN6ujnbW8klm/+OJhkEIEZWg=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -105,7 +105,7 @@ Packaged files:
 - Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`.
 - Transitive dependency versions are locked by `package-lock.json`.
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
-- Snapper result: completed with 213 low-risk ESLinting findings
+- Snapper result: completed with 207 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 
@@ -139,7 +139,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260613-vault-actions` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260613-home-cleanup` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
