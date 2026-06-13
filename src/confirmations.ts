@@ -273,14 +273,6 @@ function countCard(title: string, value: string, description: string, extra?: st
   });
 }
 
-function warningTitle(warnings: string[]): string {
-  if (warnings.some((warning) => warning.startsWith('Alpha compatibility path'))) {
-    return 'Alpha compatibility';
-  }
-
-  return 'Review before signing';
-}
-
 function actionKey(context?: DucatActionContext): string | null {
   const raw = context?.actionType ?? context?.flow ?? context?.title;
 
@@ -450,7 +442,7 @@ export async function confirmPsbt(params: {
     externalOutputCount === 1 && primaryExternalOutput
       ? `${outputDetailLabel(primaryExternalOutput)} - ${truncateMiddle(primaryExternalOutput.address, 12, 8)}`
       : compactCount(externalOutputCount, 'external output');
-  const statusTitle = visibleWarnings.length ? warningTitle(visibleWarnings) : 'Verified by Ducat Snap';
+  const statusTitle = visibleWarnings.length ? 'Review before signing' : 'Verified by Ducat Snap';
   const statusSeverity = visibleWarnings.length ? 'warning' : 'success';
   const statusBody = visibleWarnings.length
     ? visibleWarnings[0]
@@ -461,10 +453,6 @@ export async function confirmPsbt(params: {
           uiRow(
             `Input #${input.index}`,
             detailValue(formatMaybeBtcValue(input.valueSats), `${signedInputTitle(input.role)} - ${truncateMiddle(input.address, 10, 8)}`),
-            input.verification === 'alpha-unverified-taproot-script-path' ? 'warning' : undefined,
-            input.verification === 'alpha-unverified-taproot-script-path'
-              ? 'This alpha Taproot script-path input contains the Ducat vault key but could not be fully recomputed against the prevout.'
-              : undefined,
           ),
         )
       : [uiMuted('No inputs requested for signing.')];

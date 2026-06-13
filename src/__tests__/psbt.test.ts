@@ -197,9 +197,7 @@ describe('PSBT signing', () => {
     const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
     const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
 
-    expect(prepared.summary.warnings).toContain(
-      'Alpha compatibility path: one Taproot script-path input contains the Ducat vault key but could not be fully recomputed against the prevout.',
-    );
+    expect(prepared.summary.warnings).toEqual([]);
     expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
     expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
   });

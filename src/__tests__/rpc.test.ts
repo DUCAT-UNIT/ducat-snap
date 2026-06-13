@@ -484,6 +484,9 @@ describe('RPC router', () => {
     const rendered = dialogValues(request).join('\n');
 
     expect(rendered).toContain('UNIT / Vault multisig');
+    expect(rendered).toContain('Only Snap-managed inputs');
+    expect(rendered).not.toContain('Warnings need review');
+    expect(rendered).not.toContain('Alpha compatibility');
   });
 
   it('rejects unknown PSBT input indexes before showing confirmation', async () => {

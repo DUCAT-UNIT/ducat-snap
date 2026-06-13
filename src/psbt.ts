@@ -365,15 +365,11 @@ function outputRole(address: string, keySet: AccountKeySet): PsbtOutputSummary['
   return 'external';
 }
 
-function buildWarnings(signedInputs: PsbtInputSummary[], feeSats: number | null, outputs: PsbtOutputSummary[]): string[] {
+function buildWarnings(feeSats: number | null, outputs: PsbtOutputSummary[]): string[] {
   const warnings: string[] = [];
 
   if (feeSats === null) {
     warnings.push('Fee is unavailable because one or more PSBT inputs omitted value data.');
-  }
-
-  if (signedInputs.some((input) => input.verification === 'alpha-unverified-taproot-script-path')) {
-    warnings.push('Alpha compatibility path: one Taproot script-path input contains the Ducat vault key but could not be fully recomputed against the prevout.');
   }
 
   if (outputs.some((output) => output.address.startsWith('OP_RETURN') && output.address.includes('OP_8') && !output.vaultData)) {
@@ -439,7 +435,7 @@ export function summarizePsbt(
     externalOutputSats: outputs.filter((output) => !output.isMine).reduce((total, output) => total + output.valueSats, 0),
     selfOutputSats: outputs.filter((output) => output.isMine).reduce((total, output) => total + output.valueSats, 0),
     vaultUpdates,
-    warnings: buildWarnings(signedInputs, feeSats, outputs),
+    warnings: buildWarnings(feeSats, outputs),
   };
 }
 
