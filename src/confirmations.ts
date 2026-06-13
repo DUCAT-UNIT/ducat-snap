@@ -192,13 +192,6 @@ function contextFromDecodedVault(summary: PsbtSummary, context?: DucatActionCont
   return {
     ...context,
     actionType: vaultData.actionType,
-    metadata: {
-      ...context?.metadata,
-      decoded_from: 'Ducat OP_RETURN',
-      vault_action_flag: vaultData.actionFlag,
-      vault_data_output: vaultData.outputIndex,
-      vault_timestamp: vaultData.unitTimestamp,
-    },
     title: actionLabel({ actionType: vaultData.actionType }, 'Ducat vault update'),
     vault: {
       ...context?.vault,
@@ -231,7 +224,7 @@ function transitionValue(
 ): SnapElement {
   const afterText = formatter(after);
 
-  return before === undefined ? detailValue(afterText, 'after signing') : detailValue(afterText, `was ${formatter(before)}`);
+  return before === undefined ? detailValue(afterText) : detailValue(afterText, `was ${formatter(before)}`);
 }
 
 function vaultActionSection(context?: DucatActionContext): SnapElement[] {
@@ -274,7 +267,7 @@ function vaultActionSection(context?: DucatActionContext): SnapElement[] {
       ...rows,
       uiMuted(
         vault.source === 'op_return'
-          ? 'Vault action and after-state were decoded from the Ducat OP_RETURN in this PSBT. App context supplies requested amounts and previous values.'
+          ? 'Vault action and after-state were decoded from the vault data in this PSBT. App context supplies requested amounts and previous values.'
           : 'Vault status comes from the Ducat app. Bitcoin amounts below are parsed from the PSBT and are what the Snap signs.',
       ),
     ]),
@@ -452,7 +445,6 @@ export async function confirmPsbt(params: {
     .filter(({ output }) => !isDataOutput(output));
   const externalOutputCount = recipientOutputs.filter(({ output }) => !output.isMine).length;
   const changeOutputCount = recipientOutputs.filter(({ output }) => output.isMine).length;
-  const dataOutputCount = summary.outputs.length - recipientOutputs.length;
   const externalOutputs = recipientOutputs.filter(({ output }) => !output.isMine);
   const primaryExternalOutput = externalOutputs[0]?.output;
   const visibleOutputs = recipientOutputs.slice(0, 8);
@@ -545,13 +537,6 @@ export async function confirmPsbt(params: {
             visibleWarnings.length ? 'warning' : undefined,
           ),
         ]),
-        uiCollapsibleSection('Request details', [
-          uiRow('App', detailValue(originNameLabel(origin), originUrlLabel(origin))),
-          uiRow('Network', networkLabel(summary.network)),
-          uiRow('Action', action),
-          uiRow('Private keys', 'Stay inside MetaMask'),
-          ...(dataOutputCount ? [uiRow('Data outputs', `${dataOutputCount} non-spendable output${dataOutputCount === 1 ? '' : 's'}`)] : []),
-        ]),
         uiCollapsibleSection(
           `Inspect signed inputs (${summary.signedInputs.length})`,
           [...inputRows, ...(summary.signedInputs.length > visibleSignedInputs.length ? [uiMuted(`+ ${summary.signedInputs.length - visibleSignedInputs.length} more inputs`)] : [])],
@@ -571,7 +556,6 @@ export async function confirmPsbt(params: {
         ...(visibleWarnings.length > 1
           ? [uiCollapsibleSection('More warnings', visibleWarnings.slice(1).map((warning) => uiText(warning, { color: 'warning' })))]
           : []),
-        ...contextSection(displayContext),
         uiDivider(),
         uiMuted('Approve only if these amounts match the Ducat app. Private keys stay inside MetaMask.'),
       ]),
@@ -637,11 +621,6 @@ export async function confirmBatch(params: {
             warningCount ? 'warning' : undefined,
           ),
         ]),
-        uiCollapsibleSection('Request details', [
-          uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
-          uiRow('Network', networkLabel(network)),
-          uiRow('Private keys', 'Stay inside MetaMask'),
-        ]),
         uiCollapsibleSection(
           `Inspect transactions (${summaries.length})`,
           [
@@ -663,7 +642,6 @@ export async function confirmBatch(params: {
           ],
           true,
         ),
-        ...contextSection(displayContext),
         uiDivider(),
         uiMuted('Approve only if every transaction matches the Ducat app flow.'),
       ]),

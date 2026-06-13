@@ -400,13 +400,12 @@ describe('RPC router', () => {
     expect(rendered).toContain('Signing check');
     expect(rendered).toContain('Ducat signs');
     expect(rendered).toContain('Only Snap-managed inputs');
-    expect(rendered).toContain('Request details');
     expect(rendered).toContain('Inspect signed inputs');
     expect(rendered).toContain('Input #0');
     expect(rendered).toContain('Inspect outputs');
-    expect(rendered).toContain('Ducat app context');
-    expect(rendered).toContain('Vault Id');
-    expect(rendered).toContain('App labels are shown for context.');
+    expect(rendered).not.toContain('Request details');
+    expect(rendered).not.toContain('Ducat app context');
+    expect(rendered).not.toContain('Vault Id');
   });
 
   it('renders decoded Ducat vault OP_RETURN facts in PSBT confirmations', async () => {
@@ -437,10 +436,12 @@ describe('RPC router', () => {
     expect(rendered).toContain('0.01100000 BTC');
     expect(rendered).toContain('UNIT debt');
     expect(rendered).toContain('500 UNIT');
-    expect(rendered).toContain('Ducat OP_RETURN');
-    expect(rendered).toContain('Vault Action Flag');
     expect(rendered).toContain('Vault data #2');
     expect(rendered).toContain('500 UNIT debt');
+    expect(rendered).not.toContain('Ducat app context');
+    expect(rendered).not.toContain('Ducat OP_RETURN');
+    expect(rendered).not.toContain('Vault Action Flag');
+    expect(rendered).not.toContain('Request details');
   });
 
   it('rejects unknown PSBT input indexes before showing confirmation', async () => {

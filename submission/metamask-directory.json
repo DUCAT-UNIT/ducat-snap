@@ -32,18 +32,18 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-op-return-vault-decode/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-confirmation-trim/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-op-return-vault-decode/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-confirmation-trim/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.0-20260613-op-return-vault-decode",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260613-op-return-vault-decode",
+    "candidateTag": "audit-candidate-0.1.0-20260613-confirmation-trim",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260613-confirmation-trim",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/1",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
@@ -58,9 +58,9 @@
   },
   "verification": {
     "commands": ["npm ci", "npm run verify:release"],
-    "packageShasum": "84e280366aa126d1914ede07c6a4909fb7c5d37f",
-    "packageIntegrity": "sha512-hNU3jzUkqU0hicBs/P1i05BC/ui9ur3gMdbJU4tKS6mrAV4KKhfDv6aE0Dzfi49J7t8xkPR6UhOb5wXwgZm06Q==",
-    "manifestSourceShasum": "HX0Ac4HxT5I0+u/mXrIMvRnWoakV8Xau8jHahR29ts0=",
+    "packageShasum": "43c148ce3cfc1e62fe5ad10afbdac398c38eeff9",
+    "packageIntegrity": "sha512-itPOxtA3VSpQKt/5dMzTpPdjrl22OhzjjO6ZMn+ZqfO+aEo7c9uq8cw5N9RVhxnGULiT7MuYHJyacmIckZyGlA==",
+    "manifestSourceShasum": "Qg2RnorMQcjCHSYW3QLgjyeak60cS/JCaeH1AJC5c1E=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
   }
