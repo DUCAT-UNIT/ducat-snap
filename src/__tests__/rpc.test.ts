@@ -13,9 +13,11 @@ const ORIGIN = 'http://localhost:3000';
 type SnapRequestArgs = {
   method: string;
   params?: {
+    message?: string;
     operation?: string;
     path?: string[];
     newState?: unknown;
+    type?: string;
   };
 };
 
@@ -49,6 +51,10 @@ function setSnapMock(dialogResult = true, initialState: unknown = null) {
       }
 
       managedState = params?.newState ?? null;
+      return undefined;
+    }
+
+    if (method === 'snap_notify') {
       return undefined;
     }
 
@@ -174,6 +180,13 @@ function dialogValues(request: jest.Mock): string[] {
   const dialogCall = request.mock.calls.find(([arg]) => arg.method === 'snap_dialog');
 
   return collectDialogText(dialogCall?.[0].params?.content);
+}
+
+function notificationMessages(request: jest.Mock): string[] {
+  return request.mock.calls
+    .filter(([arg]) => arg.method === 'snap_notify')
+    .map(([arg]) => arg.params?.message)
+    .filter((message): message is string => typeof message === 'string');
 }
 
 function collectDialogText(value: unknown): string[] {
@@ -343,6 +356,10 @@ describe('RPC router', () => {
     expect(rendered).toContain('Request details');
     expect(rendered).toContain('BIP322 simple');
     expect(rendered).toContain(message);
+    expect(notificationMessages(request)).toEqual([
+      'Review in MetaMask: Sign Ducat message - Message signature approval requested',
+      'Ducat action complete: Sign Ducat message - Message signed',
+    ]);
   });
 
   it('rejects malformed PSBTs', async () => {
@@ -670,9 +687,12 @@ describe('RPC router', () => {
       expect(rendered).toContain('Alpha vault');
       expect(rendered).toContain('623.33% collateral');
       expect(rendered).toContain('45,000 sats');
-      expect(rendered).not.toContain('Recent actions');
-      expect(rendered).not.toContain('Borrowed UNIT against Alpha vault');
-      expect(rendered).not.toContain('Action #1 details');
+      expect(rendered).toContain('Recent Ducat actions');
+      expect(rendered).toContain('Borrow UNIT');
+      expect(rendered).toContain('Broadcast');
+      expect(rendered).toContain('Borrowed UNIT against Alpha vault');
+      expect(rendered).toContain('0.00012345 BTC');
+      expect(rendered).toContain('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     } finally {
       globalThis.fetch = originalFetch;
     }

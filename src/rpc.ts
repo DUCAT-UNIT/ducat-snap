@@ -5,6 +5,7 @@ import { ducatError } from './errors';
 import { getHomeState } from './home';
 import { signBip322SimpleMessage } from './message';
 import { DUCAT_ALLOWED_ORIGINS, normalizeNetwork } from './networks';
+import { notifyAction, notifyActionFailure } from './notifications';
 import { preparePsbtForSigning, signPreparedPsbt } from './psbt';
 import { appendRecentAction, clearRecentActions, rememberDucatSession } from './state';
 import { sendTransfer } from './transfer';
@@ -161,7 +162,16 @@ async function signMessage(origin: string, rawParams: unknown) {
   }
 
   await rememberDucatSession(network, origin);
-  await confirmMessage({ origin, network, address, role, message, context });
+  const title = actionLabel(context, 'Sign Ducat message');
+
+  await notifyAction({ title, status: 'pending', detail: 'Message signature approval requested' });
+
+  try {
+    await confirmMessage({ origin, network, address, role, message, context });
+  } catch (error) {
+    await notifyActionFailure(title, error);
+    throw error;
+  }
 
   const signature = signBip322SimpleMessage({
     keySet,
@@ -171,12 +181,13 @@ async function signMessage(origin: string, rawParams: unknown) {
 
   await appendRecentAction({
     actionType: context?.actionType ?? 'sign-message',
-    title: actionLabel(context, 'Sign Ducat message'),
+    title,
     network,
     origin,
     status: 'signed',
     summary: `Signed message for ${address}`,
   });
+  await notifyAction({ title, status: 'completed', detail: 'Message signed' });
 
   return {
     status: 'success',
@@ -203,21 +214,30 @@ async function signPsbt(origin: string, rawParams: unknown) {
   const prepared = preparePsbtForSigning(params.psbt, network, keySet, signInputs);
   const decodedActionType = prepared.summary.vaultUpdates[0]?.actionType;
   const actionContext = decodedActionType ? { ...(context ?? {}), actionType: decodedActionType } : context;
+  const title = actionLabel(actionContext, 'Sign Ducat transaction');
 
   await rememberDucatSession(network, origin);
-  await confirmPsbt({ origin, summary: prepared.summary, context });
+  await notifyAction({ title, status: 'pending', detail: 'Transaction approval requested' });
+
+  try {
+    await confirmPsbt({ origin, summary: prepared.summary, context });
+  } catch (error) {
+    await notifyActionFailure(title, error);
+    throw error;
+  }
 
   const psbt = signPreparedPsbt(prepared.psbt, keySet, signInputs);
 
   await appendRecentAction({
     actionType: decodedActionType ?? context?.actionType ?? 'sign-psbt',
-    title: actionLabel(actionContext, 'Sign Ducat transaction'),
+    title,
     network,
     origin,
     status: 'signed',
     amountSats: prepared.summary.externalOutputSats || undefined,
     summary: `Signed inputs ${prepared.summary.signedInputIndexes.join(', ')}`,
   });
+  await notifyAction({ title, status: 'completed', detail: `Signed inputs ${prepared.summary.signedInputIndexes.join(', ')}` });
 
   return { psbt };
 }
@@ -296,24 +316,33 @@ async function signBatch(origin: string, rawParams: unknown) {
   assertSingleNetwork(prepared.map((item) => item.summary));
   const decodedActionType = prepared.find((item) => item.summary.vaultUpdates.length > 0)?.summary.vaultUpdates[0]?.actionType;
   const actionContext = decodedActionType ? { ...(context ?? {}), actionType: decodedActionType } : context;
+  const title = actionLabel(actionContext, 'Sign Ducat batch');
 
   await rememberDucatSession(network, origin);
-  await confirmBatch({
-    origin,
-    entries: prepared.map((item) => ({ summary: item.summary, context: item.context })),
-    context,
-  });
+  await notifyAction({ title, status: 'pending', detail: `${prepared.length} transaction approval requested` });
+
+  try {
+    await confirmBatch({
+      origin,
+      entries: prepared.map((item) => ({ summary: item.summary, context: item.context })),
+      context,
+    });
+  } catch (error) {
+    await notifyActionFailure(title, error);
+    throw error;
+  }
 
   const psbts = prepared.map((item) => signPreparedPsbt(item.psbt, keySet, item.signInputs));
 
   await appendRecentAction({
     actionType: decodedActionType ?? context?.actionType ?? 'sign-batch',
-    title: actionLabel(actionContext, 'Sign Ducat batch'),
+    title,
     network,
     origin,
     status: 'signed',
     summary: `Signed ${psbts.length} PSBTs`,
   });
+  await notifyAction({ title, status: 'completed', detail: `Signed ${psbts.length} PSBTs` });
 
   return { psbts };
 }

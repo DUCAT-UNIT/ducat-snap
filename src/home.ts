@@ -1,9 +1,9 @@
 import { getAccountKeySet } from './accounts';
 import { DUCAT_MARK_SVG } from './brand';
-import { formatMaybeBtcValue, formatSatsOnly, formatUnit, networkLabel } from './display';
+import { actionLabel, formatMaybeBtcValue, formatSatsOnly, formatUnit, networkLabel } from './display';
 import { ducatAppUrl, esploraUrl, normalizeNetwork, validatorUrls } from './networks';
 import { getState } from './state';
-import type { DucatNetwork } from './types';
+import type { DucatNetwork, RecentAction } from './types';
 import {
   uiBanner,
   uiBox,
@@ -173,6 +173,7 @@ export async function getHomeState(networkInput: unknown): Promise<{
     unit: number | null;
   };
   vault: VaultSummary | null;
+  recentActions: RecentAction[];
 }> {
   const state = await getState();
   const network = networkInput === undefined || networkInput === null ? state.lastNetwork ?? 'mutinynet' : normalizeNetwork(networkInput);
@@ -196,6 +197,7 @@ export async function getHomeState(networkInput: unknown): Promise<{
       unit,
     },
     vault,
+    recentActions: state.recentActions,
   };
 }
 
@@ -305,6 +307,81 @@ function vaultComponents(vault: VaultSummary | null): SnapElement[] {
   ];
 }
 
+function relativeTime(timestamp: number): string {
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+
+  if (elapsedSeconds < 60) {
+    return 'Just now';
+  }
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes}m ago`;
+  }
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+
+  if (elapsedHours < 24) {
+    return `${elapsedHours}h ago`;
+  }
+
+  return `${Math.floor(elapsedHours / 24)}d ago`;
+}
+
+function actionStatusLabel(status: RecentAction['status']): string {
+  switch (status) {
+    case 'broadcast':
+      return 'Broadcast';
+    case 'failed':
+      return 'Failed';
+    case 'signed':
+    default:
+      return 'Signed';
+  }
+}
+
+function actionAmount(action: RecentAction): string | undefined {
+  const parts = [
+    typeof action.amountSats === 'number' ? formatMaybeBtcValue(action.amountSats) : undefined,
+    typeof action.unitAmount === 'number' ? formatUnit(action.unitAmount) : undefined,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(' + ') : undefined;
+}
+
+function recentActionComponents(actions: RecentAction[]): SnapElement[] {
+  if (!actions.length) {
+    return [
+      uiCard({
+        description: 'Signed Ducat requests will appear here',
+        title: 'Recent actions',
+        value: 'None yet',
+      }),
+    ];
+  }
+
+  return actions.slice(0, 5).flatMap((action, index) => {
+    const title = actionLabel({ actionType: action.actionType, title: action.title }, 'Ducat action');
+    const amount = actionAmount(action);
+    const description = [action.summary, networkLabel(action.network)].filter(Boolean).join(' - ');
+    const rows: SnapElement[] = [
+      uiCard({
+        description: description || networkLabel(action.network),
+        extra: amount ?? relativeTime(action.timestamp),
+        title,
+        value: actionStatusLabel(action.status),
+      }),
+    ];
+
+    if (action.txid) {
+      rows.push(uiRow(`Txid #${index + 1}`, uiCopyable(action.txid)));
+    }
+
+    return rows;
+  });
+}
+
 export async function renderHomePage(networkInput?: unknown) {
   try {
     const homeState = await getHomeState(networkInput);
@@ -340,6 +417,7 @@ export async function renderHomePage(networkInput?: unknown) {
           uiHeading('Vault'),
           ...vaultComponents(homeState.vault),
         ]),
+        uiCollapsibleSection('Recent Ducat actions', recentActionComponents(homeState.recentActions), true),
         uiCollapsibleSection('Accounts', accountComponents(homeState.accounts)),
         uiCollapsibleSection('Open Ducat app', appLaunchComponents(homeState.appUrl), true),
         uiCollapsibleSection('Ducat actions', actionComponents(homeState.appUrl)),
