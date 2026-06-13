@@ -460,8 +460,8 @@ describe('RPC router', () => {
     expect(rendered).toContain('0.01100000 BTC');
     expect(rendered).toContain('UNIT debt');
     expect(rendered).toContain('500 UNIT');
-    expect(rendered).toContain('Vault data #2');
-    expect(rendered).toContain('500 UNIT debt');
+    expect(rendered).not.toContain('Inspect data outputs');
+    expect(rendered).not.toContain('Vault data #2');
     expect(rendered).not.toContain('Ducat app context');
     expect(rendered).not.toContain('Ducat OP_RETURN');
     expect(rendered).not.toContain('Vault Action Flag');

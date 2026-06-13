@@ -441,7 +441,8 @@ export async function confirmPsbt(params: {
   const hiddenOutputs = recipientOutputs.slice(visibleOutputs.length);
   const hiddenExternalSats = hiddenOutputs.filter(({ output }) => !output.isMine).reduce((total, { output }) => total + output.valueSats, 0);
   const dataOutputs = summary.outputs.map((output, index) => ({ index, output })).filter(({ output }) => isDataOutput(output));
-  const visibleDataOutputs = dataOutputs.slice(0, 4);
+  const reviewDataOutputs = dataOutputs.filter(({ output }) => !output.vaultData);
+  const visibleDataOutputs = reviewDataOutputs.slice(0, 4);
   const visibleSignedInputs = [...summary.signedInputs].sort((left, right) => left.index - right.index).slice(0, 6);
   const inputRoleLabel = [...new Set(summary.signedInputs.map((input) => signedInputTitle(input.role)))].join(' + ') || 'No Ducat account inputs';
   const recipientTitle = externalOutputCount === 1 ? 'Recipient' : 'Recipients';
@@ -535,11 +536,14 @@ export async function confirmPsbt(params: {
           `Inspect outputs (${recipientOutputs.length})`,
           [...outputRows, ...(hiddenOutputs.length ? [uiMuted(`+ ${hiddenOutputs.length} more outputs; hidden external total ${formatSats(hiddenExternalSats, summary.network)}`)] : [])],
         ),
-        ...(dataOutputs.length
+        ...(reviewDataOutputs.length
           ? [
               uiCollapsibleSection(
-                `Inspect data outputs (${dataOutputs.length})`,
-                [...dataOutputRows, ...(dataOutputs.length > visibleDataOutputs.length ? [uiMuted(`+ ${dataOutputs.length - visibleDataOutputs.length} more data outputs`)] : [])],
+                `Inspect data outputs (${reviewDataOutputs.length})`,
+                [
+                  ...dataOutputRows,
+                  ...(reviewDataOutputs.length > visibleDataOutputs.length ? [uiMuted(`+ ${reviewDataOutputs.length - visibleDataOutputs.length} more data outputs`)] : []),
+                ],
               ),
             ]
           : []),
