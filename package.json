@@ -52,6 +52,7 @@
     "snapper": "npx --yes @sayfer_io/snapper --path . --output snapper-report.json",
     "verify:metadata": "node scripts/verify-release-metadata.js",
     "verify:release-manifest": "node scripts/verify-release-manifest.js",
+    "verify:fixtures": "DUCAT_REQUIRE_SUBMISSION_FIXTURES=1 jest --runTestsByPath src/__tests__/submission-fixtures.test.ts --runInBand",
     "verify:submission-ready": "node scripts/verify-submission-ready.js",
     "verify:release": "bash scripts/verify-release.sh",
     "pack:dry-run": "npm pack --dry-run",

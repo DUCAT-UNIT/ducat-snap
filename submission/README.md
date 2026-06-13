@@ -6,15 +6,15 @@ Use `ALLOWLIST_SUBMISSION.md` as the working copy for the MetaMask form fields. 
 
 Current audit candidate:
 
-- Tag: `audit-candidate-0.1.0-20260614-submission-gate`
-- Commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-submission-gate`
+- Tag: `audit-candidate-0.1.0-20260614-fixture-replay`
+- Commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-fixture-replay`
 - Verification evidence: current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/1
 
 ## Before Submission
 
 1. Track the remaining external fields in `EXTERNAL_GATES.md`.
 2. Replace the remaining `PENDING_*` fields in `metamask-directory.json` and `ALLOWLIST_SUBMISSION.md`.
-3. Capture real PSBT fixtures into `submission/fixtures/`.
+3. Capture real PSBT fixtures into `submission/fixtures/`, including the exact Snap `WalletAccountRecord` so fixture confirmations can be replayed without private keys.
 4. Capture final E2E evidence into `submission/e2e/evidence.json`.
 5. Capture screenshots into `submission/screenshots/` using `LISTING.md`.
 6. Record the demo video using `DEMO_SCRIPT.md`.

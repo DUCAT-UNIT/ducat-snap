@@ -2,7 +2,7 @@ import { address as btcAddress, crypto, opcodes, Psbt, script as btcScript } fro
 import { rootHashFromPath, tapleafHash, tweakKey } from 'bitcoinjs-lib/src/payments/bip341';
 import { Buffer } from 'buffer';
 
-import { type AccountKeySet, getRoleForAddress } from './accounts';
+import { type AccountKeySet, type AccountPublicSet, getRoleForAddress } from './accounts';
 import type { DucatKeyNode } from './bip32';
 import { ducatError } from './errors';
 import { bitcoinNetwork } from './networks';
@@ -143,7 +143,7 @@ type TaprootScriptPathOwnership = {
 function checkOwnedTaprootScriptPathInput(
   input: Psbt['data']['inputs'][number],
   outputScript: Buffer,
-  keySet: AccountKeySet,
+  keySet: AccountPublicSet,
 ): TaprootScriptPathOwnership {
   const outputKey = parseP2trOutputKey(outputScript);
 
@@ -184,7 +184,7 @@ function checkOwnedTaprootScriptPathInput(
   return { ok: false, reason: 'no tapleaf commits the Ducat Snap vault pubkey to the prevout output' };
 }
 
-function validateSignedInput(psbt: Psbt, index: number, address: string, keySet: AccountKeySet): PsbtInputSummary {
+function validateSignedInput(psbt: Psbt, index: number, address: string, keySet: AccountPublicSet): PsbtInputSummary {
   const role = getRoleForAddress(keySet, address);
 
   if (!role) {
@@ -527,7 +527,7 @@ export function parsePsbt(psbtBase64: string, network: DucatNetwork): Psbt {
   }
 }
 
-function outputRole(address: string, keySet: AccountKeySet): PsbtOutputSummary['role'] {
+function outputRole(address: string, keySet: AccountPublicSet): PsbtOutputSummary['role'] {
   if (address.startsWith('OP_RETURN')) {
     return 'op_return';
   }
@@ -572,7 +572,7 @@ function buildWarnings(feeSats: number | null, outputs: PsbtOutputSummary[]): st
 export function summarizePsbt(
   psbt: Psbt,
   network: DucatNetwork,
-  keySet: AccountKeySet,
+  keySet: AccountPublicSet,
   signInputs: SignInputs,
   signedInputs: PsbtInputSummary[],
 ): PsbtSummary {
@@ -629,7 +629,7 @@ export function summarizePsbt(
   };
 }
 
-export function preparePsbtForSigning(psbtBase64: string, network: DucatNetwork, keySet: AccountKeySet, signInputs: SignInputs): {
+export function preparePsbtForSigning(psbtBase64: string, network: DucatNetwork, keySet: AccountPublicSet, signInputs: SignInputs): {
   psbt: Psbt;
   summary: PsbtSummary;
 } {

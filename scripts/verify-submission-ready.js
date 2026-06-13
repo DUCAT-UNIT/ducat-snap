@@ -97,12 +97,35 @@ function assertArray(label, value) {
   assert(Array.isArray(value) && value.length > 0, `${label} must be a non-empty array.`);
 }
 
+function assertHex(label, value, bytes) {
+  assertString(label, value);
+  assert(new RegExp(`^[0-9a-f]{${bytes * 2}}$`, 'iu').test(value), `${label} must be ${bytes} bytes of hex.`);
+}
+
+function assertAccount(label, value, pubkeyBytes) {
+  assertObject(label, value);
+  assertString(`${label}.address`, value.address);
+  assertHex(`${label}.pubkey`, value.pubkey, pubkeyBytes);
+}
+
+function assertWalletAccountRecord(relativePath, accounts) {
+  assertObject(`${relativePath} accounts`, accounts);
+  assertAccount(`${relativePath} accounts.sats`, accounts.sats, 33);
+  assertAccount(`${relativePath} accounts.runes`, accounts.runes, 32);
+  assertAccount(`${relativePath} accounts.vault`, accounts.vault, 32);
+  assertArray(`${relativePath} accounts.authCandidates`, accounts.authCandidates);
+
+  assert(accounts.runes.address === accounts.vault.address, `${relativePath} accounts.runes.address must match accounts.vault.address for v0.1.0.`);
+  assert(accounts.runes.pubkey === accounts.vault.pubkey, `${relativePath} accounts.runes.pubkey must match accounts.vault.pubkey for v0.1.0.`);
+}
+
 function assertRealPsbtFixture(action) {
   const relativePath = path.join('submission/fixtures', `${action}.json`);
   const fixture = readJson(relativePath);
 
   assert(fixture.action === action, `${relativePath} action must be ${action}.`);
   assert(fixture.network === 'signet' || fixture.network === 'mutinynet', `${relativePath} network must be signet or mutinynet.`);
+  assertWalletAccountRecord(relativePath, fixture.accounts);
   assertString(`${relativePath} psbt`, fixture.psbt);
   assert(fixture.psbt.startsWith('cHNidP'), `${relativePath} psbt must be a base64 PSBT.`);
   assertObject(`${relativePath} signInputs`, fixture.signInputs);
@@ -114,7 +137,37 @@ function assertRealPsbtFixture(action) {
     assertString(`${relativePath} capturedFrom.${field}`, fixture.capturedFrom[field]);
   }
 
+  assertHttpsUrl(`${relativePath} capturedFrom.frontendOrigin`, fixture.capturedFrom.frontendOrigin);
   assertHttpsUrl(`${relativePath} capturedFrom.validatorUrl`, fixture.capturedFrom.validatorUrl);
+}
+
+function fixturePath(action) {
+  return path.join(root, 'submission/fixtures', `${action}.json`);
+}
+
+function allFixtureFilesExist() {
+  return requiredFixtureActions.every((action) => existsSync(fixturePath(action)));
+}
+
+function assertFixtureConfirmationReplay() {
+  let output;
+
+  try {
+    output = execFileSync('npm', ['test', '--', '--runTestsByPath', 'src/__tests__/submission-fixtures.test.ts', '--runInBand'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, DUCAT_REQUIRE_SUBMISSION_FIXTURES: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (error) {
+    const stdout = error?.stdout ? String(error.stdout) : '';
+    const stderr = error?.stderr ? String(error.stderr) : '';
+    const details = `${stdout}\n${stderr}`.trim();
+
+    throw new Error(details || 'Submission fixture replay failed.');
+  }
+
+  assert(output.includes('PASS'), 'Submission fixture replay did not report a passing Jest run.');
 }
 
 function assertE2eEvidence() {
@@ -201,6 +254,10 @@ for (const action of requiredFixtureActions) {
   runCheck(failures, `Fixture ${action}`, () => {
     assertRealPsbtFixture(action);
   });
+}
+
+if (allFixtureFilesExist()) {
+  runCheck(failures, 'Fixture confirmation replay', assertFixtureConfirmationReplay);
 }
 
 runCheck(failures, 'E2E evidence', assertE2eEvidence);

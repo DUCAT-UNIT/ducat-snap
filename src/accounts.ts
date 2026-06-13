@@ -16,18 +16,31 @@ type SnapBip32Entropy = {
   chainCode?: string;
 };
 
-export type AccountKeySet = {
+export type AccountPublicSet = {
   network: DucatNetwork;
   record: WalletAccountRecord;
-  satsNode: DucatKeyNode;
-  taprootNode: DucatKeyNode;
   satsOutputScript: Buffer;
   taprootOutputScript: Buffer;
   taprootInternalPubkey: Buffer;
 };
 
+export type AccountKeySet = AccountPublicSet & {
+  satsNode: DucatKeyNode;
+  taprootNode: DucatKeyNode;
+};
+
 function trimHexPrefix(hex: string): string {
   return hex.startsWith('0x') ? hex.slice(2) : hex;
+}
+
+function hexBuffer(label: string, hex: string, expectedBytes: number): Buffer {
+  const value = trimHexPrefix(hex);
+
+  if (!/^[0-9a-f]+$/iu.test(value) || value.length !== expectedBytes * 2) {
+    throw new Error(`${label} must be a ${expectedBytes}-byte hex public key.`);
+  }
+
+  return Buffer.from(value, 'hex');
 }
 
 function deriveAccountNode(baseNode: DucatKeyNode): DucatKeyNode {
@@ -89,6 +102,43 @@ function accountRecordFromNodes(network: DucatNetwork, satsNode: DucatKeyNode, t
   };
 }
 
+export function accountPublicSetFromRecord(networkInput: unknown, record: WalletAccountRecord): AccountPublicSet {
+  const network = normalizeNetwork(networkInput);
+  const net = bitcoinNetwork(network);
+  const satsPubkey = hexBuffer('sats.pubkey', record.sats.pubkey, 33);
+  const taprootInternalPubkey = hexBuffer('vault.pubkey', record.vault.pubkey, 32);
+  const satsPayment = payments.p2wpkh({ pubkey: satsPubkey, network: net });
+  const taprootPayment = payments.p2tr({ internalPubkey: taprootInternalPubkey, network: net });
+
+  if (!satsPayment.address || !satsPayment.output) {
+    throw new Error('Failed to reconstruct Ducat sats account.');
+  }
+
+  if (!taprootPayment.address || !taprootPayment.output) {
+    throw new Error('Failed to reconstruct Ducat taproot account.');
+  }
+
+  if (record.sats.address !== satsPayment.address) {
+    throw new Error(`sats address does not match sats.pubkey. Expected ${satsPayment.address}, got ${record.sats.address}.`);
+  }
+
+  if (record.vault.address !== taprootPayment.address) {
+    throw new Error(`vault address does not match vault.pubkey. Expected ${taprootPayment.address}, got ${record.vault.address}.`);
+  }
+
+  if (record.runes.address !== taprootPayment.address || record.runes.pubkey !== record.vault.pubkey) {
+    throw new Error('runes and vault accounts must share the v0.1.0 Taproot key.');
+  }
+
+  return {
+    network,
+    record,
+    satsOutputScript: satsPayment.output,
+    taprootOutputScript: taprootPayment.output,
+    taprootInternalPubkey,
+  };
+}
+
 export function deriveAccountSetFromBaseNodes(
   networkInput: unknown,
   satsBaseNode: DucatKeyNode,
@@ -123,7 +173,7 @@ export async function getAccountKeySet(networkInput: unknown): Promise<AccountKe
   return deriveAccountSetFromBaseNodes(network, satsBaseNode, taprootBaseNode);
 }
 
-export function getRoleForAddress(keySet: AccountKeySet, address: string): DucatAddressRole | null {
+export function getRoleForAddress(keySet: AccountPublicSet, address: string): DucatAddressRole | null {
   if (address === keySet.record.sats.address) {
     return 'sats';
   }

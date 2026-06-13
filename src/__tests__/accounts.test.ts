@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 
-import { deriveAccountSetFromBaseNodes } from '../accounts';
+import { accountPublicSetFromRecord, deriveAccountSetFromBaseNodes } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 
 function testNode(byte: number) {
@@ -28,5 +28,28 @@ describe('Ducat account derivation', () => {
 
   it('rejects mainnet in v1', () => {
     expect(() => deriveAccountSetFromBaseNodes('mainnet', testNode(1), testNode(2))).toThrow('supports signet and mutinynet only');
+  });
+
+  it('reconstructs public account ownership data without private keys', () => {
+    const keySet = deriveAccountSetFromBaseNodes('mutinynet', testNode(1), testNode(2));
+    const publicSet = accountPublicSetFromRecord('mutinynet', keySet.record);
+
+    expect(publicSet.record).toEqual(keySet.record);
+    expect(publicSet.satsOutputScript.equals(keySet.satsOutputScript)).toBe(true);
+    expect(publicSet.taprootOutputScript.equals(keySet.taprootOutputScript)).toBe(true);
+    expect(publicSet.taprootInternalPubkey.equals(keySet.taprootInternalPubkey)).toBe(true);
+    expect('satsNode' in publicSet).toBe(false);
+    expect('taprootNode' in publicSet).toBe(false);
+  });
+
+  it('rejects account records whose addresses do not match their public keys', () => {
+    const keySet = deriveAccountSetFromBaseNodes('mutinynet', testNode(1), testNode(2));
+
+    expect(() =>
+      accountPublicSetFromRecord('mutinynet', {
+        ...keySet.record,
+        sats: { ...keySet.record.sats, address: 'tb1qwrong' },
+      }),
+    ).toThrow('sats address does not match sats.pubkey');
   });
 });

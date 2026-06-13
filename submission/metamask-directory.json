@@ -37,18 +37,18 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-submission-gate/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-fixture-replay/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-submission-gate/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-fixture-replay/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.0-20260614-submission-gate",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260614-submission-gate",
+    "candidateTag": "audit-candidate-0.1.0-20260614-fixture-replay",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260614-fixture-replay",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/1",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
@@ -63,8 +63,8 @@
   },
   "verification": {
     "commands": ["npm ci", "npm run verify:release"],
-    "packageShasum": "f9cc86661464ebc413bea04f032c611bdb43351e",
-    "packageIntegrity": "sha512-g1ziJw6EwnZIHAn6OTCuJ95SWkE0D4fTBiekEM1/PHXoaTf8ho0BusqZuYeV7lDhuv0HIFYtWYrWOa8aAaAoTA==",
+    "packageShasum": "bbfcfd3cc3dee40941a53ce291631007ab24b460",
+    "packageIntegrity": "sha512-HKn7yBQb3eDjT77d5OSL9mv5osOIyqnNePXJlat476McbqXisOZrc9xGICryCGWZ3U5Gii4KBGn3BO9KXFqBEA==",
     "manifestSourceShasum": "33nzukIWk+TySkR9mkqz+xijVJmkyS3EfpelnOjDDM0=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
