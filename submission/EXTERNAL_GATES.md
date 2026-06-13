@@ -19,5 +19,5 @@ This file separates real external blockers from accidental placeholders. The aud
 
 - Builder URL: https://github.com/DUCAT-UNIT
 - Public support URL: https://github.com/DUCAT-UNIT/ducat-snap/issues
-- Security process URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-context-hardening/SECURITY.md
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-context-hardening/PRIVACY.md
+- Security process URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-submission-gate/SECURITY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-submission-gate/PRIVACY.md

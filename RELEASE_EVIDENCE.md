@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260613-context-hardening`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-context-hardening`
+- Implementation tag: `audit-candidate-0.1.0-20260613-submission-gate`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-submission-gate`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -78,11 +78,11 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1326472`
-- Dry-run unpacked size: `2257344`
+- Dry-run package size: `1326496`
+- Dry-run unpacked size: `2257569`
 - Dry-run file count: `15`
-- npm package shasum: `db6f25efd7aaa748bcaa6ba65b2ab76042d99e4d`
-- npm package integrity: `sha512-pUisJizBbmWq9gpptC5AKPKKHerEgIG//NVB1RUE8a3w3E8YwrD84zsf1XtvYWgk1TcT4G0EX+oYyQstRQSdSg==`
+- npm package shasum: `4f45664e8b771eef5882b4253d10e5d312a64dc0`
+- npm package integrity: `sha512-7bjpKMYI/Pyk582uWtvFIbE/DNFFl1LsQzV4+kDBmQMWBJAxF2giAqanrqTXrU0C0y+M3wwMagREVv+nRBK0Cg==`
 - Snap manifest source shasum: `mrFbA8UeBZKk1uMtPtQ4GvYE9AJj3K247OvFLTGM24I=`
 - Actual npm publish: blocked until npm auth is configured
 
@@ -114,6 +114,7 @@ Packaged files:
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 - Release manifest guard: `npm run verify:release-manifest` derives a submission manifest origin set from `submission/metamask-directory.json` and fails if any release origin is localhost, non-HTTPS, duplicated, wildcarded, or outside the current development manifest.
+- Submission-ready guard: `npm run verify:submission-ready` is intentionally separate from release CI and fails until pending external fields are replaced, final PNG screenshots exist, audit/demo URLs are HTTPS, and the published npm package metadata matches the submission packet.
 
 ## Frontend Integration Evidence
 
@@ -145,7 +146,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260613-context-hardening` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260613-submission-gate` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

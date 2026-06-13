@@ -52,6 +52,7 @@
     "snapper": "npx --yes @sayfer_io/snapper --path . --output snapper-report.json",
     "verify:metadata": "node scripts/verify-release-metadata.js",
     "verify:release-manifest": "node scripts/verify-release-manifest.js",
+    "verify:submission-ready": "node scripts/verify-submission-ready.js",
     "verify:release": "bash scripts/verify-release.sh",
     "pack:dry-run": "npm pack --dry-run",
     "prepublishOnly": "npm run verify"

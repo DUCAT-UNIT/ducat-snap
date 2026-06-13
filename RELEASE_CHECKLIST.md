@@ -6,12 +6,13 @@
 - [x] `.github/workflows/verify.yml` succeeds on the current audit candidate.
 - [x] `npm run verify:release` succeeds locally.
 - [ ] `submission/metamask-directory.json` pending external fields are replaced.
+- [ ] `npm run verify:submission-ready` succeeds after external evidence is complete.
 - [x] `npm run pack:dry-run` output reviewed.
 - [x] `npm run audit:prod` output reviewed.
 - [x] Dependency audit reviewed.
 - [x] Snapper/security scan reviewed.
 - [x] Console logs, unused permissions, accidental placeholders, and dead RPC methods removed or documented as external gates.
-- [ ] Alpha Taproot script-path compatibility in `src/psbt.ts` is audited and either accepted for signet/mutinynet only or replaced with strict Ducat SDK-compatible verification.
+- [x] Alpha Taproot script-path compatibility fallback in `src/psbt.ts` was removed and replaced with committed tapleaf verification.
 - [ ] Third-party audit completed because the Snap uses `snap_getBip32Entropy`.
 - [ ] Audit fixes merged and tagged.
 
