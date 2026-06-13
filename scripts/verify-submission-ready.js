@@ -15,9 +15,32 @@ const requiredScreenshots = [
   '07-transfer-confirmation.png',
   '08-snap-home.png',
 ];
+const requiredFixtureActions = ['create', 'deposit', 'borrow', 'repay', 'withdraw', 'swap', 'liquidation', 'repossess'];
+const requiredE2eScenarios = [
+  'install',
+  'update',
+  'connect',
+  'reload-reconnect',
+  'create',
+  'deposit',
+  'borrow',
+  'repay',
+  'withdraw',
+  'swap',
+  'liquidation',
+  'repossess',
+  'reject-signature',
+  'disable-reenable',
+];
 
 function readJson(relativePath) {
-  return JSON.parse(readFileSync(path.join(root, relativePath), 'utf8'));
+  const filePath = path.join(root, relativePath);
+
+  if (!existsSync(filePath)) {
+    throw new Error(`Missing required JSON file: ${relativePath}`);
+  }
+
+  return JSON.parse(readFileSync(filePath, 'utf8'));
 }
 
 function readText(relativePath) {
@@ -55,6 +78,59 @@ function assertPng(relativePath) {
   assert(signature.equals(pngSignature), `Required screenshot is not a PNG file: ${relativePath}`);
 }
 
+function assertString(label, value) {
+  assert(typeof value === 'string' && value.length > 0, `${label} must be a non-empty string.`);
+  assertNoPendingTokens(label, value);
+}
+
+function assertObject(label, value) {
+  assert(value && typeof value === 'object' && !Array.isArray(value), `${label} must be an object.`);
+}
+
+function assertArray(label, value) {
+  assert(Array.isArray(value) && value.length > 0, `${label} must be a non-empty array.`);
+}
+
+function assertRealPsbtFixture(action) {
+  const relativePath = path.join('submission/fixtures', `${action}.json`);
+  const fixture = readJson(relativePath);
+
+  assert(fixture.action === action, `${relativePath} action must be ${action}.`);
+  assert(fixture.network === 'signet' || fixture.network === 'mutinynet', `${relativePath} network must be signet or mutinynet.`);
+  assertString(`${relativePath} psbt`, fixture.psbt);
+  assert(fixture.psbt.startsWith('cHNidP'), `${relativePath} psbt must be a base64 PSBT.`);
+  assertObject(`${relativePath} signInputs`, fixture.signInputs);
+  assert(Object.keys(fixture.signInputs).length > 0, `${relativePath} signInputs must not be empty.`);
+  assertArray(`${relativePath} expectedConfirmationText`, fixture.expectedConfirmationText);
+  assertObject(`${relativePath} capturedFrom`, fixture.capturedFrom);
+
+  for (const field of ['frontendCommit', 'snapCommit', 'clientSdkVersion', 'validatorUrl']) {
+    assertString(`${relativePath} capturedFrom.${field}`, fixture.capturedFrom[field]);
+  }
+
+  assertHttpsUrl(`${relativePath} capturedFrom.validatorUrl`, fixture.capturedFrom.validatorUrl);
+}
+
+function assertE2eEvidence() {
+  const evidence = readJson('submission/e2e/evidence.json');
+
+  assert(evidence.network === 'signet' || evidence.network === 'mutinynet', 'submission/e2e/evidence.json network must be signet or mutinynet.');
+  assertString('submission/e2e/evidence.json snapCandidateTag', evidence.snapCandidateTag);
+  assertString('submission/e2e/evidence.json frontendCommit', evidence.frontendCommit);
+  assertHttpsUrl('submission/e2e/evidence.json demoVideoUrl', evidence.demoVideoUrl);
+  assertArray('submission/e2e/evidence.json scenarios', evidence.scenarios);
+
+  const scenarios = new Map(evidence.scenarios.map((scenario) => [scenario.name, scenario]));
+
+  for (const name of requiredE2eScenarios) {
+    const scenario = scenarios.get(name);
+
+    assertObject(`E2E scenario ${name}`, scenario);
+    assert(scenario.status === 'passed', `E2E scenario ${name} must have status "passed".`);
+    assertString(`E2E scenario ${name} evidence`, scenario.evidence);
+  }
+}
+
 function npmPackageMetadata(packageName, version) {
   const output = execFileSync('npm', ['view', `${packageName}@${version}`, 'version', 'dist.shasum', 'dist.integrity', '--json'], {
     cwd: root,
@@ -80,6 +156,12 @@ assertHttpsUrl('demo video URL', directory.submissionAssets.demoVideoUrl);
 for (const fileName of requiredScreenshots) {
   assertPng(path.join('submission/screenshots', fileName));
 }
+
+for (const action of requiredFixtureActions) {
+  assertRealPsbtFixture(action);
+}
+
+assertE2eEvidence();
 
 const npmMetadata = npmPackageMetadata(packageJson.name, packageJson.version);
 

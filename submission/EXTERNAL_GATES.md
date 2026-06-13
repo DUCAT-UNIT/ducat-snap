@@ -15,9 +15,17 @@ This file separates real external blockers from accidental placeholders. The aud
 | `PENDING_FINAL_SCREENSHOTS` | `ALLOWLIST_SUBMISSION.md` | Final screenshots captured from the audited Snap build. |
 | `PENDING_DEMO_VIDEO_URL` | `ALLOWLIST_SUBMISSION.md`, `metamask-directory.json` | Demo video recorded from the audited Snap build. |
 
+## Required Artifact Gates
+
+| Artifact | Where | Blocked on |
+| --- | --- | --- |
+| Real PSBT fixtures | `submission/fixtures/*.json` | Final audited frontend/client-sdk/validator flows for create, deposit, borrow, repay, withdraw, swap, liquidation, and repossess. |
+| Final E2E evidence | `submission/e2e/evidence.json` | Recorded signet/mutinynet install, update, connect, reload reconnect, action signing, rejection, and disabled/re-enabled flows. |
+| Final screenshots | `submission/screenshots/*.png` | Captures from the audited Snap build and final frontend Snap configuration. |
+
 ## Already Filled
 
 - Builder URL: https://github.com/DUCAT-UNIT
 - Public support URL: https://github.com/DUCAT-UNIT/ducat-snap/issues
-- Security process URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-submission-gate/SECURITY.md
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-submission-gate/PRIVACY.md
+- Security process URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-fixture-gate/SECURITY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-fixture-gate/PRIVACY.md

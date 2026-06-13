@@ -13,6 +13,8 @@
 - [x] Snapper/security scan reviewed.
 - [x] Console logs, unused permissions, accidental placeholders, and dead RPC methods removed or documented as external gates.
 - [x] Alpha Taproot script-path compatibility fallback in `src/psbt.ts` was removed and replaced with committed tapleaf verification.
+- [ ] Real create/deposit/borrow/repay/withdraw/swap/liquidation/repossess PSBT fixtures captured in `submission/fixtures/`.
+- [ ] Final signet/mutinynet E2E evidence captured in `submission/e2e/evidence.json`.
 - [ ] Third-party audit completed because the Snap uses `snap_getBip32Entropy`.
 - [ ] Audit fixes merged and tagged.
 

@@ -40,8 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.0-20260613-submission-gate`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-submission-gate`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-fixture-gate`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-fixture-gate`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,8 +55,8 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `4f45664e8b771eef5882b4253d10e5d312a64dc0`
-- npm package integrity: `sha512-7bjpKMYI/Pyk582uWtvFIbE/DNFFl1LsQzV4+kDBmQMWBJAxF2giAqanrqTXrU0C0y+M3wwMagREVv+nRBK0Cg==`
+- npm package shasum: `160061b541a85931e51a3d9c043d9382e478c683`
+- npm package integrity: `sha512-DT82Cvw+bqkLRz8AUh4yJgo4mVGpCWiCmCUsv9zwV7dD9gFk4wQ+jyU5cKWZABFP1lSuHe9H5anKyCDS3AwDkA==`
 - Snap manifest source shasum: `mrFbA8UeBZKk1uMtPtQ4GvYE9AJj3K247OvFLTGM24I=`
 
 ## Permissions Summary
@@ -75,9 +75,9 @@ Mainnet is intentionally not enabled in this release.
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-submission-gate/SECURITY.md
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-fixture-gate/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-submission-gate/PRIVACY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-fixture-gate/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo
@@ -112,6 +112,8 @@ Required demo coverage:
 ## Final Pre-Submit Checks
 
 - `npm run verify:submission-ready` succeeds.
+- Real create/deposit/borrow/repay/withdraw/swap/liquidation/repossess PSBT fixtures are present in `submission/fixtures/`.
+- Final E2E scenario evidence is present in `submission/e2e/evidence.json`.
 - `npm view @ducat-unit/ducat-snap@0.1.0` returns the published package.
 - `package.json` and `snap.manifest.json` versions match.
 - `snap.manifest.json` source shasum matches the built bundle.

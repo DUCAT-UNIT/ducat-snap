@@ -175,7 +175,7 @@ Mainnet support still requires a separate audit pass, but the signet/mutinynet S
 
 Use this plan to move the current audit candidate from "ready to review" to "ready to submit". Do not change `snap.manifest.json` localhost origins as part of this note; handle that as a dedicated release-manifest task before external submission.
 
-Current candidate progress: duplicate previous-output rejection, missing previous-output data rejection, suspicious data-output warnings, hostile app-context containment for decoded vault data, create/borrow/repay/withdraw/repo/liquidate vault action decode coverage, a HTTPS-only release-manifest verifier, and a final submission-readiness gate are implemented. Remaining external evidence work is real transaction fixture capture, full E2E recording, final support/privacy/escalation details, npm publish evidence, and the third-party audit report.
+Current candidate progress: duplicate previous-output rejection, missing previous-output data rejection, suspicious data-output warnings, hostile app-context containment for decoded vault data, create/borrow/repay/withdraw/repo/liquidate vault action decode coverage, a HTTPS-only release-manifest verifier, and a final submission-readiness gate for fixtures, E2E evidence, screenshots, audit/demo URLs, and npm metadata are implemented. Remaining external evidence work is real transaction fixture capture, full E2E recording, final support/privacy/escalation details, npm publish evidence, and the third-party audit report.
 
 1. Expand the Ducat transaction fixture corpus. Capture real client-sdk/validator PSBT fixtures for create, deposit, borrow, repay, withdraw, swap, liquidation, and repossess flows on mutinynet/signet. Add golden tests for OP_RETURN decoding, action labels, vault state summaries, data-output labels, warning behavior, and confirmation rendering.
 2. Harden PSBT policy tests. Add adversarial cases for wrong network, unknown sign indexes, duplicate inputs, mixed account ownership, malicious frontend context, malformed data outputs, uncommitted Taproot script-path inputs, missing previous-output data, and suspicious zero-value outputs.
@@ -192,10 +192,12 @@ Current candidate progress: duplicate previous-output rejection, missing previou
 5. Merge any audit fixes and tag the fixed candidate.
 6. Publish `@ducat-unit/ducat-snap@0.1.0` to npm.
 7. Replace pending external fields in `submission/metamask-directory.json` and `submission/ALLOWLIST_SUBMISSION.md`.
-8. Capture final screenshots into `submission/screenshots/`.
-9. Record the demo video using `DEMO_SCRIPT.md`.
-10. Run `npm run verify:submission-ready`.
-11. Submit the MetaMask allowlist/directory request with audit report, npm URL, public repo URL, demo video, support details, and listing assets.
+8. Capture real PSBT fixtures into `submission/fixtures/`.
+9. Capture final E2E evidence into `submission/e2e/evidence.json`.
+10. Capture final screenshots into `submission/screenshots/`.
+11. Record the demo video using `DEMO_SCRIPT.md`.
+12. Run `npm run verify:submission-ready`.
+13. Submit the MetaMask allowlist/directory request with audit report, npm URL, public repo URL, demo video, support details, and listing assets.
 
 ## Useful Commands
 
