@@ -16,6 +16,8 @@ const requiredScreenshots = [
   '08-snap-home.png',
 ];
 const requiredFixtureActions = ['create', 'deposit', 'borrow', 'repay', 'withdraw', 'swap', 'liquidation', 'repossess'];
+const minimumScreenshotWidth = 360;
+const minimumScreenshotHeight = 360;
 const requiredE2eScenarios = [
   'install',
   'update',
@@ -78,10 +80,24 @@ function assertPng(relativePath) {
 
   assert(existsSync(filePath), `Missing required screenshot: ${relativePath}`);
 
-  const signature = readFileSync(filePath).subarray(0, 8);
+  const contents = readFileSync(filePath);
+  const signature = contents.subarray(0, 8);
   const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
   assert(signature.equals(pngSignature), `Required screenshot is not a PNG file: ${relativePath}`);
+  assert(contents.length >= 24, `Required screenshot is too small to be a valid PNG capture: ${relativePath}`);
+
+  const ihdrType = contents.subarray(12, 16).toString('ascii');
+
+  assert(ihdrType === 'IHDR', `Required screenshot is missing a PNG IHDR chunk: ${relativePath}`);
+
+  const width = contents.readUInt32BE(16);
+  const height = contents.readUInt32BE(20);
+
+  assert(
+    width >= minimumScreenshotWidth && height >= minimumScreenshotHeight,
+    `Required screenshot is too small (${width}x${height}). Expected at least ${minimumScreenshotWidth}x${minimumScreenshotHeight}: ${relativePath}`,
+  );
 }
 
 function assertString(label, value) {

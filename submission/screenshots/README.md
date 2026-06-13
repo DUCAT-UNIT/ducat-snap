@@ -18,6 +18,7 @@ Use the same Snap package, manifest shasum, frontend environment, and testnet ne
 ## Capture Notes
 
 - Use signet or mutinynet only.
+- Save PNG captures at 360x360 pixels or larger. The submission gate rejects malformed PNGs and captures below that size.
 - Do not include mainnet screens.
 - Do not show private keys, seed phrases, browser profiles, or unrelated tabs.
 - Prefer a clean browser profile with only MetaMask/Flask and the Ducat frontend visible.
