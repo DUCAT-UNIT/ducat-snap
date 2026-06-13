@@ -18,7 +18,14 @@ import {
   truncateMiddle,
 } from './display';
 import { ducatError } from './errors';
-import type { DucatActionContext, DucatAddressRole, DucatNetwork, PsbtOutputSummary, PsbtSummary } from './types';
+import type {
+  DucatActionContext,
+  DucatAddressRole,
+  DucatNetwork,
+  DucatVaultReturnData,
+  PsbtOutputSummary,
+  PsbtSummary,
+} from './types';
 import {
   uiBanner,
   uiBox,
@@ -64,6 +71,10 @@ function signedInputTitle(role: DucatAddressRole): string {
 }
 
 function outputDetailLabel(output: PsbtOutputSummary): string {
+  if (output.vaultData) {
+    return 'Ducat vault data';
+  }
+
   if (isDataOutput(output)) {
     return 'Transaction data';
   }
@@ -134,6 +145,74 @@ function formatMaybeUsd(value: number | null | undefined): string {
     : 'Unavailable';
 }
 
+function vaultEffect(actionType: string): string {
+  switch (actionKey({ actionType })) {
+    case 'borrow':
+      return 'Increases UNIT debt against the vault.';
+    case 'create':
+      return 'Creates or opens a Ducat vault.';
+    case 'deposit':
+      return 'Adds BTC collateral to the vault.';
+    case 'liquidation':
+      return 'Signs a liquidation for an under-collateralized vault.';
+    case 'repay':
+      return 'Reduces UNIT debt on the vault.';
+    case 'repossess':
+      return 'Repossesses collateral through the liquidation flow.';
+    case 'withdraw':
+      return 'Removes BTC collateral from the vault.';
+    default:
+      return 'Updates a Ducat vault.';
+  }
+}
+
+function vaultHealthFromReturnData(vaultData: DucatVaultReturnData): number | null | undefined {
+  if (vaultData.unitBalanceUnit === 0) {
+    return null;
+  }
+
+  if (!vaultData.collateralSats || !vaultData.unitPrice) {
+    return undefined;
+  }
+
+  const collateralBtc = vaultData.collateralSats / 100_000_000;
+
+  return Math.round(((collateralBtc * vaultData.unitPrice) / vaultData.unitBalanceUnit) * 100);
+}
+
+function contextFromDecodedVault(summary: PsbtSummary, context?: DucatActionContext): DucatActionContext {
+  const vaultData = summary.vaultUpdates[0];
+
+  if (!vaultData) {
+    return context ?? {};
+  }
+
+  const healthAfter = vaultHealthFromReturnData(vaultData);
+
+  return {
+    ...context,
+    actionType: vaultData.actionType,
+    metadata: {
+      ...context?.metadata,
+      decoded_from: 'Ducat OP_RETURN',
+      vault_action_flag: vaultData.actionFlag,
+      vault_data_output: vaultData.outputIndex,
+      vault_timestamp: vaultData.unitTimestamp,
+    },
+    title: actionLabel({ actionType: vaultData.actionType }, 'Ducat vault update'),
+    vault: {
+      ...context?.vault,
+      collateralAfterSats: vaultData.collateralSats ?? context?.vault?.collateralAfterSats,
+      debtAfterUnit: vaultData.unitBalanceUnit,
+      effect: vaultEffect(vaultData.actionType),
+      healthAfter: healthAfter === undefined ? context?.vault?.healthAfter : healthAfter,
+      liquidationPrice: vaultData.isLocked ? vaultData.tholdPrice : undefined,
+      price: vaultData.unitPrice,
+      source: 'op_return',
+    },
+  };
+}
+
 function vaultAmountText(context?: DucatActionContext): string | undefined {
   const amountSats = context?.vault?.amountSats;
   const amountUnit = context?.vault?.amountUnit;
@@ -193,7 +272,11 @@ function vaultActionSection(context?: DucatActionContext): SnapElement[] {
       ...(vault.effect ? [uiRow('Effect', vault.effect)] : []),
       ...(amount ? [uiRow('Amount', amount)] : []),
       ...rows,
-      uiMuted('Vault status comes from the Ducat app. Bitcoin amounts below are parsed from the PSBT and are what the Snap signs.'),
+      uiMuted(
+        vault.source === 'op_return'
+          ? 'Vault action and after-state were decoded from the Ducat OP_RETURN in this PSBT. App context supplies requested amounts and previous values.'
+          : 'Vault status comes from the Ducat app. Bitcoin amounts below are parsed from the PSBT and are what the Snap signs.',
+      ),
     ]),
   ];
 }
@@ -272,6 +355,20 @@ function contextSection(context?: DucatActionContext, note = 'App labels are sho
   ];
 }
 
+function vaultDataDetail(vaultData: DucatVaultReturnData): string {
+  const parts = [`${formatUnit(vaultData.unitBalanceUnit)} debt`];
+
+  if (vaultData.collateralSats !== undefined) {
+    parts.push(`${formatBtcValue(vaultData.collateralSats)} collateral`);
+  }
+
+  if (vaultData.tholdPrice !== undefined) {
+    parts.push(`${formatMaybeUsd(vaultData.tholdPrice)} threshold`);
+  }
+
+  return `${actionLabel({ actionType: vaultData.actionType })} - ${parts.join(', ')}`;
+}
+
 export async function confirmMessage(params: {
   origin: string;
   network: DucatNetwork;
@@ -345,8 +442,9 @@ export async function confirmPsbt(params: {
   context?: DucatActionContext;
 }): Promise<void> {
   const { summary, context, origin } = params;
+  const displayContext = contextFromDecodedVault(summary, context);
   const signedInputs = summary.signedInputIndexes.map((index) => `#${index}`).join(', ');
-  const action = actionLabel(context, 'Ducat transaction');
+  const action = actionLabel(displayContext, 'Ducat transaction');
   const leavesWalletSats = maybeAddSats(summary.externalOutputSats, summary.feeSats);
   const visibleWarnings = summary.warnings.map((warning) => warning.trim()).filter(Boolean);
   const recipientOutputs = summary.outputs
@@ -407,8 +505,8 @@ export async function confirmPsbt(params: {
       : [uiMuted('No recipient or change outputs parsed. Review the totals above.')];
   const dataOutputRows = visibleDataOutputs.map(({ output, index }) =>
     uiRow(
-      output.role === 'op_return' ? `Data #${index + 1}` : `Unknown data #${index + 1}`,
-      detailValue(formatBtcValue(output.valueSats), truncateMiddle(output.address, 24, 8)),
+      output.vaultData ? `Vault data #${index + 1}` : output.role === 'op_return' ? `Data #${index + 1}` : `Unknown data #${index + 1}`,
+      detailValue(formatBtcValue(output.valueSats), output.vaultData ? vaultDataDetail(output.vaultData) : truncateMiddle(output.address, 24, 8)),
       output.role === 'unknown' ? 'warning' : undefined,
     ),
   );
@@ -426,10 +524,10 @@ export async function confirmPsbt(params: {
           value: formatMaybeBtcValue(leavesWalletSats),
         }),
         uiBanner(statusTitle, statusSeverity, statusBody),
-        ...vaultActionSection(context),
+        ...vaultActionSection(displayContext),
         uiSection([
           uiHeading('Approval summary'),
-          uiMuted(actionIntent(context)),
+          uiMuted(actionIntent(displayContext)),
           amountCard('You pay', leavesWalletSats, 'Recipient value plus Bitcoin miner fee'),
           amountCard(recipientTitle, summary.externalOutputSats, recipientDescription),
           amountCard('Change', summary.selfOutputSats, compactCount(changeOutputCount, 'Ducat output')),
@@ -473,7 +571,7 @@ export async function confirmPsbt(params: {
         ...(visibleWarnings.length > 1
           ? [uiCollapsibleSection('More warnings', visibleWarnings.slice(1).map((warning) => uiText(warning, { color: 'warning' })))]
           : []),
-        ...contextSection(context),
+        ...contextSection(displayContext),
         uiDivider(),
         uiMuted('Approve only if these amounts match the Ducat app. Private keys stay inside MetaMask.'),
       ]),
@@ -491,6 +589,8 @@ export async function confirmBatch(params: {
   context?: DucatActionContext;
 }): Promise<void> {
   const summaries = params.entries.map((entry) => entry.summary);
+  const decodedBatchSummary = summaries.find((summary) => summary.vaultUpdates.length > 0);
+  const displayContext = decodedBatchSummary ? contextFromDecodedVault(decodedBatchSummary, params.context) : (params.context ?? {});
   const feeTotal = sumNullable(summaries.map((summary) => summary.feeSats));
   const externalTotal = summaries.reduce((total, summary) => total + summary.externalOutputSats, 0);
   const netTotal = maybeAddSats(externalTotal, feeTotal);
@@ -513,14 +613,14 @@ export async function confirmBatch(params: {
           description: `${originNameLabel(params.origin)} - ${networkLabel(network)}`,
           extra: 'all-or-nothing',
           image: DUCAT_MARK_SVG,
-          title: `${actionLabel(params.context, 'Ducat')} batch`,
+          title: `${actionLabel(displayContext, 'Ducat')} batch`,
           value: formatMaybeBtcValue(netTotal),
         }),
         uiBanner(statusTitle, statusSeverity, statusBody),
-        ...vaultActionSection(params.context),
+        ...vaultActionSection(displayContext),
         uiSection([
           uiHeading('Approval summary'),
-          uiMuted(actionIntent(params.context)),
+          uiMuted(actionIntent(displayContext)),
           amountCard('You pay', netTotal, 'Recipient values plus Bitcoin miner fees'),
           amountCard('Recipients', externalTotal, 'Total external outputs'),
           compactReviewLine('Network fees', feeTotal, 'across the full batch', feeTotal === null ? 'warning' : undefined),
@@ -545,9 +645,11 @@ export async function confirmBatch(params: {
         uiCollapsibleSection(
           `Inspect transactions (${summaries.length})`,
           [
-            ...visibleEntries.map(({ summary, context }, index) =>
-              uiRow(
-                `#${index + 1} ${actionLabel(context, 'Transaction')}`,
+            ...visibleEntries.map(({ summary, context }, index) => {
+              const entryContext = contextFromDecodedVault(summary, context);
+
+              return uiRow(
+                `#${index + 1} ${actionLabel(entryContext, 'Transaction')}`,
                 detailValue(
                   formatMaybeBtcValue(maybeAddSats(summary.externalOutputSats, summary.feeSats)),
                   `${summary.signedInputIndexes.length} input${summary.signedInputIndexes.length === 1 ? '' : 's'} - fee ${formatMaybeBtcValue(summary.feeSats)}${
@@ -555,13 +657,13 @@ export async function confirmBatch(params: {
                   }`,
                 ),
                 summary.warnings.length ? 'warning' : undefined,
-              ),
-            ),
+              );
+            }),
             ...(params.entries.length > visibleEntries.length ? [uiMuted(`+ ${params.entries.length - visibleEntries.length} more transactions`)] : []),
           ],
           true,
         ),
-        ...contextSection(params.context),
+        ...contextSection(displayContext),
         uiDivider(),
         uiMuted('Approve only if every transaction matches the Ducat app flow.'),
       ]),

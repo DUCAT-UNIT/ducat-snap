@@ -8,6 +8,8 @@ import { ducatError } from './errors';
 import { bitcoinNetwork } from './networks';
 import type {
   DucatNetwork,
+  DucatVaultActionFlag,
+  DucatVaultReturnData,
   PsbtInputSummary,
   PsbtInputVerification,
   PsbtOutputSummary,
@@ -19,6 +21,19 @@ const TAPLEAF_VERSION_MASK = 0xfe;
 const MAX_PSBT_BASE64_LENGTH = 350_000;
 const MAX_PSBT_INPUTS = 80;
 const MAX_PSBT_OUTPUTS = 120;
+const DUCAT_VAULT_RETURN_VERSION = 1;
+const DUCAT_VAULT_RETURN_MIN_SIZE = 14;
+const DUCAT_VAULT_RETURN_LOCKED_SIZE = 38;
+
+const DUCAT_ACTION_TYPES: Record<DucatVaultActionFlag, string> = {
+  b: 'borrow',
+  d: 'deposit',
+  l: 'liquidation',
+  o: 'create',
+  r: 'repay',
+  w: 'withdraw',
+  x: 'repossess',
+};
 
 type SignerLike = {
   publicKey: Buffer | Uint8Array;
@@ -211,13 +226,99 @@ function parseOutputAddress(outputScript: Buffer, network: DucatNetwork): string
   } catch {
     const chunks = btcScript.decompile(outputScript);
     if (chunks?.[0] === opcodes.OP_RETURN) {
-      const payload = chunks.slice(1).filter(Buffer.isBuffer).map((chunk) => chunk.toString('hex'));
+      const payload = chunks.slice(1).map((chunk) => {
+        if (Buffer.isBuffer(chunk)) {
+          return chunk.toString('hex');
+        }
+
+        if (chunk === opcodes.OP_8) {
+          return 'OP_8';
+        }
+
+        return `OP_${chunk}`;
+      });
 
       return payload.length ? `OP_RETURN ${payload.join(' ')}` : 'OP_RETURN';
     }
 
     return 'Unknown script';
   }
+}
+
+function isOpReturnScript(outputScript: Buffer): boolean {
+  const chunks = btcScript.decompile(outputScript);
+
+  return chunks?.[0] === opcodes.OP_RETURN;
+}
+
+function readUint32(payload: Buffer, offset: number): number {
+  return payload.readUInt32BE(offset);
+}
+
+function actionFlag(value: number): DucatVaultActionFlag | null {
+  const flag = String.fromCharCode(value) as DucatVaultActionFlag;
+
+  return flag in DUCAT_ACTION_TYPES ? flag : null;
+}
+
+function inferVaultCollateralSats(action: DucatVaultActionFlag, outputs: Psbt['txOutputs']): number | undefined {
+  const outputIndex = action === 'o' ? 2 : 0;
+  const output = outputs[outputIndex];
+
+  if (!output || output.value <= 0 || isOpReturnScript(Buffer.from(output.script))) {
+    return undefined;
+  }
+
+  return output.value;
+}
+
+function decodeDucatVaultReturn(outputScript: Buffer, outputIndex: number, outputs: Psbt['txOutputs']): DucatVaultReturnData | null {
+  const chunks = btcScript.decompile(outputScript);
+
+  if (chunks?.length !== 3 || chunks[0] !== opcodes.OP_RETURN || chunks[1] !== opcodes.OP_8 || !Buffer.isBuffer(chunks[2])) {
+    return null;
+  }
+
+  const payload = chunks[2];
+
+  if (payload.length !== DUCAT_VAULT_RETURN_MIN_SIZE && payload.length !== DUCAT_VAULT_RETURN_LOCKED_SIZE) {
+    return null;
+  }
+
+  const version = payload[0];
+  const action = actionFlag(payload[1]);
+
+  if (version !== DUCAT_VAULT_RETURN_VERSION || !action) {
+    return null;
+  }
+
+  const unitBalanceCents = readUint32(payload, 2);
+  const unitPrice = readUint32(payload, 6);
+  const unitTimestamp = readUint32(payload, 10);
+  const isLocked = unitBalanceCents > 0;
+
+  if ((isLocked && payload.length !== DUCAT_VAULT_RETURN_LOCKED_SIZE) || (!isLocked && payload.length !== DUCAT_VAULT_RETURN_MIN_SIZE)) {
+    return null;
+  }
+
+  const decoded: DucatVaultReturnData = {
+    actionFlag: action,
+    actionType: DUCAT_ACTION_TYPES[action],
+    outputIndex,
+    isLocked,
+    unitBalanceCents,
+    unitBalanceUnit: unitBalanceCents / 100,
+    unitPrice,
+    unitTimestamp,
+    collateralSats: inferVaultCollateralSats(action, outputs),
+  };
+
+  if (isLocked) {
+    decoded.tholdPrice = readUint32(payload, 14);
+    decoded.tholdHash = payload.subarray(18, 38).toString('hex');
+  }
+
+  return decoded;
 }
 
 function allSignedInputIndexes(signInputs: SignInputs): number[] {
@@ -264,7 +365,7 @@ function outputRole(address: string, keySet: AccountKeySet): PsbtOutputSummary['
   return 'external';
 }
 
-function buildWarnings(signedInputs: PsbtInputSummary[], feeSats: number | null): string[] {
+function buildWarnings(signedInputs: PsbtInputSummary[], feeSats: number | null, outputs: PsbtOutputSummary[]): string[] {
   const warnings: string[] = [];
 
   if (feeSats === null) {
@@ -273,6 +374,10 @@ function buildWarnings(signedInputs: PsbtInputSummary[], feeSats: number | null)
 
   if (signedInputs.some((input) => input.verification === 'alpha-unverified-taproot-script-path')) {
     warnings.push('Alpha compatibility path: one Taproot script-path input contains the Ducat vault key but could not be fully recomputed against the prevout.');
+  }
+
+  if (outputs.some((output) => output.address.startsWith('OP_RETURN') && output.address.includes('OP_8') && !output.vaultData)) {
+    warnings.push('A Ducat-looking OP_RETURN output was present but could not be decoded as vault return data.');
   }
 
   return warnings;
@@ -292,17 +397,21 @@ export function summarizePsbt(
 
     return total + input.witnessUtxo.value;
   }, 0);
-  const outputs: PsbtOutputSummary[] = psbt.txOutputs.map((output) => {
-    const outputAddress = output.address ?? parseOutputAddress(Buffer.from(output.script), network);
+  const outputs: PsbtOutputSummary[] = psbt.txOutputs.map((output, index) => {
+    const outputScript = Buffer.from(output.script);
+    const outputAddress = output.address ?? parseOutputAddress(outputScript, network);
     const role = outputRole(outputAddress, keySet);
+    const vaultData = decodeDucatVaultReturn(outputScript, index, psbt.txOutputs) ?? undefined;
 
     return {
       address: outputAddress,
       valueSats: output.value,
       isMine: role === 'sats' || role === 'runes' || role === 'vault',
       role,
+      vaultData,
     };
   });
+  const vaultUpdates = outputs.map((output) => output.vaultData).filter((vaultData): vaultData is DucatVaultReturnData => !!vaultData);
   const outputValueSats = outputs.reduce((total, output) => total + output.valueSats, 0);
   const feeSats = inputValueSats === null ? null : inputValueSats - outputValueSats;
 
@@ -329,7 +438,8 @@ export function summarizePsbt(
     outputValueSats,
     externalOutputSats: outputs.filter((output) => !output.isMine).reduce((total, output) => total + output.valueSats, 0),
     selfOutputSats: outputs.filter((output) => output.isMine).reduce((total, output) => total + output.valueSats, 0),
-    warnings: buildWarnings(signedInputs, feeSats),
+    vaultUpdates,
+    warnings: buildWarnings(signedInputs, feeSats, outputs),
   };
 }
 

@@ -58,6 +58,7 @@ function isVaultContext(value: unknown): value is NonNullable<DucatActionContext
 
   return (
     (vault.effect === undefined || typeof vault.effect === 'string') &&
+    (vault.source === undefined || typeof vault.source === 'string') &&
     isOptionalNumber(vault.amountSats) &&
     isOptionalNumber(vault.amountUnit) &&
     isOptionalNumber(vault.collateralBeforeSats) &&
@@ -200,6 +201,8 @@ async function signPsbt(origin: string, rawParams: unknown) {
   const signInputs = parseSignInputs(params.signInputs, 'signInputs');
   const keySet = await getAccountKeySet(network);
   const prepared = preparePsbtForSigning(params.psbt, network, keySet, signInputs);
+  const decodedActionType = prepared.summary.vaultUpdates[0]?.actionType;
+  const actionContext = decodedActionType ? { ...(context ?? {}), actionType: decodedActionType } : context;
 
   await rememberDucatSession(network, origin);
   await confirmPsbt({ origin, summary: prepared.summary, context });
@@ -207,8 +210,8 @@ async function signPsbt(origin: string, rawParams: unknown) {
   const psbt = signPreparedPsbt(prepared.psbt, keySet, signInputs);
 
   await appendRecentAction({
-    actionType: context?.actionType ?? 'sign-psbt',
-    title: actionLabel(context, 'Sign Ducat transaction'),
+    actionType: decodedActionType ?? context?.actionType ?? 'sign-psbt',
+    title: actionLabel(actionContext, 'Sign Ducat transaction'),
     network,
     origin,
     status: 'signed',
@@ -291,6 +294,8 @@ async function signBatch(origin: string, rawParams: unknown) {
     ...preparePsbtForSigning(entry.psbt, network, keySet, entry.signInputs),
   }));
   assertSingleNetwork(prepared.map((item) => item.summary));
+  const decodedActionType = prepared.find((item) => item.summary.vaultUpdates.length > 0)?.summary.vaultUpdates[0]?.actionType;
+  const actionContext = decodedActionType ? { ...(context ?? {}), actionType: decodedActionType } : context;
 
   await rememberDucatSession(network, origin);
   await confirmBatch({
@@ -302,8 +307,8 @@ async function signBatch(origin: string, rawParams: unknown) {
   const psbts = prepared.map((item) => signPreparedPsbt(item.psbt, keySet, item.signInputs));
 
   await appendRecentAction({
-    actionType: context?.actionType ?? 'sign-batch',
-    title: actionLabel(context, 'Sign Ducat batch'),
+    actionType: decodedActionType ?? context?.actionType ?? 'sign-batch',
+    title: actionLabel(actionContext, 'Sign Ducat batch'),
     network,
     origin,
     status: 'signed',

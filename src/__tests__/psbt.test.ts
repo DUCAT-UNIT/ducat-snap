@@ -41,6 +41,23 @@ function makeScriptPathPayment(xOnlyPubkey: Buffer) {
   };
 }
 
+function uint32(value: number): Buffer {
+  const buffer = Buffer.alloc(4);
+  buffer.writeUInt32BE(value);
+
+  return buffer;
+}
+
+function vaultReturnPayload(flag: string, unitBalanceCents: number, unitPrice: number, unitTimestamp: number, tholdPrice?: number): Buffer {
+  return Buffer.concat([
+    Buffer.from([1, flag.charCodeAt(0)]),
+    uint32(unitBalanceCents),
+    uint32(unitPrice),
+    uint32(unitTimestamp),
+    ...(unitBalanceCents > 0 ? [uint32(tholdPrice ?? 45_000), Buffer.alloc(20, 12)] : []),
+  ]);
+}
+
 describe('PSBT signing', () => {
   it('signs only explicit derived P2WPKH indexes', () => {
     const keySet = makeKeySet();
@@ -215,5 +232,51 @@ describe('PSBT signing', () => {
       role: 'op_return',
       valueSats: 0,
     });
+  });
+
+  it('decodes Ducat vault return data from OP_RETURN outputs', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+    const payload = vaultReturnPayload('d', 50_000, 60_000, 123_456, 45_000);
+
+    psbt.addInput({
+      hash: '66'.repeat(32),
+      index: 0,
+      witnessUtxo: {
+        script: keySet.satsOutputScript,
+        value: 2_000_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.vault.address,
+      value: 1_100_000,
+    });
+    psbt.addOutput({
+      script: btcScript.compile([opcodes.OP_RETURN, opcodes.OP_8, payload]),
+      value: 0,
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 899_000,
+    });
+
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+
+    expect(prepared.summary.vaultUpdates).toHaveLength(1);
+    expect(prepared.summary.outputs[1].address).toContain('OP_RETURN OP_8');
+    expect(prepared.summary.outputs[1].vaultData).toMatchObject({
+      actionFlag: 'd',
+      actionType: 'deposit',
+      collateralSats: 1_100_000,
+      isLocked: true,
+      outputIndex: 1,
+      tholdHash: Buffer.alloc(20, 12).toString('hex'),
+      tholdPrice: 45_000,
+      unitBalanceCents: 50_000,
+      unitBalanceUnit: 500,
+      unitPrice: 60_000,
+      unitTimestamp: 123_456,
+    });
+    expect(prepared.summary.warnings).toEqual([]);
   });
 });

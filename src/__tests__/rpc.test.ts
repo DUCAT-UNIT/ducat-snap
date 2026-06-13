@@ -1,4 +1,4 @@
-import { Psbt } from 'bitcoinjs-lib';
+import { opcodes, Psbt, script as btcScript } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
 import { deriveAccountSetFromBaseNodes } from '../accounts';
@@ -105,6 +105,51 @@ function makeExternalPsbt(value: number, seed: number) {
   return { keySet, psbt: psbt.toBase64() };
 }
 
+function uint32(value: number): Buffer {
+  const buffer = Buffer.alloc(4);
+  buffer.writeUInt32BE(value);
+
+  return buffer;
+}
+
+function vaultReturnPayload(flag: string, unitBalanceCents: number, unitPrice: number, unitTimestamp: number, tholdPrice?: number): Buffer {
+  return Buffer.concat([
+    Buffer.from([1, flag.charCodeAt(0)]),
+    uint32(unitBalanceCents),
+    uint32(unitPrice),
+    uint32(unitTimestamp),
+    ...(unitBalanceCents > 0 ? [uint32(tholdPrice ?? 45_000), Buffer.alloc(20, 12)] : []),
+  ]);
+}
+
+function makeVaultReturnPsbt(value: number, seed: number) {
+  const keySet = testKeySet();
+  const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+  psbt.addInput({
+    hash: Buffer.alloc(32, seed).toString('hex'),
+    index: 0,
+    witnessUtxo: {
+      script: keySet.satsOutputScript,
+      value,
+    },
+  });
+  psbt.addOutput({
+    address: keySet.record.vault.address,
+    value: 1_100_000,
+  });
+  psbt.addOutput({
+    script: btcScript.compile([opcodes.OP_RETURN, opcodes.OP_8, vaultReturnPayload('d', 50_000, 60_000, 123_456, 45_000)]),
+    value: 0,
+  });
+  psbt.addOutput({
+    address: keySet.record.sats.address,
+    value: value - 1_101_000,
+  });
+
+  return { keySet, psbt: psbt.toBase64() };
+}
+
 function dialogValues(request: jest.Mock): string[] {
   const dialogCall = request.mock.calls.find(([arg]) => arg.method === 'snap_dialog');
 
@@ -138,6 +183,7 @@ function collectDialogText(value: unknown): string[] {
     typeof record.label === 'string' ? record.label : null,
     typeof record.title === 'string' ? record.title : null,
     typeof props.value === 'string' ? props.value : null,
+    typeof props.extra === 'string' ? props.extra : null,
     typeof props.label === 'string' ? props.label : null,
     typeof props.title === 'string' ? props.title : null,
     typeof props.tooltip === 'string' ? props.tooltip : null,
@@ -361,6 +407,40 @@ describe('RPC router', () => {
     expect(rendered).toContain('Ducat app context');
     expect(rendered).toContain('Vault Id');
     expect(rendered).toContain('App labels are shown for context.');
+  });
+
+  it('renders decoded Ducat vault OP_RETURN facts in PSBT confirmations', async () => {
+    const request = setSnapMock();
+    const { keySet, psbt } = makeVaultReturnPsbt(2_000_000, 10);
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signPsbt',
+      params: {
+        network: 'signet',
+        psbt,
+        signInputs: { [keySet.record.sats.address]: [0] },
+        context: {
+          actionType: 'sign-psbt',
+          vault: {
+            collateralBeforeSats: 1_000_000,
+            debtBeforeUnit: 500,
+          },
+        },
+      },
+    });
+
+    const rendered = dialogValues(request).join('\n');
+
+    expect(rendered).toContain('Deposit BTC');
+    expect(rendered).toContain('Adds BTC collateral to the vault.');
+    expect(rendered).toContain('Collateral');
+    expect(rendered).toContain('0.01100000 BTC');
+    expect(rendered).toContain('UNIT debt');
+    expect(rendered).toContain('500 UNIT');
+    expect(rendered).toContain('Ducat OP_RETURN');
+    expect(rendered).toContain('Vault Action Flag');
+    expect(rendered).toContain('Vault data #2');
+    expect(rendered).toContain('500 UNIT debt');
   });
 
   it('rejects unknown PSBT input indexes before showing confirmation', async () => {

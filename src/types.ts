@@ -30,6 +30,7 @@ export type DucatActionContext = {
   metadata?: Record<string, string | number | boolean | null | undefined>;
   vault?: {
     effect?: string;
+    source?: string;
     amountSats?: number;
     amountUnit?: number;
     collateralBeforeSats?: number;
@@ -43,11 +44,28 @@ export type DucatActionContext = {
   };
 };
 
+export type DucatVaultActionFlag = 'o' | 'b' | 'r' | 'd' | 'w' | 'x' | 'l';
+
+export type DucatVaultReturnData = {
+  actionFlag: DucatVaultActionFlag;
+  actionType: string;
+  outputIndex: number;
+  isLocked: boolean;
+  unitBalanceCents: number;
+  unitBalanceUnit: number;
+  unitPrice: number;
+  unitTimestamp: number;
+  collateralSats?: number;
+  tholdPrice?: number;
+  tholdHash?: string;
+};
+
 export type PsbtOutputSummary = {
   address: string;
   valueSats: number;
   isMine: boolean;
   role: DucatAddressRole | 'external' | 'op_return' | 'unknown';
+  vaultData?: DucatVaultReturnData;
 };
 
 export type PsbtInputVerification =
@@ -77,6 +95,7 @@ export type PsbtSummary = {
   outputValueSats: number;
   externalOutputSats: number;
   selfOutputSats: number;
+  vaultUpdates: DucatVaultReturnData[];
   warnings: string[];
 };
 
