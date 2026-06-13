@@ -164,6 +164,7 @@ export async function confirmMessage(params: {
   const displayedMessage = params.message.slice(0, 800);
   const isTruncated = displayedMessage.length < params.message.length;
   const messageSha256 = crypto.sha256(Buffer.from(params.message)).toString('hex');
+  const messageFingerprint = `${messageSha256.slice(0, 16)}...${messageSha256.slice(-8)}`;
 
   const confirmed = await snap.request<boolean>({
     method: 'snap_dialog',
@@ -179,23 +180,34 @@ export async function confirmMessage(params: {
         }),
         uiBanner('Message signature', 'info', 'This signs a message only. It does not sign a Bitcoin transaction or broadcast funds.'),
         uiSection([
-          uiHeading('At a glance'),
-          uiRow('Account', detailValue(roleLabel(params.role), truncateMiddle(params.address))),
-          uiRow('Type', 'BIP322 simple'),
-          uiRow('Message length', `${params.message.length} characters`),
-          uiRow('SHA256', `${messageSha256.slice(0, 16)}...${messageSha256.slice(-8)}`),
+          uiHeading('Message review'),
+          uiCard({
+            description: truncateMiddle(params.address),
+            title: 'Signing account',
+            value: roleLabel(params.role),
+          }),
+          uiCard({
+            description: 'SHA256 of the exact message',
+            extra: `${params.message.length} characters`,
+            title: 'Message fingerprint',
+            value: messageFingerprint,
+          }),
         ]),
-        uiSection([
-          uiHeading('Security check'),
+        uiCollapsibleSection('Request details', [
           uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
           uiRow('Network', networkLabel(params.network)),
+          uiRow('Signature type', 'BIP322 simple'),
           uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
-        uiSection([
-          uiHeading(isTruncated ? 'Message preview' : 'Message'),
-          ...(isTruncated ? [uiMuted('Showing the first 800 characters. Copyable value is exactly what will be signed.')] : []),
-          uiCopyable(displayedMessage),
-        ]),
+        uiCollapsibleSection(
+          isTruncated ? 'Message preview' : 'Message to sign',
+          [
+            uiMuted('Copyable value is exactly what will be signed.'),
+            ...(isTruncated ? [uiMuted('Showing the first 800 characters.')] : []),
+            uiCopyable(displayedMessage),
+          ],
+          true,
+        ),
         ...contextSection(params.context, 'App labels are shown for context. The copyable message above is exactly what the Snap signs.'),
         uiDivider(),
         uiMuted('Approve only if this message matches the Ducat app request.'),
@@ -452,10 +464,10 @@ export async function confirmTransfer(params: {
           uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
         uiCollapsibleSection('Inspect route', [
-          uiRow('From', detailValue('BTC account', truncateMiddle(params.from))),
-          uiRow('To', truncateMiddle(params.to)),
+          uiRow('From', uiCopyable(params.from)),
+          uiRow('To', uiCopyable(params.to)),
           uiRow('Selected UTXOs', detailValue(`${params.inputCount} input${params.inputCount === 1 ? '' : 's'}`, formatSats(params.inputValueSats, params.network))),
-          uiRow('Broadcast', truncateMiddle(params.broadcastEndpoint, 28, 10)),
+          uiRow('Broadcast endpoint', uiCopyable(params.broadcastEndpoint)),
         ]),
         uiDivider(),
         uiMuted('Approve only if the recipient and total debit are correct.'),

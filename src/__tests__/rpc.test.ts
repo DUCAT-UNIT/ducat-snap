@@ -269,6 +269,11 @@ describe('RPC router', () => {
       }),
     );
     expect(rendered).toContain('Message signing');
+    expect(rendered).toContain('Message review');
+    expect(rendered).toContain('Signing account');
+    expect(rendered).toContain('Message fingerprint');
+    expect(rendered).toContain('Message to sign');
+    expect(rendered).toContain('Request details');
     expect(rendered).toContain('BIP322 simple');
     expect(rendered).toContain(message);
   });
