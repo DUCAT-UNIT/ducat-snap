@@ -175,6 +175,8 @@ Mainnet support still requires a separate audit pass, but the signet/mutinynet S
 
 Use this plan to move the current audit candidate from "ready to review" to "ready to submit". Do not change `snap.manifest.json` localhost origins as part of this note; handle that as a dedicated release-manifest task before external submission.
 
+Current candidate progress: duplicate previous-output rejection, suspicious data-output warnings, create/borrow/repay/withdraw/repo/liquidate vault action decode coverage, and a HTTPS-only release-manifest verifier are implemented. Remaining external evidence work is real transaction fixture capture, full E2E recording, final support/privacy/escalation details, npm publish evidence, and the third-party audit report.
+
 1. Expand the Ducat transaction fixture corpus. Capture real client-sdk/validator PSBT fixtures for create, deposit, borrow, repay, withdraw, swap, liquidation, and repossess flows on mutinynet/signet. Add golden tests for OP_RETURN decoding, action labels, vault state summaries, data-output labels, warning behavior, and confirmation rendering.
 2. Harden PSBT policy tests. Add adversarial cases for wrong network, unknown sign indexes, duplicate inputs, mixed account ownership, malicious frontend context, malformed data outputs, uncommitted Taproot script-path inputs, missing previous-output data, and suspicious zero-value outputs.
 3. Split development and release configuration. Keep localhost origins and `local:http://localhost:8080` for development, but create a release manifest path that allows only approved HTTPS Ducat origins. Update CI to verify the release manifest, package shasum, and submission metadata together.

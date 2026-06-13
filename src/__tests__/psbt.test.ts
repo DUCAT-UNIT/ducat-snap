@@ -83,6 +83,31 @@ function coreVaultReturnPayload(unitBalanceCents: number, unitPrice: number, uni
 }
 
 function addCoreVaultActionPsbtOutputs(psbt: Psbt, keySet: ReturnType<typeof makeKeySet>, actionCode: number, vaultValueSats: number, payload: Buffer): void {
+  if (actionCode === 161) {
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 1_000,
+    });
+    psbt.addOutput({
+      address: keySet.record.runes.address,
+      value: 1_000,
+    });
+    psbt.addOutput({
+      address: keySet.record.vault.address,
+      value: vaultValueSats,
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 898_000,
+    });
+    psbt.addOutput({
+      script: btcScript.compile([opcodes.OP_RETURN, opcodes.OP_8, payload]),
+      value: 0,
+    });
+
+    return;
+  }
+
   if (actionCode === 164) {
     psbt.addOutput({
       address: keySet.record.runes.address,
@@ -244,12 +269,51 @@ describe('PSBT signing', () => {
     expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs)).toThrow('different Ducat Snap account');
   });
 
+  it('rejects duplicate previous outputs before signing', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    for (const [inputIndex, hashByte] of [0x55, 0x58].entries()) {
+      psbt.addInput({
+        hash: hashByte.toString(16).repeat(32),
+        index: inputIndex,
+        witnessUtxo: {
+          script: keySet.satsOutputScript,
+          value: 10_000,
+        },
+      });
+      psbt.addOutput({
+        address: keySet.record.sats.address,
+        value: inputIndex === 0 ? 9_000 : 8_000,
+      });
+    }
+
+    const txInputs = (
+      psbt as unknown as {
+        __CACHE: { __TX: { ins: { hash: Buffer; index: number }[] } };
+      }
+    ).__CACHE.__TX.ins;
+
+    txInputs[1].hash = Buffer.from(txInputs[0].hash);
+    txInputs[1].index = txInputs[0].index;
+
+    try {
+      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+      throw new Error('Expected preparePsbtForSigning to fail.');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'PSBT_DUPLICATE_INPUT',
+        details: expect.objectContaining({ diagnostic: expect.stringContaining('Duplicate input') }),
+      });
+    }
+  });
+
   it('labels bare OP_RETURN outputs as data outputs', () => {
     const keySet = makeKeySet();
     const psbt = new Psbt({ network: bitcoinNetwork('signet') });
 
     psbt.addInput({
-      hash: '55'.repeat(32),
+      hash: '56'.repeat(32),
       index: 0,
       witnessUtxo: {
         script: keySet.satsOutputScript,
@@ -272,6 +336,41 @@ describe('PSBT signing', () => {
       role: 'op_return',
       valueSats: 0,
     });
+  });
+
+  it('warns for suspicious zero-value unknown scripts and value-bearing OP_RETURN outputs', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '57'.repeat(32),
+      index: 0,
+      witnessUtxo: {
+        script: keySet.satsOutputScript,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      script: btcScript.compile([opcodes.OP_RETURN, Buffer.from('burn', 'utf8')]),
+      value: 1,
+    });
+    psbt.addOutput({
+      script: btcScript.compile([Buffer.from([1, 2, 3]), opcodes.OP_DROP]),
+      value: 0,
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 8_000,
+    });
+
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+
+    expect(prepared.summary.outputs[0]).toMatchObject({ role: 'op_return', valueSats: 1 });
+    expect(prepared.summary.outputs[1]).toMatchObject({ role: 'unknown', valueSats: 0 });
+    expect(prepared.summary.warnings).toEqual([
+      'An OP_RETURN data output carries BTC value. Those sats are provably unspendable.',
+      'A zero-value unknown-script output is present. Review the script data before signing.',
+    ]);
   });
 
   it('decodes Ducat vault return data from OP_RETURN outputs', () => {
@@ -369,11 +468,13 @@ describe('PSBT signing', () => {
   });
 
   it.each([
+    { actionCode: 161, actionFlag: 'o', actionType: 'create', protocolAction: 'open', vaultOutputIndex: 2, expectedDataOutputIndex: 4 },
     { actionCode: 164, actionFlag: 'b', actionType: 'borrow', protocolAction: 'borrow', vaultOutputIndex: 1 },
     { actionCode: 165, actionFlag: 'r', actionType: 'repay', protocolAction: 'repay', vaultOutputIndex: 0 },
+    { actionCode: 167, actionFlag: 'w', actionType: 'withdraw', protocolAction: 'withdraw', vaultOutputIndex: 0 },
     { actionCode: 168, actionFlag: 'x', actionType: 'repo', protocolAction: 'repo', vaultOutputIndex: 0 },
     { actionCode: 169, actionFlag: 'l', actionType: 'liquidate', protocolAction: 'trim', vaultOutputIndex: 0 },
-  ])('decodes current Ducat core $actionType vault action data', ({ actionCode, actionFlag, actionType, protocolAction, vaultOutputIndex }) => {
+  ])('decodes current Ducat core $actionType vault action data', ({ actionCode, actionFlag, actionType, protocolAction, vaultOutputIndex, expectedDataOutputIndex }) => {
     const keySet = makeKeySet();
     const psbt = new Psbt({ network: bitcoinNetwork('signet') });
     const payload = coreVaultReturnPayload(75_000, 58_000, 654_321, 43_500);
@@ -397,7 +498,7 @@ describe('PSBT signing', () => {
       actionFlag,
       actionType,
       collateralSats: 1_250_000,
-      outputIndex: vaultOutputIndex + 2,
+      outputIndex: expectedDataOutputIndex ?? vaultOutputIndex + 2,
       protocolAction,
       sequenceCode: actionCode,
       sequenceVersion: 1,

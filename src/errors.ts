@@ -10,6 +10,7 @@ export type DucatSnapErrorCode =
   | 'MISSING_WITNESS_UTXO'
   | 'ORIGIN_NOT_AUTHORIZED'
   | 'PSBT_FEE_INVALID'
+  | 'PSBT_DUPLICATE_INPUT'
   | 'PSBT_INPUT_ACCOUNT_MISMATCH'
   | 'PSBT_INPUT_INDEX_INVALID'
   | 'PSBT_TOO_LARGE'
@@ -36,4 +37,3 @@ export function ducatError(code: DucatSnapErrorCode, message: string, details?: 
 export function isDucatSnapError(error: unknown): error is DucatSnapError {
   return error instanceof DucatSnapError;
 }
-

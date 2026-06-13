@@ -32,6 +32,12 @@ function assertJsonEqual(actual, expected, label) {
   assertEqual(JSON.stringify(actual), JSON.stringify(expected), label);
 }
 
+function isLocalOrigin(origin) {
+  const url = new URL(origin);
+
+  return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+}
+
 function npmPackDryRun() {
   const output = execFileSync('npm', ['pack', '--dry-run', '--json'], {
     cwd: root,
@@ -184,13 +190,26 @@ const rpcOrigins = manifestPermissions['endowment:rpc']?.allowedOrigins;
 assert(Array.isArray(rpcOrigins), 'manifest endowment:rpc.allowedOrigins must be an array.');
 assertJsonEqual([...rpcOrigins].sort(), [...directory.launchScope.frontendOrigins].sort(), 'manifest RPC origins');
 
+const releaseOrigins = directory.launchScope.releaseFrontendOrigins;
+assert(Array.isArray(releaseOrigins) && releaseOrigins.length > 0, 'submission releaseFrontendOrigins must be a non-empty array.');
+assert(new Set(releaseOrigins).size === releaseOrigins.length, 'submission releaseFrontendOrigins must be unique.');
+
 for (const origin of rpcOrigins) {
   assert(!origin.includes('*'), `manifest RPC origin must not use a wildcard: ${origin}`);
 
   const url = new URL(origin);
-  const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  const isLocal = isLocalOrigin(origin);
 
   assert(url.protocol === 'https:' || (isLocal && url.protocol === 'http:'), `manifest RPC origin must be HTTPS unless local: ${origin}`);
+}
+
+for (const origin of releaseOrigins) {
+  assert(rpcOrigins.includes(origin), `submission release origin is not present in the development manifest: ${origin}`);
+  assert(!isLocalOrigin(origin), `submission release origin must not be localhost: ${origin}`);
+
+  const url = new URL(origin);
+
+  assert(url.protocol === 'https:', `submission release origin must be HTTPS: ${origin}`);
 }
 
 const bip32Permissions = manifestPermissions.snap_getBip32Entropy;

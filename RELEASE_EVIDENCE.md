@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260613-audit-plan`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-audit-plan`
+- Implementation tag: `audit-candidate-0.1.0-20260613-policy-guard`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-policy-guard`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -41,7 +41,7 @@ This document captures the current local audit and submission handoff state for 
 ## Test Evidence
 
 - Jest suites: 6 passed
-- Jest tests: 49 passed
+- Jest tests: 53 passed
 - Covered areas:
   - Deterministic signet/mutinynet account derivation
   - `ducat_getAccounts`
@@ -51,11 +51,14 @@ This document captures the current local audit and submission handoff state for 
   - Ducat vault OP_RETURN return-data decoding
   - Current Ducat core vault OP_RETURN decoding with guardian and oracle commit payloads
   - Borrow, repay, repo, and liquidate/trim sequence-action decoding
+  - Create and withdraw sequence-action decoding
   - Malformed Ducat-looking OP_RETURN warning behavior
   - Decoded Ducat vault action and after-state confirmation rendering
   - Multisig labeling for signed UNIT/vault Taproot inputs
   - OP_RETURN data-output labeling
+  - Value-bearing OP_RETURN and zero-value unknown-script warning behavior
   - PSBT input ownership and network validation
+  - Duplicate previous-output rejection for hostile serialized PSBTs
   - Committed Taproot script-path signing
   - Uncommitted Taproot script-path rejection
   - RPC origin validation
@@ -73,12 +76,12 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1326027`
-- Dry-run unpacked size: `2255908`
+- Dry-run package size: `1326424`
+- Dry-run unpacked size: `2257198`
 - Dry-run file count: `15`
-- npm package shasum: `a33669d923862f17b681a70b5d254a96676066bc`
-- npm package integrity: `sha512-IKVUDAs8XezaUZNOHPH6yTCOb2KJZ8RnGEdnrMhh2AKw7YP21wr2BNpEVC8fOu0oAGIoDDaPjvR3EtjALD7LhA==`
-- Snap manifest source shasum: `Q7F1B8Yp4HK2A/z01yX6Fi7K6o6whYs3CH0dWhlvxVo=`
+- npm package shasum: `25f9105d97e6aad86778717789d702b491192302`
+- npm package integrity: `sha512-Ohnzt9JoPlj2v3d5L8PO7CTkxqR8dQ+rxQYgWsC6TH6UhxJzqP9GfyEIkekemvrnxOEOSfARmakSbNdMXPX/OA==`
+- Snap manifest source shasum: `WdO4kdPPEFZbX9F052dUxam4Wue2vieb40Yemyt7u+E=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -105,9 +108,10 @@ Packaged files:
 - Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`.
 - Transitive dependency versions are locked by `package-lock.json`.
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
-- Snapper result: completed with 207 low-risk ESLinting findings
+- Snapper result: completed with 208 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
+- Release manifest guard: `npm run verify:release-manifest` derives a submission manifest origin set from `submission/metamask-directory.json` and fails if any release origin is localhost, non-HTTPS, duplicated, wildcarded, or outside the current development manifest.
 
 ## Frontend Integration Evidence
 
@@ -139,7 +143,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260613-audit-plan` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260613-policy-guard` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

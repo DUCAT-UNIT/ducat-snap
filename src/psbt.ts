@@ -235,6 +235,24 @@ function validateSignedInput(psbt: Psbt, index: number, address: string, keySet:
   };
 }
 
+function assertUniqueInputOutpoints(psbt: Psbt): void {
+  const seen = new Map<string, number>();
+
+  for (const [index, input] of psbt.txInputs.entries()) {
+    const key = `${Buffer.from(input.hash).toString('hex')}:${input.index}`;
+    const previousIndex = seen.get(key);
+
+    if (previousIndex !== undefined) {
+      throw ducatError('PSBT_DUPLICATE_INPUT', 'This PSBT includes the same previous output more than once and cannot be signed safely.', {
+        inputIndex: index,
+        duplicateOf: previousIndex,
+      });
+    }
+
+    seen.set(key, index);
+  }
+}
+
 function parseOutputAddress(outputScript: Buffer, network: DucatNetwork): string {
   try {
     return btcAddress.fromOutputScript(outputScript, bitcoinNetwork(network));
@@ -499,6 +517,12 @@ export function parsePsbt(psbtBase64: string, network: DucatNetwork): Psbt {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
+    if (/duplicate input detected/iu.test(message)) {
+      throw ducatError('PSBT_DUPLICATE_INPUT', 'This PSBT includes the same previous output more than once and cannot be signed safely.', {
+        diagnostic: message,
+      });
+    }
+
     throw ducatError('MALFORMED_PSBT', 'The Ducat app sent a malformed PSBT.', { diagnostic: message });
   }
 }
@@ -532,6 +556,14 @@ function buildWarnings(feeSats: number | null, outputs: PsbtOutputSummary[]): st
 
   if (outputs.some((output) => output.address.startsWith('OP_RETURN') && output.address.includes('OP_8') && !output.vaultData)) {
     warnings.push('A Ducat-looking OP_RETURN output was present but could not be decoded as vault return data.');
+  }
+
+  if (outputs.some((output) => output.role === 'op_return' && output.valueSats > 0)) {
+    warnings.push('An OP_RETURN data output carries BTC value. Those sats are provably unspendable.');
+  }
+
+  if (outputs.some((output) => output.role === 'unknown' && output.valueSats === 0)) {
+    warnings.push('A zero-value unknown-script output is present. Review the script data before signing.');
   }
 
   return warnings;
@@ -612,6 +644,8 @@ export function preparePsbtForSigning(psbtBase64: string, network: DucatNetwork,
       maxOutputs: MAX_PSBT_OUTPUTS,
     });
   }
+
+  assertUniqueInputOutpoints(psbt);
 
   for (const [inputAddress, indexes] of Object.entries(signInputs)) {
     if (!Array.isArray(indexes) || indexes.length === 0) {
