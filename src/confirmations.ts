@@ -92,6 +92,15 @@ function compactReviewLine(
   return uiRow(label, detailValue(formatMaybeBtcValue(sats), sats === null ? description : `${formatSatsOnly(sats)} - ${description}`), variant);
 }
 
+function amountCard(title: string, sats: number | null, description: string, emptyExtra = 'review details'): SnapElement {
+  return uiCard({
+    description,
+    extra: sats === null ? emptyExtra : formatSatsOnly(sats),
+    title,
+    value: formatMaybeBtcValue(sats),
+  });
+}
+
 function warningTitle(warnings: string[]): string {
   if (warnings.some((warning) => warning.startsWith('Alpha compatibility path'))) {
     return 'Alpha compatibility';
@@ -235,21 +244,20 @@ export async function confirmPsbt(params: {
       content: uiBox([
         uiCard({
           description: `${originNameLabel(origin)} - ${networkLabel(summary.network)}`,
-          extra: leavesWalletSats === null ? 'review details' : 'leaves wallet',
+          extra: leavesWalletSats === null ? 'review details' : 'total debit',
           image: DUCAT_MARK_SVG,
           title: action,
           value: formatMaybeBtcValue(leavesWalletSats),
         }),
         uiBanner(statusTitle, statusSeverity, statusBody),
         uiSection([
-          uiHeading('At a glance'),
-          compactReviewLine('Net spend', leavesWalletSats, 'recipient amount plus network fee', leavesWalletSats === null ? 'warning' : undefined),
-          compactReviewLine('Recipients', summary.externalOutputSats, compactCount(externalOutputCount, 'external output')),
-          compactReviewLine('Change back', summary.selfOutputSats, compactCount(changeOutputCount, 'Ducat output')),
+          uiHeading('Money movement'),
+          amountCard('Leaves wallet', leavesWalletSats, 'Recipient value plus Bitcoin miner fee'),
+          amountCard('Recipients', summary.externalOutputSats, compactCount(externalOutputCount, 'external output')),
+          amountCard('Change back', summary.selfOutputSats, compactCount(changeOutputCount, 'Ducat output')),
           compactReviewLine('Network fee', summary.feeSats, 'Bitcoin miner fee', summary.feeSats === null ? 'warning' : undefined),
         ]),
-        uiSection([
-          uiHeading('Security check'),
+        uiCollapsibleSection('Request details', [
           uiRow('App', detailValue(originNameLabel(origin), originUrlLabel(origin))),
           uiRow('Network', networkLabel(summary.network)),
           uiRow('Signing', detailValue(`${summary.signedInputIndexes.length} of ${summary.inputCount} inputs`, signedInputs || 'No requested inputs')),
@@ -258,11 +266,11 @@ export async function confirmPsbt(params: {
           ...(dataOutputCount ? [uiRow('Data outputs', `${dataOutputCount} non-spendable output${dataOutputCount === 1 ? '' : 's'}`)] : []),
         ]),
         uiCollapsibleSection(
-          `Inputs being signed (${summary.signedInputs.length})`,
+          `Inspect signed inputs (${summary.signedInputs.length})`,
           [...inputRows, ...(summary.signedInputs.length > visibleSignedInputs.length ? [uiMuted(`+ ${summary.signedInputs.length - visibleSignedInputs.length} more inputs`)] : [])],
         ),
         uiCollapsibleSection(
-          `Recipient and change outputs (${recipientOutputs.length})`,
+          `Inspect outputs (${recipientOutputs.length})`,
           [...outputRows, ...(hiddenOutputs.length ? [uiMuted(`+ ${hiddenOutputs.length} more outputs; hidden external total ${formatSats(hiddenExternalSats, summary.network)}`)] : [])],
         ),
         ...(visibleWarnings.length > 1
@@ -313,22 +321,21 @@ export async function confirmBatch(params: {
         }),
         uiBanner(statusTitle, statusSeverity, statusBody),
         uiSection([
-          uiHeading('At a glance'),
+          uiHeading('Batch summary'),
           uiRow('Transactions', `${summaries.length}`),
-          compactReviewLine('Net spend', netTotal, 'recipient amount plus network fees', netTotal === null ? 'warning' : undefined),
-          compactReviewLine('Recipients', externalTotal, 'total external outputs'),
+          amountCard('Leaves wallet', netTotal, 'Recipient values plus Bitcoin miner fees'),
+          amountCard('Recipients', externalTotal, 'Total external outputs'),
           compactReviewLine('Network fees', feeTotal, 'across the full batch', feeTotal === null ? 'warning' : undefined),
           uiRow('Signing', `${signedInputCount} input${signedInputCount === 1 ? '' : 's'}`),
         ]),
-        uiSection([
-          uiHeading('Security check'),
+        uiCollapsibleSection('Request details', [
           uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
           uiRow('Network', networkLabel(network)),
           uiRow('Approval', 'All-or-nothing'),
           uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
         uiCollapsibleSection(
-          `Transactions (${summaries.length})`,
+          `Inspect transactions (${summaries.length})`,
           [
             ...visibleEntries.map(({ summary, context }, index) =>
               uiRow(
@@ -382,19 +389,18 @@ export async function confirmTransfer(params: {
         }),
         uiBanner('Ready to broadcast', 'warning', 'Approving signs and broadcasts this testnet BTC transfer. Check the recipient before continuing.'),
         uiSection([
-          uiHeading('At a glance'),
-          compactReviewLine('Total debit', params.amountSats + params.feeSats, 'recipient amount plus network fee'),
-          compactReviewLine('Recipient gets', params.amountSats, 'BTC transfer amount'),
+          uiHeading('Money movement'),
+          amountCard('Leaves wallet', params.amountSats + params.feeSats, 'Recipient value plus Bitcoin miner fee'),
+          amountCard('Recipient gets', params.amountSats, 'BTC transfer amount'),
           compactReviewLine('Network fee', params.feeSats, `${params.feeRate} sat/vB`),
           compactReviewLine('Change back', params.changeSats, 'returns to BTC account'),
         ]),
-        uiSection([
-          uiHeading('Security check'),
+        uiCollapsibleSection('Request details', [
           uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
           uiRow('Network', networkLabel(params.network)),
           uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
-        uiCollapsibleSection('Route', [
+        uiCollapsibleSection('Inspect route', [
           uiRow('From', detailValue('BTC account', truncateMiddle(params.from))),
           uiRow('To', truncateMiddle(params.to)),
           uiRow('Selected UTXOs', detailValue(`${params.inputCount} input${params.inputCount === 1 ? '' : 's'}`, formatSats(params.inputValueSats, params.network))),

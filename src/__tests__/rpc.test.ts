@@ -320,10 +320,12 @@ describe('RPC router', () => {
     const rendered = dialogValues(request).join('\n');
 
     expect(rendered).toContain('Deposit BTC');
-    expect(rendered).toContain('At a glance');
-    expect(rendered).toContain('Net spend');
+    expect(rendered).toContain('Money movement');
+    expect(rendered).toContain('Leaves wallet');
     expect(rendered).toContain('Recipients');
-    expect(rendered).toContain('Security check');
+    expect(rendered).toContain('Request details');
+    expect(rendered).toContain('Inspect signed inputs');
+    expect(rendered).toContain('Inspect outputs');
     expect(rendered).toContain('Ducat app context');
     expect(rendered).toContain('Vault Id');
     expect(rendered).toContain('App labels are shown for context.');

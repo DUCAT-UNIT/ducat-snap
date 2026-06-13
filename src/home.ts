@@ -1,8 +1,9 @@
 import { getAccountKeySet } from './accounts';
-import { actionLabel, formatMaybeBtcValue, formatSats, formatSatsOnly, formatUnit, networkLabel, truncateMiddle } from './display';
+import { DUCAT_MARK_SVG } from './brand';
+import { actionLabel, formatMaybeBtcValue, formatSats, formatSatsOnly, formatUnit, networkLabel } from './display';
 import { ducatAppUrl, esploraUrl, normalizeNetwork, validatorUrls } from './networks';
 import { getState } from './state';
-import type { DucatNetwork } from './types';
+import type { DucatNetwork, RecentActionStatus } from './types';
 import {
   uiBanner,
   uiBox,
@@ -207,22 +208,35 @@ function statusLabel(status: string): string {
     .replace(/\b\w/gu, (char: string) => char.toUpperCase());
 }
 
-function recentActionLine(action: Awaited<ReturnType<typeof getState>>['recentActions'][number]): string {
-  const ageMs = Math.max(0, Date.now() - action.timestamp);
+function relativeTime(timestamp: number): string {
+  const ageMs = Math.max(0, Date.now() - timestamp);
   const ageMinutes = Math.floor(ageMs / 60_000);
-  const when =
-    ageMinutes < 1
-      ? 'just now'
-      : ageMinutes < 60
-        ? `${ageMinutes}m ago`
-        : ageMinutes < 1_440
-          ? `${Math.floor(ageMinutes / 60)}h ago`
-          : new Date(action.timestamp).toISOString().slice(0, 10);
-  const status = statusLabel(action.status ?? 'signed');
-  const amount = action.amountSats === undefined ? '' : ` - ${formatSats(action.amountSats, action.network)}`;
-  const txid = action.txid ? ` - tx ${truncateMiddle(action.txid, 8, 6)}` : '';
 
-  return `${when} - ${actionLabel({ title: action.title, actionType: action.actionType })} - ${status}${amount}${txid}`;
+  if (ageMinutes < 1) {
+    return 'just now';
+  }
+
+  if (ageMinutes < 60) {
+    return `${ageMinutes}m ago`;
+  }
+
+  if (ageMinutes < 1_440) {
+    return `${Math.floor(ageMinutes / 60)}h ago`;
+  }
+
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function statusVariant(status?: RecentActionStatus): 'default' | 'warning' | 'critical' | undefined {
+  if (status === 'failed') {
+    return 'critical';
+  }
+
+  if (status === 'broadcast') {
+    return 'default';
+  }
+
+  return undefined;
 }
 
 function recentActionComponents(actions: Awaited<ReturnType<typeof getState>>['recentActions']): SnapElement[] {
@@ -230,10 +244,20 @@ function recentActionComponents(actions: Awaited<ReturnType<typeof getState>>['r
     return [uiMuted('No recent Ducat actions yet.')];
   }
 
-  return actions.flatMap((action, index) => [
-    uiRow(`#${index + 1}`, recentActionLine(action)),
-    ...(action.txid ? [uiRow('Txid', uiCopyable(action.txid))] : []),
-  ]);
+  return actions.flatMap((action) => {
+    const status = statusLabel(action.status ?? 'signed');
+    const amount = action.amountSats === undefined ? undefined : formatSats(action.amountSats, action.network);
+
+    return [
+      uiRow(
+        actionLabel({ title: action.title, actionType: action.actionType }),
+        amount ? `${status} - ${amount}` : status,
+        statusVariant(action.status),
+        relativeTime(action.timestamp),
+      ),
+      ...(action.txid ? [uiRow('Txid', uiCopyable(action.txid))] : []),
+    ];
+  });
 }
 
 function actionUrl(appUrl: string, path: string): string {
@@ -271,6 +295,59 @@ function actionComponents(appUrl: string): SnapElement[] {
   ];
 }
 
+function appLaunchComponents(appUrl: string): SnapElement[] {
+  if (canRenderSnapLink(appUrl)) {
+    return [uiRow('Ducat app', uiLink('Open', appUrl))];
+  }
+
+  return [uiRow('Ducat app', uiCopyable(appUrl))];
+}
+
+function accountComponents(accounts: Awaited<ReturnType<typeof getHomeState>>['accounts']): SnapElement[] {
+  if (accounts.runes === accounts.vault) {
+    return [
+      uiRow('BTC account', uiCopyable(accounts.sats)),
+      uiRow('UNIT / Vault account', uiCopyable(accounts.runes)),
+    ];
+  }
+
+  return [
+    uiRow('BTC account', uiCopyable(accounts.sats)),
+    uiRow('UNIT account', uiCopyable(accounts.runes)),
+    uiRow('Vault account', uiCopyable(accounts.vault)),
+  ];
+}
+
+function usdLabel(value: number | null): string {
+  return value === null ? 'Unknown' : `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+}
+
+function vaultComponents(vault: VaultSummary | null): SnapElement[] {
+  if (!vault) {
+    return [
+      uiCard({
+        description: 'Create or connect a vault in the Ducat app',
+        title: 'Vault',
+        value: 'Not found',
+      }),
+      uiMuted('No vault found, or the Ducat validator is unavailable.'),
+    ];
+  }
+
+  return [
+    uiCard({
+      description: vault.tag ?? vault.id,
+      extra: vault.collateralRatio === null ? undefined : `${vault.collateralRatio}% collateral`,
+      title: 'Vault',
+      value: statusLabel(vault.status),
+    }),
+    uiRow('BTC locked', vault.btcLocked === null ? 'Unknown' : `${vault.btcLocked} BTC`),
+    uiRow('UNIT borrowed', vault.unitBorrowed === null ? 'Unknown' : `${vault.unitBorrowed} UNIT`),
+    uiRow('Liquidation price', usdLabel(vault.liquidationPrice)),
+    uiRow('Oracle price', usdLabel(vault.oraclePrice)),
+  ];
+}
+
 export async function renderHomePage(networkInput?: unknown) {
   try {
     const homeState = await getHomeState(networkInput);
@@ -278,11 +355,16 @@ export async function renderHomePage(networkInput?: unknown) {
 
     return {
       content: uiBox([
-        uiHeading('Ducat', 'lg'),
-        uiMuted(networkLabel(homeState.network)),
+        uiCard({
+          description: 'Bitcoin accounts and Ducat signing',
+          extra: 'testnet only',
+          image: DUCAT_MARK_SVG,
+          title: 'Ducat Snap',
+          value: networkLabel(homeState.network),
+        }),
         uiBanner('Testnet release', 'info', 'Mainnet is disabled. Use the Ducat app for create, deposit, borrow, repay, withdraw, swap, and liquidation flows.'),
         uiSection([
-          uiHeading('Overview'),
+          uiHeading('Balances'),
           uiCard({
             description: 'Spendable testnet BTC',
             extra: homeState.balances.btcSats === null ? undefined : formatSatsOnly(homeState.balances.btcSats),
@@ -295,30 +377,16 @@ export async function renderHomePage(networkInput?: unknown) {
             value: formatUnit(homeState.balances.unit),
           }),
         ]),
-        uiSection([
-          uiHeading('Accounts'),
-          uiRow('BTC', uiCopyable(homeState.accounts.sats)),
-          uiRow('UNIT / Runes', uiCopyable(homeState.accounts.runes)),
-          uiRow('Vault', uiCopyable(homeState.accounts.vault)),
-        ]),
         ...(homeState.balances.btcSats === null || homeState.balances.unit === null
           ? [uiBanner('Balance lookup unavailable', 'warning', 'One or more balance services are unavailable or timed out. Signing still works from PSBT data supplied by the Ducat app.')]
           : []),
         uiSection([
           uiHeading('Vault'),
-          ...(homeState.vault
-            ? [
-                uiRow('Status', statusLabel(homeState.vault.status)),
-                uiRow('Vault ID', homeState.vault.tag ?? homeState.vault.id),
-                uiRow('BTC locked', homeState.vault.btcLocked === null ? 'Unknown' : `${homeState.vault.btcLocked} BTC`),
-                uiRow('UNIT borrowed', homeState.vault.unitBorrowed === null ? 'Unknown' : `${homeState.vault.unitBorrowed} UNIT`),
-                uiRow('Collateral', homeState.vault.collateralRatio === null ? 'Unknown' : `${homeState.vault.collateralRatio}%`),
-                uiRow('Liquidation', homeState.vault.liquidationPrice === null ? 'Unknown' : `$${homeState.vault.liquidationPrice}`),
-                uiRow('Oracle', homeState.vault.oraclePrice === null ? 'Unknown' : `$${homeState.vault.oraclePrice}`),
-              ]
-            : [uiMuted('No vault found, or the Ducat validator is unavailable.')]),
+          ...vaultComponents(homeState.vault),
         ]),
-        uiCollapsibleSection('Ducat actions', actionComponents(homeState.appUrl), true),
+        uiCollapsibleSection('Accounts', accountComponents(homeState.accounts)),
+        uiCollapsibleSection('Open Ducat app', appLaunchComponents(homeState.appUrl), true),
+        uiCollapsibleSection('Ducat actions', actionComponents(homeState.appUrl)),
         uiCollapsibleSection('Recent actions', recentActionComponents(actions), true),
       ]),
     };
@@ -326,7 +394,15 @@ export async function renderHomePage(networkInput?: unknown) {
     const message = error instanceof Error ? error.message : String(error);
 
     return {
-      content: uiBox([uiHeading('Ducat', 'lg'), uiBanner('Unable to load Snap Home', 'warning', message)]),
+      content: uiBox([
+        uiCard({
+          description: 'Bitcoin accounts and Ducat signing',
+          image: DUCAT_MARK_SVG,
+          title: 'Ducat Snap',
+          value: 'Unavailable',
+        }),
+        uiBanner('Unable to load Snap Home', 'warning', message),
+      ]),
     };
   }
 }

@@ -1,6 +1,6 @@
 # Ducat Snap Auditor Handoff
 
-Date prepared: 2026-06-12
+Date prepared: 2026-06-13
 
 This document is the external security review handoff for `@ducat-unit/ducat-snap` v0.1.0. It complements `AUDIT_SCOPE.md`, `RELEASE_EVIDENCE.md`, `SNAPPER_REVIEW.md`, and `DEPENDENCY_AUDIT.md`.
 
@@ -11,14 +11,14 @@ Assess whether the Ducat Snap can safely derive signet/mutinynet Bitcoin account
 ## Candidate Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Audit candidate tag: `audit-candidate-0.1.0-20260613-confirmation-surface-polish`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-confirmation-surface-polish`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-ui-polish`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-ui-polish`
 - GitHub Actions verification: see the current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/1
 - npm package name: `@ducat-unit/ducat-snap`
 - Package version: `0.1.0`
-- Package dry-run shasum: `90a9cc846dd3971c9e35d77b2140fbce6c70c4f8`
-- Package dry-run integrity: `sha512-0dGN922Uw4boLmHsg4wKDJVRZoLZSf7KdkNC17Ge/PmSeVTtzYmFwhhuWeCJCgY6zWlFBTgc5cCMl/snk4nWbw==`
-- Snap manifest source shasum: `BmzAlLQvjMqyddb4x4TwatmHDaW4WZkrF3QdIe77JTs=`
+- Package dry-run shasum: `d9373dde8d96324940e9f5c3e0fdd91a0eaa91ea`
+- Package dry-run integrity: `sha512-WhCCDnBQYP2HEjydgsSgIzCSAO2Q9oBJbp/4rybSrRPamS/kigrTGdqQDZArMZpJylIXHx7TcHm9gOU23L6c8A==`
+- Snap manifest source shasum: `XHjLqwtZwU/jZdLf+/Y/jceGO5he4qzmXWfc0fYt1IM=`
 - Proposed Snap name: `Ducat`
 - Intended launch scope: signet/mutinynet only
 - Mainnet support: intentionally out of scope for v0.1.0

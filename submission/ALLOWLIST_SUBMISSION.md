@@ -1,6 +1,6 @@
 # MetaMask Allowlist Submission Draft
 
-Date prepared: 2026-06-12
+Date prepared: 2026-06-13
 
 Use this file as the working copy for the MetaMask Snaps Directory Information form. Replace the remaining `PENDING_*` values before submission.
 
@@ -40,8 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.0-20260613-confirmation-surface-polish`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-confirmation-surface-polish`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-ui-polish`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-ui-polish`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,9 +55,9 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `90a9cc846dd3971c9e35d77b2140fbce6c70c4f8`
-- npm package integrity: `sha512-0dGN922Uw4boLmHsg4wKDJVRZoLZSf7KdkNC17Ge/PmSeVTtzYmFwhhuWeCJCgY6zWlFBTgc5cCMl/snk4nWbw==`
-- Snap manifest source shasum: `BmzAlLQvjMqyddb4x4TwatmHDaW4WZkrF3QdIe77JTs=`
+- npm package shasum: `d9373dde8d96324940e9f5c3e0fdd91a0eaa91ea`
+- npm package integrity: `sha512-WhCCDnBQYP2HEjydgsSgIzCSAO2Q9oBJbp/4rybSrRPamS/kigrTGdqQDZArMZpJylIXHx7TcHm9gOU23L6c8A==`
+- Snap manifest source shasum: `XHjLqwtZwU/jZdLf+/Y/jceGO5he4qzmXWfc0fYt1IM=`
 
 ## Permissions Summary
 
@@ -75,9 +75,9 @@ Mainnet is intentionally not enabled in this release.
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-confirmation-surface-polish/SECURITY.md
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-ui-polish/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-confirmation-surface-polish/PRIVACY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-ui-polish/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo
