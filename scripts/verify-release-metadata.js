@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { execFileSync } = require('node:child_process');
-const { existsSync, readFileSync } = require('node:fs');
+const { existsSync, readdirSync, readFileSync, statSync } = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -87,6 +87,37 @@ function expectedCandidateCommit() {
   return gitHeadCommit();
 }
 
+function listFiles(directory) {
+  return readdirSync(directory).flatMap((entry) => {
+    const entryPath = path.join(directory, entry);
+    const stats = statSync(entryPath);
+
+    if (stats.isDirectory()) {
+      return entry === '__tests__' ? [] : listFiles(entryPath);
+    }
+
+    return stats.isFile() ? [entryPath] : [];
+  });
+}
+
+function assertRuntimeSourceClean() {
+  const forbiddenPatterns = [
+    { label: 'console usage', pattern: /\bconsole\./u },
+    { label: 'debugger statement', pattern: /\bdebugger\b/u },
+    { label: 'TODO marker', pattern: /\bTODO\b/u },
+    { label: 'FIXME marker', pattern: /\bFIXME\b/u },
+  ];
+
+  for (const filePath of listFiles(path.join(root, 'src')).filter((file) => file.endsWith('.ts'))) {
+    const contents = readFileSync(filePath, 'utf8');
+    const relativePath = path.relative(root, filePath);
+
+    for (const { label, pattern } of forbiddenPatterns) {
+      assert(!pattern.test(contents), `Runtime source ${relativePath} contains ${label}.`);
+    }
+  }
+}
+
 const packageJson = readJson('package.json');
 const manifest = readJson('snap.manifest.json');
 const directory = readJson('submission/metamask-directory.json');
@@ -131,6 +162,7 @@ const requiredPackageFiles = [
   'snap.manifest.json',
 ];
 
+assertRuntimeSourceClean();
 assertEqual(manifest.version, packageJson.version, 'manifest version');
 assertEqual(directory.snap.version, packageJson.version, 'submission version');
 assertEqual(directory.snap.packageName, packageJson.name, 'submission package name');
