@@ -174,6 +174,24 @@ describe('PSBT signing', () => {
     expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { tb1qunknown: [0] })).toThrow('not managed');
   });
 
+  it('rejects signed inputs that omit previous-output value data', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '12'.repeat(32),
+      index: 0,
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] })).toThrow(
+      'missing required input value data',
+    );
+  });
+
   it('reports the actual input address when a signer address does not match the PSBT input script', () => {
     const keySet = makeKeySet();
     const psbt = new Psbt({ network: bitcoinNetwork('signet') });

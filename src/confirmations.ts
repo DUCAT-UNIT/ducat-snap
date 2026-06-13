@@ -190,13 +190,17 @@ function contextFromDecodedVault(summary: PsbtSummary, context?: DucatActionCont
   }
 
   const healthAfter = vaultHealthFromReturnData(vaultData);
+  const trustedContextVault = { ...context?.vault };
+
+  delete trustedContextVault.amountSats;
+  delete trustedContextVault.amountUnit;
 
   return {
     ...context,
     actionType: vaultData.actionType,
     title: actionLabel({ actionType: vaultData.actionType }, 'Ducat vault update'),
     vault: {
-      ...context?.vault,
+      ...trustedContextVault,
       collateralAfterSats: vaultData.collateralSats ?? context?.vault?.collateralAfterSats,
       debtAfterUnit: vaultData.unitBalanceUnit,
       effect: vaultEffect(vaultData.actionType),

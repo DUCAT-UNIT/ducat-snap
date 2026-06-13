@@ -483,10 +483,15 @@ describe('RPC router', () => {
         psbt,
         signInputs: { [keySet.record.sats.address]: [0] },
         context: {
-          actionType: 'sign-psbt',
+          actionType: 'withdraw',
+          title: 'Withdraw BTC',
           vault: {
+            amountSats: 99_999_999,
+            amountUnit: 123,
+            collateralAfterSats: 42,
             collateralBeforeSats: 1_000_000,
             debtBeforeUnit: 500,
+            effect: 'Removes all BTC collateral from the vault.',
           },
         },
       },
@@ -501,6 +506,10 @@ describe('RPC router', () => {
     expect(rendered).toContain('0.01100000 BTC');
     expect(rendered).toContain('UNIT debt');
     expect(rendered).toContain('500 UNIT');
+    expect(rendered).not.toContain('Withdraw BTC');
+    expect(rendered).not.toContain('Removes all BTC collateral from the vault.');
+    expect(rendered).not.toContain('0.99999999 BTC');
+    expect(rendered).not.toContain('123 UNIT');
     expect(rendered).not.toContain('Inspect data outputs');
     expect(rendered).not.toContain('Vault data #2');
     expect(rendered).not.toContain('Ducat app context');
