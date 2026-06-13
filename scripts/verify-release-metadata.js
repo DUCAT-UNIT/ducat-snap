@@ -70,6 +70,23 @@ function gitHeadCommit() {
   }
 }
 
+function expectedCandidateCommit() {
+  if (process.env.GITHUB_EVENT_PATH && existsSync(process.env.GITHUB_EVENT_PATH)) {
+    try {
+      const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+      const pullRequestHeadSha = event.pull_request?.head?.sha;
+
+      if (typeof pullRequestHeadSha === 'string' && pullRequestHeadSha) {
+        return pullRequestHeadSha;
+      }
+    } catch {
+      return gitHeadCommit();
+    }
+  }
+
+  return gitHeadCommit();
+}
+
 const packageJson = readJson('package.json');
 const manifest = readJson('snap.manifest.json');
 const directory = readJson('submission/metamask-directory.json');
@@ -198,10 +215,10 @@ for (const token of documentedPendingTokens) {
 
 const tagTarget = gitTagTarget(candidateTag);
 if (tagTarget) {
-  const headCommit = gitHeadCommit();
+  const expectedCommit = expectedCandidateCommit();
 
-  if (headCommit) {
-    assertEqual(tagTarget, headCommit, 'audit candidate tag target');
+  if (expectedCommit) {
+    assertEqual(tagTarget, expectedCommit, 'audit candidate tag target');
   }
 
   console.log(`Audit candidate tag ${candidateTag} resolves to ${tagTarget}.`);
