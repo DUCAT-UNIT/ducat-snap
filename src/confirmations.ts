@@ -109,6 +109,35 @@ function warningTitle(warnings: string[]): string {
   return 'Review before signing';
 }
 
+function actionKey(context?: DucatActionContext): string | null {
+  const raw = context?.actionType ?? context?.flow ?? context?.title;
+
+  return raw ? raw.trim().toLowerCase().replace(/_/gu, '-').replace(/ /gu, '-') : null;
+}
+
+function actionIntent(context?: DucatActionContext): string {
+  switch (actionKey(context)) {
+    case 'borrow':
+      return 'Borrow request: review vault inputs, UNIT settlement outputs, and the Bitcoin fee before signing.';
+    case 'create':
+      return 'Vault creation: review the funding outputs and any change before signing.';
+    case 'deposit':
+      return 'BTC deposit: review the collateral amount, change, and Bitcoin fee before signing.';
+    case 'liquidation':
+    case 'liquidation-or-repossess':
+    case 'repossess':
+      return 'Liquidation flow: review every spend and output carefully before approving.';
+    case 'repay':
+      return 'Repay request: review UNIT repayment outputs, vault inputs, and the Bitcoin fee before signing.';
+    case 'swap':
+      return 'Swap request: review the external output amount, change, and fee before signing.';
+    case 'withdraw':
+      return 'BTC withdrawal: review the destination, returned change, and Bitcoin fee before signing.';
+    default:
+      return 'Review parsed Bitcoin transaction amounts before signing.';
+  }
+}
+
 function contextSection(context?: DucatActionContext, note = 'App labels are shown for context. Parsed PSBT values above are what the Snap signs.'): SnapElement[] {
   const metadata = Object.entries(context?.metadata ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== '');
 
@@ -198,6 +227,8 @@ export async function confirmPsbt(params: {
   const visibleOutputs = recipientOutputs.slice(0, 8);
   const hiddenOutputs = recipientOutputs.slice(visibleOutputs.length);
   const hiddenExternalSats = hiddenOutputs.filter(({ output }) => !output.isMine).reduce((total, { output }) => total + output.valueSats, 0);
+  const dataOutputs = summary.outputs.map((output, index) => ({ index, output })).filter(({ output }) => isDataOutput(output));
+  const visibleDataOutputs = dataOutputs.slice(0, 4);
   const visibleSignedInputs = [...summary.signedInputs].sort((left, right) => left.index - right.index).slice(0, 6);
   const inputRoleLabel = [...new Set(summary.signedInputs.map((input) => roleLabel(input.role)))].join(' + ') || 'No Ducat account inputs';
   const statusTitle = visibleWarnings.length ? warningTitle(visibleWarnings) : 'Verified by Ducat Snap';
@@ -209,8 +240,8 @@ export async function confirmPsbt(params: {
     visibleSignedInputs.length > 0
       ? visibleSignedInputs.map((input) =>
           uiRow(
-            signedInputTitle(input.role),
-            detailValue(formatMaybeBtcValue(input.valueSats), `PSBT #${input.index} - ${truncateMiddle(input.address, 10, 8)}`),
+            `Input #${input.index}`,
+            detailValue(formatMaybeBtcValue(input.valueSats), `${signedInputTitle(input.role)} - ${truncateMiddle(input.address, 10, 8)}`),
             input.verification === 'alpha-unverified-taproot-script-path' ? 'warning' : undefined,
             input.verification === 'alpha-unverified-taproot-script-path'
               ? 'This alpha Taproot script-path input contains the Ducat vault key but could not be fully recomputed against the prevout.'
@@ -236,6 +267,13 @@ export async function confirmPsbt(params: {
           );
         })
       : [uiMuted('No recipient or change outputs parsed. Review the totals above.')];
+  const dataOutputRows = visibleDataOutputs.map(({ output, index }) =>
+    uiRow(
+      output.role === 'op_return' ? `Data #${index + 1}` : `Unknown data #${index + 1}`,
+      detailValue(formatBtcValue(output.valueSats), truncateMiddle(output.address, 24, 8)),
+      output.role === 'unknown' ? 'warning' : undefined,
+    ),
+  );
 
   const confirmed = await snap.request<boolean>({
     method: 'snap_dialog',
@@ -252,6 +290,7 @@ export async function confirmPsbt(params: {
         uiBanner(statusTitle, statusSeverity, statusBody),
         uiSection([
           uiHeading('Money movement'),
+          uiMuted(actionIntent(context)),
           amountCard('Leaves wallet', leavesWalletSats, 'Recipient value plus Bitcoin miner fee'),
           amountCard('Recipients', summary.externalOutputSats, compactCount(externalOutputCount, 'external output')),
           amountCard('Change back', summary.selfOutputSats, compactCount(changeOutputCount, 'Ducat output')),
@@ -273,6 +312,14 @@ export async function confirmPsbt(params: {
           `Inspect outputs (${recipientOutputs.length})`,
           [...outputRows, ...(hiddenOutputs.length ? [uiMuted(`+ ${hiddenOutputs.length} more outputs; hidden external total ${formatSats(hiddenExternalSats, summary.network)}`)] : [])],
         ),
+        ...(dataOutputs.length
+          ? [
+              uiCollapsibleSection(
+                `Inspect data outputs (${dataOutputs.length})`,
+                [...dataOutputRows, ...(dataOutputs.length > visibleDataOutputs.length ? [uiMuted(`+ ${dataOutputs.length - visibleDataOutputs.length} more data outputs`)] : [])],
+              ),
+            ]
+          : []),
         ...(visibleWarnings.length > 1
           ? [uiCollapsibleSection('More warnings', visibleWarnings.slice(1).map((warning) => uiText(warning, { color: 'warning' })))]
           : []),
@@ -323,6 +370,7 @@ export async function confirmBatch(params: {
         uiSection([
           uiHeading('Batch summary'),
           uiRow('Transactions', `${summaries.length}`),
+          uiMuted(actionIntent(params.context)),
           amountCard('Leaves wallet', netTotal, 'Recipient values plus Bitcoin miner fees'),
           amountCard('Recipients', externalTotal, 'Total external outputs'),
           compactReviewLine('Network fees', feeTotal, 'across the full batch', feeTotal === null ? 'warning' : undefined),
@@ -342,8 +390,11 @@ export async function confirmBatch(params: {
                 `#${index + 1} ${actionLabel(context, 'Transaction')}`,
                 detailValue(
                   formatMaybeBtcValue(maybeAddSats(summary.externalOutputSats, summary.feeSats)),
-                  `${summary.signedInputIndexes.length} input${summary.signedInputIndexes.length === 1 ? '' : 's'} - fee ${formatMaybeBtcValue(summary.feeSats)}`,
+                  `${summary.signedInputIndexes.length} input${summary.signedInputIndexes.length === 1 ? '' : 's'} - fee ${formatMaybeBtcValue(summary.feeSats)}${
+                    summary.warnings.length ? ` - ${summary.warnings.length} warning${summary.warnings.length === 1 ? '' : 's'}` : ''
+                  }`,
                 ),
+                summary.warnings.length ? 'warning' : undefined,
               ),
             ),
             ...(params.entries.length > visibleEntries.length ? [uiMuted(`+ ${params.entries.length - visibleEntries.length} more transactions`)] : []),
