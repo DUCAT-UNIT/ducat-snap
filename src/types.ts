@@ -44,7 +44,7 @@ export type DucatActionContext = {
   };
 };
 
-export type DucatVaultActionFlag = 'o' | 'b' | 'r' | 'd' | 'w' | 'x' | 'l';
+export type DucatVaultActionFlag = 'o' | 'b' | 'r' | 'd' | 'w' | 'x' | 'l' | 'c';
 
 export type DucatVaultReturnData = {
   actionFlag: DucatVaultActionFlag;
@@ -58,6 +58,8 @@ export type DucatVaultReturnData = {
   collateralSats?: number;
   tholdPrice?: number;
   tholdHash?: string;
+  guardianCount?: number;
+  priceCommitCount?: number;
 };
 
 export type PsbtOutputSummary = {

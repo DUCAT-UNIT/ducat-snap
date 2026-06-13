@@ -32,18 +32,18 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-internal-audit/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-vault-decode/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-internal-audit/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260613-vault-decode/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.0-20260613-internal-audit",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260613-internal-audit",
+    "candidateTag": "audit-candidate-0.1.0-20260613-vault-decode",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260613-vault-decode",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/1",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
@@ -58,9 +58,9 @@
   },
   "verification": {
     "commands": ["npm ci", "npm run verify:release"],
-    "packageShasum": "df3f73b67cd0c8262f2310042aae902746149d88",
-    "packageIntegrity": "sha512-6pd/wcxyTvk4eAqceMZxoCMmaovPkpgnWnbIKvFP9A6e6wDapJfh+u4tmlO2TBwfU9l5tHnU6N2jpy3q63S6QA==",
-    "manifestSourceShasum": "BhbII7HEwhtqNBrCAUMFZuBctHBZq6E0VrZr9HKmDt8=",
+    "packageShasum": "e33f668c8288490ae620f0606409d60a668efb39",
+    "packageIntegrity": "sha512-5IENk1vw4tstURw5cmHCPxTVzI+V3ksvfYE2JDkXl4HmBDMDZnnzMKYlY/IEM5UahOyYm56BHyDKWjOzpqt3lg==",
+    "manifestSourceShasum": "rwZS/OkFfBWqhUo7DTfyitpXlmhnmV7ABIq66po4BTw=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
   }

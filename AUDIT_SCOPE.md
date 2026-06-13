@@ -10,7 +10,8 @@ This file defines the minimum security review scope before publishing `@ducat-un
 - Account derivation in `src/accounts.ts`.
 - BIP322-style message signing in `src/message.ts`.
 - PSBT parsing, validation, summarization, and signing in `src/psbt.ts`.
-- The signet/mutinynet alpha Taproot script-path compatibility path in `src/psbt.ts`.
+- Taproot script-path commitment verification in `src/psbt.ts`.
+- Ducat vault sequence and OP_RETURN return-data decoding in `src/psbt.ts`.
 - Transfer construction, signing, and broadcast in `src/transfer.ts`.
 - RPC routing and origin authorization in `src/rpc.ts`.
 - User confirmation content in `src/confirmations.ts`.
@@ -28,7 +29,7 @@ This file defines the minimum security review scope before publishing `@ducat-un
 - Any unauthorized origin able to invoke Snap RPC methods.
 - Any malformed PSBT, wrong-network PSBT, unknown address, or unknown input index that is accepted.
 - Any package dependency that violates MetaMask Snap SES constraints or creates avoidable key-management risk.
-- Any Taproot script-path compatibility behavior that signs a Ducat vault input without proving the intended ownership and confirmation invariants.
+- Any Taproot script-path behavior that signs a Ducat vault input without proving the tapleaf commits to the prevout output key and contains the derived vault pubkey.
 
 ## Audit Evidence
 

@@ -107,6 +107,19 @@ Remediation:
 - Refreshed package shasum, package integrity, manifest shasum, and audit candidate tag references.
 - Verified the new audit candidate tag resolves to the pushed commit.
 
+### F-007: Vault OP_RETURN Decoder Did Not Match Current Core Payloads
+
+Severity: Low
+
+The confirmation parser still supported an older compact vault-return fixture, but current Ducat core vault return data encodes guardian indices, UNIT balance, price timestamp, and counted 93-byte oracle price commits. Valid signet/mutinynet vault transactions were therefore displayed with a decode warning instead of parsed after-state facts.
+
+Remediation:
+
+- Added current Ducat core OP_RETURN decoding for guardian index bytes and oracle price commit rows.
+- Added vault action decoding from sequence metadata instead of trusting frontend labels for the action.
+- Preserved warning behavior for malformed Ducat-looking OP_RETURN outputs.
+- Added regression tests for valid current core payloads and malformed Ducat-looking payloads.
+
 ## Residual Risk
 
 - The Snap still depends on third-party APIs for balances, vault summaries, fee estimates, and transfer broadcast. Transfer signing does not trust those APIs for private keys, but availability and data quality remain external dependencies.
@@ -125,4 +138,3 @@ Auditors should prioritize:
 - Origin allowlist and network-scope restrictions.
 - Direct transfer fee policy, UTXO validation, and broadcast failure handling.
 - Batch-signing all-or-nothing behavior.
-

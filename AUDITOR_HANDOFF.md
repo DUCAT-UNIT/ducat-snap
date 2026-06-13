@@ -11,14 +11,14 @@ Assess whether the Ducat Snap can safely derive signet/mutinynet Bitcoin account
 ## Candidate Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Audit candidate tag: `audit-candidate-0.1.0-20260613-internal-audit`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-internal-audit`
+- Audit candidate tag: `audit-candidate-0.1.0-20260613-vault-decode`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-vault-decode`
 - GitHub Actions verification: see the current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/1
 - npm package name: `@ducat-unit/ducat-snap`
 - Package version: `0.1.0`
-- Package dry-run shasum: `df3f73b67cd0c8262f2310042aae902746149d88`
-- Package dry-run integrity: `sha512-6pd/wcxyTvk4eAqceMZxoCMmaovPkpgnWnbIKvFP9A6e6wDapJfh+u4tmlO2TBwfU9l5tHnU6N2jpy3q63S6QA==`
-- Snap manifest source shasum: `BhbII7HEwhtqNBrCAUMFZuBctHBZq6E0VrZr9HKmDt8=`
+- Package dry-run shasum: `e33f668c8288490ae620f0606409d60a668efb39`
+- Package dry-run integrity: `sha512-5IENk1vw4tstURw5cmHCPxTVzI+V3ksvfYE2JDkXl4HmBDMDZnnzMKYlY/IEM5UahOyYm56BHyDKWjOzpqt3lg==`
+- Snap manifest source shasum: `rwZS/OkFfBWqhUo7DTfyitpXlmhnmV7ABIq66po4BTw=`
 - Proposed Snap name: `Ducat`
 - Intended launch scope: signet/mutinynet only
 - Mainnet support: intentionally out of scope for v0.1.0
@@ -82,7 +82,7 @@ npm run verify:release
 
 - `snap.manifest.json` for minimal permissions and origin caveats.
 - `src/bip32.ts`, `src/accounts.ts`, and `src/message.ts` for entropy handling and signing.
-- `src/psbt.ts` for PSBT ownership checks, input index checks, network checks, and finalization behavior.
+- `src/psbt.ts` for PSBT ownership checks, input index checks, network checks, Taproot script-path commitment checks, and Ducat vault sequence/OP_RETURN decoding.
 - `src/rpc.ts` for origin validation, parameter validation, and method routing.
 - `src/confirmations.ts` and `src/ui.ts` for confirmation clarity and safe rendering of arbitrary messages.
 - `src/transfer.ts` and `src/home.ts` for network calls and state updates.
@@ -93,6 +93,6 @@ npm run verify:release
 - Production dependency audit is clean.
 - Full `npm audit` still reports development-toolchain findings from build/test dependencies; see `DEPENDENCY_AUDIT.md`.
 - Snapper currently reports style/scanner-policy findings; see `SNAPPER_REVIEW.md`.
-- Signet/mutinynet alpha vault PSBTs currently use a compatibility path for Taproot script-path inputs in `src/psbt.ts`; see the README alpha note and include this path in manual review before any mainnet expansion.
+- Taproot script-path inputs must prove the provided tapleaf commits to the prevout P2TR output key. Include this commitment check in manual review before any mainnet expansion.
 - The package is not yet published to npm until npm authentication is configured.
 - Production support and legal privacy URLs must be finalized before MetaMask directory submission.

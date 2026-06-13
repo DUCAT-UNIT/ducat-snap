@@ -2,6 +2,7 @@ import type { DucatActionContext, DucatAddressRole, DucatNetwork } from './types
 
 const ACTION_LABELS: Record<string, string> = {
   borrow: 'Borrow UNIT',
+  close: 'Close vault',
   create: 'Create vault',
   deposit: 'Deposit BTC',
   liquidation: 'Liquidation',

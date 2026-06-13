@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260613-internal-audit`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-internal-audit`
+- Implementation tag: `audit-candidate-0.1.0-20260613-vault-decode`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260613-vault-decode`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -41,7 +41,7 @@ This document captures the current local audit and submission handoff state for 
 ## Test Evidence
 
 - Jest suites: 6 passed
-- Jest tests: 37 passed
+- Jest tests: 44 passed
 - Covered areas:
   - Deterministic signet/mutinynet account derivation
   - `ducat_getAccounts`
@@ -49,12 +49,14 @@ This document captures the current local audit and submission handoff state for 
   - Copyable message confirmation rendering for arbitrary signing content
   - Compact action-specific PSBT confirmation rendering with parsed output facts and Ducat app metadata
   - Ducat vault OP_RETURN return-data decoding
+  - Current Ducat core vault OP_RETURN decoding with guardian and oracle commit payloads
+  - Malformed Ducat-looking OP_RETURN warning behavior
   - Decoded Ducat vault action and after-state confirmation rendering
   - Multisig labeling for signed UNIT/vault Taproot inputs
   - OP_RETURN data-output labeling
   - PSBT input ownership and network validation
-  - Ducat alpha Taproot script-path signing compatibility
-  - Ducat alpha Taproot script-path warning surfacing
+  - Committed Taproot script-path signing
+  - Uncommitted Taproot script-path rejection
   - RPC origin validation
   - Manifest/RPC allowed-origin sync
   - `ducat_getCapabilities`
@@ -70,12 +72,12 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1325327`
-- Dry-run unpacked size: `2253392`
+- Dry-run package size: `1325958`
+- Dry-run unpacked size: `2255239`
 - Dry-run file count: `15`
-- npm package shasum: `df3f73b67cd0c8262f2310042aae902746149d88`
-- npm package integrity: `sha512-6pd/wcxyTvk4eAqceMZxoCMmaovPkpgnWnbIKvFP9A6e6wDapJfh+u4tmlO2TBwfU9l5tHnU6N2jpy3q63S6QA==`
-- Snap manifest source shasum: `BhbII7HEwhtqNBrCAUMFZuBctHBZq6E0VrZr9HKmDt8=`
+- npm package shasum: `e33f668c8288490ae620f0606409d60a668efb39`
+- npm package integrity: `sha512-5IENk1vw4tstURw5cmHCPxTVzI+V3ksvfYE2JDkXl4HmBDMDZnnzMKYlY/IEM5UahOyYm56BHyDKWjOzpqt3lg==`
+- Snap manifest source shasum: `rwZS/OkFfBWqhUo7DTfyitpXlmhnmV7ABIq66po4BTw=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -102,7 +104,7 @@ Packaged files:
 - Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`.
 - Transitive dependency versions are locked by `package-lock.json`.
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
-- Snapper result: completed with 182 low-risk ESLinting findings
+- Snapper result: completed with 213 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 
@@ -129,14 +131,14 @@ Known frontend CI note:
 ## Known Pre-Audit Notes
 
 - The Snap uses the real Ducat circle mark from the app assets at `images/icon.svg`.
-- Signet/mutinynet alpha vault PSBTs currently use a compatibility path for Taproot script-path inputs in `src/psbt.ts`; this must be reviewed by the auditor and tightened before mainnet.
+- Taproot script-path inputs must prove the provided tapleaf commits to the prevout P2TR output key. The earlier alpha fallback for uncommitted tapleaf data has been removed.
 - `snap_getBip32Entropy` requires third-party audit before MetaMask directory submission.
 - Production support and legal privacy URLs must be finalized before submission.
 
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260613-internal-audit` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260613-vault-decode` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

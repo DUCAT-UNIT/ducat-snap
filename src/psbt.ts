@@ -23,9 +23,29 @@ const MAX_PSBT_OUTPUTS = 120;
 const DUCAT_VAULT_RETURN_VERSION = 1;
 const DUCAT_VAULT_RETURN_MIN_SIZE = 14;
 const DUCAT_VAULT_RETURN_LOCKED_SIZE = 38;
+const DUCAT_PRICE_COMMIT_SIZE = 93;
+const DUCAT_MAX_GUARD_COUNT = 3;
+const DUCAT_MAX_ORACLE_COUNT = 3;
+const SEQUENCE_TIMELOCK_DISABLE = 0x80000000;
+const SEQUENCE_METADATA_SIGNAL = 0x40000000;
+const SEQUENCE_METADATA_DISABLE = 0x20000000;
+const SEQUENCE_METADATA_SHORT_MASK = 0xffff;
+const SEQUENCE_METADATA_BYTE_MASK = 0xff;
+const DUCAT_VAULT_SEQUENCE_VERSION = 1;
+const DUCAT_VAULT_ACTION_CODES: Record<number, { actionFlag: DucatVaultActionFlag; actionType: string; vaultOutputIndex: number }> = {
+  161: { actionFlag: 'o', actionType: 'create', vaultOutputIndex: 2 },
+  163: { actionFlag: 'c', actionType: 'close', vaultOutputIndex: -1 },
+  164: { actionFlag: 'b', actionType: 'borrow', vaultOutputIndex: 1 },
+  165: { actionFlag: 'r', actionType: 'repay', vaultOutputIndex: 0 },
+  166: { actionFlag: 'd', actionType: 'deposit', vaultOutputIndex: 0 },
+  167: { actionFlag: 'w', actionType: 'withdraw', vaultOutputIndex: 0 },
+  168: { actionFlag: 'x', actionType: 'repossess', vaultOutputIndex: 0 },
+  169: { actionFlag: 'l', actionType: 'liquidation', vaultOutputIndex: 0 },
+};
 
 const DUCAT_ACTION_TYPES: Record<DucatVaultActionFlag, string> = {
   b: 'borrow',
+  c: 'close',
   d: 'deposit',
   l: 'liquidation',
   o: 'create',
@@ -253,8 +273,39 @@ function actionFlag(value: number): DucatVaultActionFlag | null {
   return flag in DUCAT_ACTION_TYPES ? flag : null;
 }
 
-function inferVaultCollateralSats(action: DucatVaultActionFlag, outputs: Psbt['txOutputs']): number | undefined {
-  const outputIndex = action === 'o' ? 2 : 0;
+type DecodedVaultAction = {
+  actionFlag: DucatVaultActionFlag;
+  actionType: string;
+  vaultOutputIndex: number;
+};
+
+function decodeVaultActionFromSequences(inputs: Psbt['txInputs']): DecodedVaultAction | null {
+  for (const input of inputs) {
+    if (input.sequence === undefined) {
+      continue;
+    }
+
+    const sequence = input.sequence >>> 0;
+    const isMetadata = (sequence & SEQUENCE_TIMELOCK_DISABLE) !== 0 && (sequence & SEQUENCE_METADATA_SIGNAL) !== 0 && (sequence & SEQUENCE_METADATA_DISABLE) === 0;
+
+    if (!isMetadata) {
+      continue;
+    }
+
+    const version = sequence & SEQUENCE_METADATA_BYTE_MASK;
+    const code = (sequence >>> 8) & SEQUENCE_METADATA_SHORT_MASK;
+    const action = DUCAT_VAULT_ACTION_CODES[code];
+
+    if (version === DUCAT_VAULT_SEQUENCE_VERSION && action) {
+      return action;
+    }
+  }
+
+  return null;
+}
+
+function inferVaultCollateralSats(action: DecodedVaultAction, outputs: Psbt['txOutputs']): number | undefined {
+  const outputIndex = action.vaultOutputIndex;
   const output = outputs[outputIndex];
 
   if (!output || output.value <= 0 || isOpReturnScript(Buffer.from(output.script))) {
@@ -264,23 +315,23 @@ function inferVaultCollateralSats(action: DucatVaultActionFlag, outputs: Psbt['t
   return output.value;
 }
 
-function decodeDucatVaultReturn(outputScript: Buffer, outputIndex: number, outputs: Psbt['txOutputs']): DucatVaultReturnData | null {
-  const chunks = btcScript.decompile(outputScript);
+function legacyVaultAction(flag: DucatVaultActionFlag): DecodedVaultAction {
+  return {
+    actionFlag: flag,
+    actionType: DUCAT_ACTION_TYPES[flag],
+    vaultOutputIndex: flag === 'o' ? 2 : 0,
+  };
+}
 
-  if (chunks?.length !== 3 || chunks[0] !== opcodes.OP_RETURN || chunks[1] !== opcodes.OP_8 || !Buffer.isBuffer(chunks[2])) {
-    return null;
-  }
-
-  const payload = chunks[2];
-
+function decodeLegacyDucatVaultReturn(payload: Buffer, action: DecodedVaultAction, outputIndex: number, outputs: Psbt['txOutputs']): DucatVaultReturnData | null {
   if (payload.length !== DUCAT_VAULT_RETURN_MIN_SIZE && payload.length !== DUCAT_VAULT_RETURN_LOCKED_SIZE) {
     return null;
   }
 
   const version = payload[0];
-  const action = actionFlag(payload[1]);
+  const payloadAction = actionFlag(payload[1]);
 
-  if (version !== DUCAT_VAULT_RETURN_VERSION || !action) {
+  if (version !== DUCAT_VAULT_RETURN_VERSION || !payloadAction || payloadAction !== action.actionFlag) {
     return null;
   }
 
@@ -294,8 +345,8 @@ function decodeDucatVaultReturn(outputScript: Buffer, outputIndex: number, outpu
   }
 
   const decoded: DucatVaultReturnData = {
-    actionFlag: action,
-    actionType: DUCAT_ACTION_TYPES[action],
+    actionFlag: action.actionFlag,
+    actionType: action.actionType,
     outputIndex,
     isLocked,
     unitBalanceCents,
@@ -311,6 +362,101 @@ function decodeDucatVaultReturn(outputScript: Buffer, outputIndex: number, outpu
   }
 
   return decoded;
+}
+
+function decodeCoreDucatVaultReturn(payload: Buffer, action: DecodedVaultAction, outputIndex: number, outputs: Psbt['txOutputs']): DucatVaultReturnData | null {
+  if (payload.length < 2 || payload[0] !== DUCAT_VAULT_RETURN_VERSION) {
+    return null;
+  }
+
+  const guardianCount = payload[1];
+
+  if (guardianCount < 1 || guardianCount > DUCAT_MAX_GUARD_COUNT || payload.length < 2 + guardianCount) {
+    return null;
+  }
+
+  const baseOffset = 2 + guardianCount;
+
+  if (payload.length === baseOffset) {
+    return {
+      actionFlag: action.actionFlag,
+      actionType: action.actionType,
+      outputIndex,
+      isLocked: false,
+      unitBalanceCents: 0,
+      unitBalanceUnit: 0,
+      unitPrice: 0,
+      unitTimestamp: 0,
+      collateralSats: inferVaultCollateralSats(action, outputs),
+      guardianCount,
+      priceCommitCount: 0,
+    };
+  }
+
+  if (payload.length < baseOffset + 9) {
+    return null;
+  }
+
+  const unitBalanceCents = readUint32(payload, baseOffset);
+  const unitTimestamp = readUint32(payload, baseOffset + 4);
+  const priceCommitCount = payload[baseOffset + 8];
+  const commitsOffset = baseOffset + 9;
+
+  if (priceCommitCount < 1 || priceCommitCount > DUCAT_MAX_ORACLE_COUNT || payload.length !== commitsOffset + priceCommitCount * DUCAT_PRICE_COMMIT_SIZE) {
+    return null;
+  }
+
+  let baseCommitOffset = commitsOffset;
+  let lowestUnitPrice = Number.POSITIVE_INFINITY;
+
+  for (let index = 0; index < priceCommitCount; index++) {
+    const commitOffset = commitsOffset + index * DUCAT_PRICE_COMMIT_SIZE;
+    const commitUnitPrice = readUint32(payload, commitOffset + 1);
+
+    if (commitUnitPrice < lowestUnitPrice) {
+      lowestUnitPrice = commitUnitPrice;
+      baseCommitOffset = commitOffset;
+    }
+  }
+
+  const unitPrice = readUint32(payload, baseCommitOffset + 1);
+  const tholdPrice = readUint32(payload, baseCommitOffset + 5);
+  const tholdHash = payload.subarray(baseCommitOffset + 9, baseCommitOffset + 29).toString('hex');
+
+  return {
+    actionFlag: action.actionFlag,
+    actionType: action.actionType,
+    outputIndex,
+    isLocked: unitBalanceCents > 0,
+    unitBalanceCents,
+    unitBalanceUnit: unitBalanceCents / 100,
+    unitPrice,
+    unitTimestamp,
+    collateralSats: inferVaultCollateralSats(action, outputs),
+    tholdPrice,
+    tholdHash,
+    guardianCount,
+    priceCommitCount,
+  };
+}
+
+function decodeDucatVaultReturn(outputScript: Buffer, outputIndex: number, psbt: Psbt): DucatVaultReturnData | null {
+  const chunks = btcScript.decompile(outputScript);
+
+  if (chunks?.length !== 3 || chunks[0] !== opcodes.OP_RETURN || chunks[1] !== opcodes.OP_8 || !Buffer.isBuffer(chunks[2])) {
+    return null;
+  }
+
+  const payload = chunks[2];
+  const sequenceAction = decodeVaultActionFromSequences(psbt.txInputs);
+
+  if (sequenceAction) {
+    return decodeCoreDucatVaultReturn(payload, sequenceAction, outputIndex, psbt.txOutputs) ?? decodeLegacyDucatVaultReturn(payload, sequenceAction, outputIndex, psbt.txOutputs);
+  }
+
+  const payloadAction = actionFlag(payload[1]);
+
+  return payloadAction ? decodeLegacyDucatVaultReturn(payload, legacyVaultAction(payloadAction), outputIndex, psbt.txOutputs) : null;
 }
 
 function allSignedInputIndexes(signInputs: SignInputs): number[] {
@@ -389,7 +535,7 @@ export function summarizePsbt(
     const outputScript = Buffer.from(output.script);
     const outputAddress = output.address ?? parseOutputAddress(outputScript, network);
     const role = outputRole(outputAddress, keySet);
-    const vaultData = decodeDucatVaultReturn(outputScript, index, psbt.txOutputs) ?? undefined;
+    const vaultData = decodeDucatVaultReturn(outputScript, index, psbt) ?? undefined;
 
     return {
       address: outputAddress,

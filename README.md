@@ -163,11 +163,11 @@ Errors returned to the frontend are friendly by default and include a stable `co
 - Friendly frontend action context is display metadata only. Parsed PSBT data is the trusted signing summary.
 - Unauthorized origins cannot invoke the Snap RPC API.
 
-### Alpha Compatibility Note
+### Taproot Script-Path Policy
 
-Current Ducat alpha vault PSBTs can include Taproot script-path inputs where the tapleaf contains the derived vault key but the local commitment check cannot always recompute the prevout output key. For signet/mutinynet testing, the Snap permits that alpha shape after confirming the tapleaf contains the Snap vault pubkey and after showing an explicit warning in the MetaMask confirmation.
+Vault PSBTs that spend Taproot script-path inputs must include tapleaf and control-block data that recomputes to the prevout P2TR output key. The Snap rejects uncommitted script-path inputs even if the leaf contains the derived Ducat vault key.
 
-Before mainnet, this compatibility path must be reviewed by the external auditor and either removed or replaced with a strict Ducat SDK-compatible Taproot commitment verifier.
+Mainnet support still requires a separate audit pass, but the signet/mutinynet Snap no longer contains the earlier alpha fallback that accepted uncommitted tapleaf data.
 
 ## Release Path
 

@@ -58,6 +58,30 @@ function vaultReturnPayload(flag: string, unitBalanceCents: number, unitPrice: n
   ]);
 }
 
+function vaultSequence(actionCode: number): number {
+  return (0xc0000000 | (actionCode << 8) | 1) >>> 0;
+}
+
+function priceCommit(unitPrice: number, tholdPrice: number, marker: number): Buffer {
+  return Buffer.concat([
+    Buffer.from([marker]),
+    uint32(unitPrice),
+    uint32(tholdPrice),
+    Buffer.alloc(20, marker),
+    Buffer.alloc(64, marker + 1),
+  ]);
+}
+
+function coreVaultReturnPayload(unitBalanceCents: number, unitPrice: number, unitTimestamp: number, tholdPrice: number, commits = [priceCommit(unitPrice, tholdPrice, 12)]): Buffer {
+  return Buffer.concat([
+    Buffer.from([1, 1, 0]),
+    uint32(unitBalanceCents),
+    uint32(unitTimestamp),
+    Buffer.from([commits.length]),
+    ...commits,
+  ]);
+}
+
 describe('PSBT signing', () => {
   it('signs only explicit derived P2WPKH indexes', () => {
     const keySet = makeKeySet();
@@ -273,4 +297,81 @@ describe('PSBT signing', () => {
     });
     expect(prepared.summary.warnings).toEqual([]);
   });
+
+  it('decodes current Ducat core vault return data from OP_RETURN outputs', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+    const payload = coreVaultReturnPayload(50_000, 60_000, 123_456, 45_000, [priceCommit(70_000, 50_000, 11), priceCommit(60_000, 45_000, 12)]);
+
+    psbt.addInput({
+      hash: '77'.repeat(32),
+      index: 0,
+      sequence: vaultSequence(166),
+      witnessUtxo: {
+        script: keySet.satsOutputScript,
+        value: 2_000_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.vault.address,
+      value: 1_100_000,
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 899_000,
+    });
+    psbt.addOutput({
+      script: btcScript.compile([opcodes.OP_RETURN, opcodes.OP_8, payload]),
+      value: 0,
+    });
+
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+
+    expect(prepared.summary.vaultUpdates).toHaveLength(1);
+    expect(prepared.summary.outputs[2].vaultData).toMatchObject({
+      actionFlag: 'd',
+      actionType: 'deposit',
+      collateralSats: 1_100_000,
+      guardianCount: 1,
+      isLocked: true,
+      outputIndex: 2,
+      priceCommitCount: 2,
+      tholdHash: Buffer.alloc(20, 12).toString('hex'),
+      tholdPrice: 45_000,
+      unitBalanceCents: 50_000,
+      unitBalanceUnit: 500,
+      unitPrice: 60_000,
+      unitTimestamp: 123_456,
+    });
+    expect(prepared.summary.warnings).toEqual([]);
+  });
+
+  it('warns when a Ducat-looking OP_RETURN cannot be decoded', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '88'.repeat(32),
+      index: 0,
+      sequence: vaultSequence(166),
+      witnessUtxo: {
+        script: keySet.satsOutputScript,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      script: btcScript.compile([opcodes.OP_RETURN, opcodes.OP_8, Buffer.from([1, 1])]),
+      value: 0,
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+
+    expect(prepared.summary.outputs[0].vaultData).toBeUndefined();
+    expect(prepared.summary.warnings).toEqual(['A Ducat-looking OP_RETURN output was present but could not be decoded as vault return data.']);
+  });
+
 });
