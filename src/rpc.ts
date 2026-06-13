@@ -37,6 +37,8 @@ type SignMessageParams = {
 };
 
 const MAX_SIGN_INPUTS = 80;
+const MAX_BATCH_ENTRIES = 10;
+const MAX_MESSAGE_LENGTH = 800;
 
 export const ALLOWED_ORIGINS = new Set<string>(DUCAT_ALLOWED_ORIGINS);
 
@@ -154,6 +156,13 @@ async function signMessage(origin: string, rawParams: unknown) {
     throw ducatError('INVALID_PARAMS', 'Ducat message signing requires an address and message.');
   }
 
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    throw ducatError('INVALID_PARAMS', 'Ducat message signing requests must fit fully in the MetaMask confirmation.', {
+      maxMessageLength: MAX_MESSAGE_LENGTH,
+      actualMessageLength: message.length,
+    });
+  }
+
   const keySet = await getAccountKeySet(network);
   const role = getRoleForAddress(keySet, address);
 
@@ -235,6 +244,13 @@ type ParsedBatchEntry = { psbt: string; signInputs: SignInputs; context?: DucatA
 function parseBatchEntries(value: unknown): ParsedBatchEntry[] {
   if (!Array.isArray(value) || value.length === 0) {
     throw ducatError('BATCH_ENTRY_INVALID', 'Ducat batch signing requires a non-empty entries array.');
+  }
+
+  if (value.length > MAX_BATCH_ENTRIES) {
+    throw ducatError('BATCH_ENTRY_INVALID', 'Ducat batch signing has too many transactions for one confirmation.', {
+      maxBatchEntries: MAX_BATCH_ENTRIES,
+      actualBatchEntries: value.length,
+    });
   }
 
   return value.map((rawEntry, index) => {

@@ -11,7 +11,6 @@ import type {
   DucatVaultActionFlag,
   DucatVaultReturnData,
   PsbtInputSummary,
-  PsbtInputVerification,
   PsbtOutputSummary,
   PsbtSummary,
   SignInputs,
@@ -159,14 +158,7 @@ function checkOwnedTaprootScriptPathInput(
     };
   }
 
-  // Current Ducat alpha deposit PSBTs can include a vault tapleaf that contains
-  // the derived key but cannot be recomputed against the prevout output. The
-  // signature still commits to the supplied prevout and requires confirmation.
-  return { ok: true, reason: 'owned unverified Ducat alpha Taproot script-path input' };
-}
-
-function verificationFromScriptPath(reason: string): PsbtInputVerification {
-  return reason.includes('unverified') ? 'alpha-unverified-taproot-script-path' : 'committed-taproot-script-path';
+  return { ok: false, reason: 'no tapleaf commits the Ducat Snap vault pubkey to the prevout output' };
 }
 
 function validateSignedInput(psbt: Psbt, index: number, address: string, keySet: AccountKeySet): PsbtInputSummary {
@@ -197,7 +189,7 @@ function validateSignedInput(psbt: Psbt, index: number, address: string, keySet:
         signingAddress: address,
         role,
         valueSats: witnessUtxo.value,
-        verification: verificationFromScriptPath(scriptPathOwnership.reason),
+        verification: 'committed-taproot-script-path',
       };
     }
 

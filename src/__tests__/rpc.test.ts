@@ -259,7 +259,8 @@ describe('RPC router', () => {
     await expect(handleRpcRequest('https://evil.example', { method: 'ducat_getAccounts', params: { network: 'signet' } })).rejects.toMatchObject({
       code: 'ORIGIN_NOT_AUTHORIZED',
     });
-    expect(request).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
   it('confirms and clears recent actions through RPC', async () => {
@@ -303,7 +304,8 @@ describe('RPC router', () => {
         params: { network: 'mainnet' },
       }),
     ).rejects.toThrow('supports signet and mutinynet only');
-    expect(request).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
   it('validates signPsbt params before requesting entropy', async () => {
@@ -360,6 +362,23 @@ describe('RPC router', () => {
       'Review in MetaMask: Sign Ducat message - Message signature approval requested',
       'Ducat action complete: Sign Ducat message - Message signed',
     ]);
+  });
+
+  it('rejects overlong messages before requesting entropy', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signMessage',
+        params: { network: 'signet', address: keySet.record.sats.address, message: 'x'.repeat(801) },
+      }),
+    ).rejects.toMatchObject({
+      code: 'INVALID_PARAMS',
+      details: expect.objectContaining({ maxMessageLength: 800 }),
+    });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
   it('rejects malformed PSBTs', async () => {
@@ -564,6 +583,51 @@ describe('RPC router', () => {
       details: expect.objectContaining({ inputIndex: 1 }),
     });
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
+  it('rejects oversized batches before requesting entropy', async () => {
+    const request = setSnapMock();
+    const entries = Array.from({ length: 11 }, () => ({
+      psbt: 'placeholder',
+      signInputs: { tb1qplaceholder: [0] },
+    }));
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signBatch',
+        params: { network: 'signet', entries },
+      }),
+    ).rejects.toMatchObject({
+      code: 'BATCH_ENTRY_INVALID',
+      details: expect.objectContaining({ maxBatchEntries: 10 }),
+    });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
+  it('rejects unsafe transfer fee rates before requesting entropy', async () => {
+    const request = setSnapMock();
+    const recipient = deriveAccountSetFromBaseNodes('signet', testNode(7), testNode(8)).record.sats.address;
+    const originalFetch = globalThis.fetch;
+
+    globalThis.fetch = jest.fn() as typeof fetch;
+
+    try {
+      await expect(
+        handleRpcRequest(ORIGIN, {
+          method: 'ducat_sendTransfer',
+          params: { network: 'signet', address: recipient, amountSats: 10_000, feeRate: 1_001 },
+        }),
+      ).rejects.toMatchObject({
+        code: 'INVALID_PARAMS',
+        details: expect.objectContaining({ maxFeeRate: 1_000 }),
+      });
+      expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
+      expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it('remembers transfer session before a declined confirmation', async () => {

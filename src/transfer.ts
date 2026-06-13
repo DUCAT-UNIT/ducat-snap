@@ -20,6 +20,11 @@ type SendTransferParams = {
   feeRate?: unknown;
 };
 
+const DUST_LIMIT_SATS = 546;
+const MAX_FEE_RATE_SATS_PER_VB = 1_000;
+const MAX_TRANSFER_INPUTS = 80;
+const TXID_PATTERN = /^[0-9a-f]{64}$/iu;
+
 async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 12_000): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -86,18 +91,73 @@ function estimateFee(inputCount: number, outputCount: number, feeRate: number): 
   return Math.ceil((10 + inputCount * 68 + outputCount * 31) * feeRate);
 }
 
-async function getFeeRate(endpoint: string, feeRate?: unknown): Promise<number> {
-  if (typeof feeRate === 'number' && Number.isFinite(feeRate) && feeRate > 0) {
-    return Math.ceil(feeRate);
+function normalizeFeeRate(feeRate: unknown): number | null {
+  if (typeof feeRate !== 'number' || !Number.isFinite(feeRate)) {
+    return null;
   }
 
+  const normalized = Math.ceil(feeRate);
+
+  if (normalized <= 0 || normalized > MAX_FEE_RATE_SATS_PER_VB) {
+    throw ducatError('INVALID_PARAMS', 'Transfer fee rate is outside the supported safety range.', {
+      maxFeeRate: MAX_FEE_RATE_SATS_PER_VB,
+      requestedFeeRate: feeRate,
+    });
+  }
+
+  return normalized;
+}
+
+async function getFeeRate(endpoint: string): Promise<number> {
   try {
     const estimates = await fetchJson<Record<string, number>>(`${endpoint}/fee-estimates`);
+    const networkFeeRate = Math.max(1, Math.ceil(estimates['2'] ?? estimates['3'] ?? estimates['6'] ?? 1));
 
-    return Math.max(1, Math.ceil(estimates['2'] ?? estimates['3'] ?? estimates['6'] ?? 1));
+    return Math.min(networkFeeRate, MAX_FEE_RATE_SATS_PER_VB);
   } catch {
     return 1;
   }
+}
+
+export function parseEsploraUtxos(value: unknown): EsploraUtxo[] {
+  if (!Array.isArray(value)) {
+    throw ducatError('INVALID_PARAMS', 'Bitcoin network returned malformed transfer UTXO data.');
+  }
+
+  if (value.length > MAX_TRANSFER_INPUTS) {
+    throw ducatError('INVALID_PARAMS', 'Bitcoin network returned too many transfer UTXOs for one Snap request.', {
+      maxTransferInputs: MAX_TRANSFER_INPUTS,
+      actualTransferInputs: value.length,
+    });
+  }
+
+  return value.map((utxo, index) => {
+    const candidate = utxo as Partial<EsploraUtxo>;
+    const txid = candidate.txid;
+    const vout = candidate.vout;
+    const utxoValue = candidate.value;
+
+    if (
+      !utxo ||
+      typeof utxo !== 'object' ||
+      typeof txid !== 'string' ||
+      !TXID_PATTERN.test(txid) ||
+      !Number.isSafeInteger(vout) ||
+      typeof vout !== 'number' ||
+      vout < 0 ||
+      !Number.isSafeInteger(utxoValue) ||
+      typeof utxoValue !== 'number' ||
+      utxoValue <= 0
+    ) {
+      throw ducatError('INVALID_PARAMS', 'Bitcoin network returned malformed transfer UTXO data.', { utxoIndex: index });
+    }
+
+    return {
+      txid,
+      vout,
+      value: utxoValue,
+    };
+  });
 }
 
 export function selectUtxos(utxos: EsploraUtxo[], amountSats: number, feeRate: number): {
@@ -116,7 +176,7 @@ export function selectUtxos(utxos: EsploraUtxo[], amountSats: number, feeRate: n
     let feeSats = estimateFee(selected.length, 2, feeRate);
     let changeSats = selectedValue - amountSats - feeSats;
 
-    if (changeSats > 0 && changeSats < 546) {
+    if (changeSats > 0 && changeSats < DUST_LIMIT_SATS) {
       changeSats = 0;
       feeSats = selectedValue - amountSats;
     }
@@ -150,10 +210,11 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
     });
   }
 
+  const requestedFeeRate = normalizeFeeRate(params.feeRate);
   const keySet = await getAccountKeySet(network);
   const endpoint = esploraUrl(network);
-  const feeRate = await getFeeRate(endpoint, params.feeRate);
-  const utxos = await fetchJson<EsploraUtxo[]>(`${endpoint}/address/${keySet.record.sats.address}/utxo`);
+  const feeRate = requestedFeeRate ?? (await getFeeRate(endpoint));
+  const utxos = parseEsploraUtxos(await fetchJson<unknown>(`${endpoint}/address/${keySet.record.sats.address}/utxo`));
   const { selected, feeSats, changeSats } = selectUtxos(utxos, amountSats, feeRate);
   const inputValueSats = selected.reduce((total, utxo) => total + utxo.value, 0);
   const psbt = new Psbt({ network: bitcoinNetwork(network) });
@@ -171,7 +232,7 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
 
   psbt.addOutput({ address: recipient, value: amountSats });
 
-  if (changeSats >= 546) {
+  if (changeSats >= DUST_LIMIT_SATS) {
     psbt.addOutput({ address: keySet.record.sats.address, value: changeSats });
   }
 

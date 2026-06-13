@@ -1,4 +1,4 @@
-import { selectUtxos } from '../transfer';
+import { parseEsploraUtxos, selectUtxos } from '../transfer';
 
 describe('transfer UTXO selection', () => {
   it('selects enough UTXOs and returns estimated fee and change', () => {
@@ -29,5 +29,33 @@ describe('transfer UTXO selection', () => {
     expect(() => selectUtxos([{ txid: 'small', vout: 0, value: 10_000 }], 10_000, 1)).toThrow(
       'does not have enough funds',
     );
+  });
+
+  it('validates Esplora transfer UTXOs before constructing a transaction', () => {
+    expect(
+      parseEsploraUtxos([
+        {
+          txid: 'a'.repeat(64),
+          vout: 1,
+          value: 20_000,
+        },
+      ]),
+    ).toEqual([{ txid: 'a'.repeat(64), vout: 1, value: 20_000 }]);
+
+    expect(() => parseEsploraUtxos([{ txid: 'not-a-txid', vout: 0, value: 20_000 }])).toThrow('malformed transfer UTXO');
+    expect(() => parseEsploraUtxos([{ txid: 'a'.repeat(64), vout: -1, value: 20_000 }])).toThrow('malformed transfer UTXO');
+    expect(() => parseEsploraUtxos([{ txid: 'a'.repeat(64), vout: 0, value: 0 }])).toThrow('malformed transfer UTXO');
+  });
+
+  it('limits transfer UTXO count', () => {
+    expect(() =>
+      parseEsploraUtxos(
+        Array.from({ length: 81 }, (_, index) => ({
+          txid: index.toString(16).padStart(64, '0'),
+          vout: 0,
+          value: 1_000,
+        })),
+      ),
+    ).toThrow('too many transfer UTXOs');
   });
 });

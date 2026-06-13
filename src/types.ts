@@ -70,8 +70,7 @@ export type PsbtOutputSummary = {
 
 export type PsbtInputVerification =
   | 'matched-account-output'
-  | 'committed-taproot-script-path'
-  | 'alpha-unverified-taproot-script-path';
+  | 'committed-taproot-script-path';
 
 export type PsbtInputSummary = {
   index: number;

@@ -167,7 +167,7 @@ describe('PSBT signing', () => {
     expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
   });
 
-  it('signs alpha Ducat vault script-path inputs when the vault leaf is not committed to the prevout', () => {
+  it('rejects Taproot script-path inputs when the vault leaf is not committed to the prevout', () => {
     const keySet = makeKeySet();
     const scriptPath = makeScriptPathPayment(keySet.taprootInternalPubkey);
     const differentScriptPath = makeScriptPathPayment(Buffer.alloc(32, 9));
@@ -194,12 +194,8 @@ describe('PSBT signing', () => {
     });
 
     const signInputs = { [keySet.record.vault.address]: [0] };
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
-    const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
 
-    expect(prepared.summary.warnings).toEqual([]);
-    expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
-    expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs)).toThrow('different Ducat Snap account');
   });
 
   it('labels bare OP_RETURN outputs as data outputs', () => {
