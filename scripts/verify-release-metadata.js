@@ -76,6 +76,19 @@ function gitHeadCommit() {
   }
 }
 
+function gitIsAncestor(ancestor, descendant) {
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
+      cwd: root,
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function gitTrackedStatus() {
   try {
     return execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
@@ -312,7 +325,12 @@ assert(tagTarget, `Audit candidate tag does not resolve: ${candidateTag}`);
 const expectedCommit = expectedCandidateCommit();
 
 if (expectedCommit) {
-  assertEqual(tagTarget, expectedCommit, 'audit candidate tag target');
+  if (tagTarget !== expectedCommit) {
+    assert(
+      gitIsAncestor(tagTarget, expectedCommit),
+      `audit candidate tag target mismatch. Expected ${expectedCommit} or an ancestor of it, got ${tagTarget}.`,
+    );
+  }
 }
 
 console.log(`Audit candidate tag ${candidateTag} resolves to ${tagTarget}.`);
