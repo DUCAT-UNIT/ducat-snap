@@ -76,6 +76,25 @@ function gitHeadCommit() {
   }
 }
 
+function gitTrackedStatus() {
+  try {
+    return execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function assertGitTrackedTreeClean() {
+  const status = gitTrackedStatus();
+
+  assert(status !== null, 'Release metadata verification requires a git checkout.');
+  assert(status.length === 0, `Release metadata verification requires a clean tracked worktree:\n${status}`);
+}
+
 function expectedCandidateCommit() {
   if (process.env.GITHUB_EVENT_PATH && existsSync(process.env.GITHUB_EVENT_PATH)) {
     try {
@@ -170,6 +189,7 @@ const requiredPackageFiles = [
 ];
 const requiredPackageFileSet = new Set(requiredPackageFiles);
 
+assertGitTrackedTreeClean();
 assertRuntimeSourceClean();
 assertEqual(manifest.version, packageJson.version, 'manifest version');
 assertEqual(directory.snap.version, packageJson.version, 'submission version');
@@ -287,14 +307,13 @@ for (const token of documentedPendingTokens) {
 }
 
 const tagTarget = gitTagTarget(candidateTag);
-if (tagTarget) {
-  const expectedCommit = expectedCandidateCommit();
+assert(tagTarget, `Audit candidate tag does not resolve: ${candidateTag}`);
 
-  if (expectedCommit) {
-    assertEqual(tagTarget, expectedCommit, 'audit candidate tag target');
-  }
+const expectedCommit = expectedCandidateCommit();
 
-  console.log(`Audit candidate tag ${candidateTag} resolves to ${tagTarget}.`);
+if (expectedCommit) {
+  assertEqual(tagTarget, expectedCommit, 'audit candidate tag target');
 }
 
+console.log(`Audit candidate tag ${candidateTag} resolves to ${tagTarget}.`);
 console.log('Release metadata is consistent.');

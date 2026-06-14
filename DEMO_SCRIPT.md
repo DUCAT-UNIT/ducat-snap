@@ -5,7 +5,7 @@ Use this script for the MetaMask allowlist/directory submission video. Record ag
 ## Setup
 
 1. Build and serve the Snap with `npm run verify` and `npm run serve`.
-2. Configure the Ducat frontend with `NEXT_PUBLIC_DUCAT_SNAP_ID` pointing at the local Snap during pre-submission testing, or `npm:@ducat-unit/ducat-snap` for the npm build.
+2. Configure the Ducat frontend with `NEXT_PUBLIC_DUCAT_SNAP_ID` pointing at the local Snap during pre-submission testing, or `npm:@ducat-unit/wallet-snap` for the npm build.
 3. Use signet or mutinynet only.
 4. Fund the Snap-derived sats account with test BTC.
 

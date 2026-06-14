@@ -247,7 +247,7 @@ describe('RPC router', () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        snap: '@ducat-unit/ducat-snap',
+        snap: '@ducat-unit/wallet-snap',
         networks: ['signet', 'mutinynet'],
         methods: expect.arrayContaining(['ducat_clearRecentActions']),
         features: expect.objectContaining({

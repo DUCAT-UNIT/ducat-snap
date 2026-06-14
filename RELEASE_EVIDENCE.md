@@ -2,15 +2,15 @@
 
 Date: 2026-06-14
 
-This document captures the current local audit and submission handoff state for `@ducat-unit/ducat-snap` v0.1.0.
+This document captures the current local audit and submission handoff state for `@ducat-unit/wallet-snap` v0.1.0.
 
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260614-ci-release-gate`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-ci-release-gate`
-- Package name: `@ducat-unit/ducat-snap`
+- Implementation tag: `audit-candidate-0.1.0-20260614-wallet-snap-tag-gate`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-wallet-snap-tag-gate`
+- Package name: `@ducat-unit/wallet-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
 - Launch network: signet/mutinynet only
@@ -86,17 +86,18 @@ This document captures the current local audit and submission handoff state for 
   - Submission fixture account, auth-candidate, sign-input, and expected-text shape validation
   - Submission artifact directory hygiene checks for fixtures, screenshots, and E2E evidence
   - Exact npm package artifact allowlist enforcement
+  - Audit candidate tag existence, target-commit, and clean tracked worktree enforcement
 
 ## Package Evidence
 
 - Package dry-run command: `npm pack --dry-run --json`
-- Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1327133`
-- Dry-run unpacked size: `2260088`
+- Dry-run filename: `ducat-unit-wallet-snap-0.1.0.tgz`
+- Dry-run package size: `1327136`
+- Dry-run unpacked size: `2260100`
 - Dry-run file count: `15`
-- npm package shasum: `1aa9dcf26cc3028b27f68ad717cb72b446ff6019`
-- npm package integrity: `sha512-bXyTHBsijkluMsbzobCkkpSbRKDt04pm4BYTg4rn9aFPHKhrHQbkWVgGX3D+dp/vpqMk90dWwvjf08HR6EwZjA==`
-- Snap manifest source shasum: `YScs5bbbLPPE3Re9W2BA3y+LICNC8M5GKmChP/TM0k0=`
+- npm package shasum: `94940cc6034f82a5e48f612261f2abffc5093972`
+- npm package integrity: `sha512-KoZ+D4ubPEJSuxarXf7cRA2aNBWHYb263q82eNBFWiCYhSlq7Ih9zn6POCZXkK8Wg1XuR4PfrQiqPIU89XhIxA==`
+- Snap manifest source shasum: `wlBzjawKn763zsDzD5OBDYiA6DNFmK5U2kq/Ou3ZUg8=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -160,9 +161,9 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260614-ci-release-gate` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260614-wallet-snap-tag-gate` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
-- Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
+- Publish `@ducat-unit/wallet-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
 - Merge audit fixes, if any, and tag the fixed source commit.
 - Capture final listing screenshots from the audited build.

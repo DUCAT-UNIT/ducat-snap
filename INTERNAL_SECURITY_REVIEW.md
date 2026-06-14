@@ -2,7 +2,7 @@
 
 Date: 2026-06-13
 
-This is an internal pre-audit review for `@ducat-unit/ducat-snap@0.1.0`. It is not a substitute for the required third-party audit for `snap_getBip32Entropy`, but it documents the audit approach, reviewed attack surface, findings, and remediations before external handoff.
+This is an internal pre-audit review for `@ducat-unit/wallet-snap@0.1.0`. It is not a substitute for the required third-party audit for `snap_getBip32Entropy`, but it documents the audit approach, reviewed attack surface, findings, and remediations before external handoff.
 
 ## Scope
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-rm -f ducat-unit-ducat-snap-*.tgz
+rm -f ducat-unit-wallet-snap-*.tgz
 
 npm run verify
 npm run audit:prod

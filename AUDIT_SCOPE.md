@@ -1,6 +1,6 @@
 # Ducat Snap Audit Scope
 
-This file defines the minimum security review scope before publishing `@ducat-unit/ducat-snap` or submitting it for MetaMask allowlisting.
+This file defines the minimum security review scope before publishing `@ducat-unit/wallet-snap` or submitting it for MetaMask allowlisting.
 
 ## In Scope
 

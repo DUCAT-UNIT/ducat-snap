@@ -31,7 +31,7 @@
 
 ## Publish
 
-- [ ] Publish `@ducat-unit/ducat-snap` to npm.
+- [ ] Publish `@ducat-unit/wallet-snap` to npm.
 - [ ] Submit MetaMask allowlist/directory request with:
   - [ ] audited commit
   - [ ] fixed commit
@@ -45,7 +45,7 @@
 ## Production Cutover
 
 - [ ] MetaMask allowlist approval received.
-- [ ] Frontend production config uses `NEXT_PUBLIC_DUCAT_SNAP_ID=npm:@ducat-unit/ducat-snap`.
+- [ ] Frontend production config uses `NEXT_PUBLIC_DUCAT_SNAP_ID=npm:@ducat-unit/wallet-snap`.
 - [ ] Frontend production config uses the approved release range in `NEXT_PUBLIC_DUCAT_SNAP_VERSION`.
 - [ ] Existing Xverse and UniSat regression flows pass.
 - [ ] Signet/mutinynet install, connect, create, deposit, borrow, repay, withdraw, swap, and liquidation/repossess E2E scenarios pass.

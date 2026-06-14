@@ -345,7 +345,7 @@ function assertSingleNetwork(summaries: { network: DucatNetwork }[]): void {
 
 function capabilities(): CapabilitiesResponse {
   return {
-    snap: '@ducat-unit/ducat-snap',
+    snap: '@ducat-unit/wallet-snap',
     version: '0.1.0',
     networks: ['signet', 'mutinynet'],
     methods: [

@@ -1,18 +1,24 @@
 {
   "snap": {
-    "packageName": "@ducat-unit/ducat-snap",
+    "packageName": "@ducat-unit/wallet-snap",
     "proposedName": "Ducat",
     "version": "0.1.0",
-    "snapId": "npm:@ducat-unit/ducat-snap",
+    "snapId": "npm:@ducat-unit/wallet-snap",
     "repositoryUrl": "https://github.com/DUCAT-UNIT/ducat-snap",
-    "npmUrl": "https://www.npmjs.com/package/@ducat-unit/ducat-snap",
+    "npmUrl": "https://www.npmjs.com/package/@ducat-unit/wallet-snap",
     "manifestPath": "snap.manifest.json",
     "iconPath": "images/icon.svg"
   },
   "launchScope": {
-    "networks": ["signet", "mutinynet"],
+    "networks": [
+      "signet",
+      "mutinynet"
+    ],
     "mainnetEnabled": false,
-    "derivationPaths": ["m/84'/1'", "m/86'/1'"],
+    "derivationPaths": [
+      "m/84'/1'",
+      "m/86'/1'"
+    ],
     "frontendOrigins": [
       "http://localhost:3000",
       "http://localhost:3001",
@@ -38,18 +44,18 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-ci-release-gate/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-wallet-snap-tag-gate/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-ci-release-gate/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-wallet-snap-tag-gate/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.0-20260614-ci-release-gate",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260614-ci-release-gate",
+    "candidateTag": "audit-candidate-0.1.0-20260614-wallet-snap-tag-gate",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260614-wallet-snap-tag-gate",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/1",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
@@ -63,10 +69,13 @@
     "demoScriptSource": "DEMO_SCRIPT.md"
   },
   "verification": {
-    "commands": ["npm ci", "npm run verify:release"],
-    "packageShasum": "1aa9dcf26cc3028b27f68ad717cb72b446ff6019",
-    "packageIntegrity": "sha512-bXyTHBsijkluMsbzobCkkpSbRKDt04pm4BYTg4rn9aFPHKhrHQbkWVgGX3D+dp/vpqMk90dWwvjf08HR6EwZjA==",
-    "manifestSourceShasum": "YScs5bbbLPPE3Re9W2BA3y+LICNC8M5GKmChP/TM0k0=",
+    "commands": [
+      "npm ci",
+      "npm run verify:release"
+    ],
+    "packageShasum": "94940cc6034f82a5e48f612261f2abffc5093972",
+    "packageIntegrity": "sha512-KoZ+D4ubPEJSuxarXf7cRA2aNBWHYb263q82eNBFWiCYhSlq7Ih9zn6POCZXkK8Wg1XuR4PfrQiqPIU89XhIxA==",
+    "manifestSourceShasum": "wlBzjawKn763zsDzD5OBDYiA6DNFmK5U2kq/Ou3ZUg8=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
   }

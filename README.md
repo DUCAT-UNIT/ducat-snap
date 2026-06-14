@@ -1,14 +1,14 @@
 # Ducat MetaMask Snap
 
-`@ducat-unit/ducat-snap` is the Ducat Bitcoin account and signing Snap for MetaMask.
+`@ducat-unit/wallet-snap` is the Ducat Bitcoin account and signing Snap for MetaMask.
 
 The Snap derives deterministic Bitcoin testnet accounts from the user's MetaMask Secret Recovery Phrase and exposes a small Ducat JSON-RPC API to the Ducat frontend. The Ducat web app remains the action surface. Users create, deposit, borrow, repay, withdraw, swap, and liquidate in the web app; the Snap handles account derivation, MetaMask confirmations, PSBT/message signing, transfer signing, recent action state, action notifications, and a Snap home page.
 
 ## Launch Scope
 
 - Proposed Snap name: `Ducat`
-- npm package: `@ducat-unit/ducat-snap`
-- Snap ID after publish: `npm:@ducat-unit/ducat-snap`
+- npm package: `@ducat-unit/wallet-snap`
+- Snap ID after publish: `npm:@ducat-unit/wallet-snap`
 - Local development Snap ID: `local:http://localhost:8080`
 - V1 networks: `signet` and `mutinynet`
 - Mainnet: intentionally disabled until audit, soak testing, and allowlist approval
@@ -89,7 +89,7 @@ NEXT_PUBLIC_DUCAT_SNAP_VERSION=""
 For the published Snap, use:
 
 ```bash
-NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/ducat-snap"
+NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wallet-snap"
 NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.0"
 ```
 
@@ -208,7 +208,7 @@ Current candidate progress: duplicate previous-output rejection, missing previou
 3. Tag the audit candidate.
 4. Complete the third-party audit required for `snap_getBip32Entropy`.
 5. Merge any audit fixes and tag the fixed candidate.
-6. Publish `@ducat-unit/ducat-snap@0.1.0` to npm.
+6. Publish `@ducat-unit/wallet-snap@0.1.0` to npm.
 7. Replace pending external fields in `submission/metamask-directory.json` and `submission/ALLOWLIST_SUBMISSION.md`.
 8. Capture real PSBT fixtures into `submission/fixtures/`.
 9. Capture final E2E evidence into `submission/e2e/evidence.json`.
