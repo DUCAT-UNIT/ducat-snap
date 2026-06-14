@@ -7,12 +7,12 @@
     "url": "git+https://github.com/DUCAT-UNIT/ducat-snap.git"
   },
   "source": {
-    "shasum": "/IHujYHc/LA19OQAmbn6PX50JRtdFwoRNgNC/nstIUE=",
+    "shasum": "wlBzjawKn763zsDzD5OBDYiA6DNFmK5U2kq/Ou3ZUg8=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
         "iconPath": "images/icon.svg",
-        "packageName": "@ducat-unit/ducat-snap",
+        "packageName": "@ducat-unit/wallet-snap",
         "registry": "https://registry.npmjs.org/"
       }
     }
@@ -25,6 +25,7 @@
         "http://localhost:3002",
         "http://localhost:3003",
         "https://app.ducatprotocol.com",
+        "https://dev-git-feat-metamask-snap-connector-ducat.vercel.app",
         "https://dev.app.ducatprotocol.com",
         "https://staging.app.ducatprotocol.com"
       ]
@@ -41,9 +42,9 @@
     ],
     "snap_dialog": {},
     "snap_manageState": {},
+    "snap_notify": {},
     "endowment:page-home": {},
     "endowment:network-access": {},
-    "snap_notify": {},
     "endowment:lifecycle-hooks": {}
   },
   "platformVersion": "11.1.1",

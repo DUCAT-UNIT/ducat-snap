@@ -6,7 +6,7 @@ Last local command:
 npx --yes @sayfer_io/snapper --path . --output snapper-report.json
 ```
 
-Local result: 100 findings, all under the `ESLinting` category.
+Local result: 184 findings, all risk 1 and all under the `ESLinting` category.
 
 ## Addressed Findings
 
@@ -16,17 +16,16 @@ The first local scan reported 105 findings. The implementation now fixes the non
 - Replaced empty catch handling with explicit behavior.
 - Removed duplicate taproot key update catch logic by validating `tapInternalKey` before signing.
 - Removed an unused function parameter.
+- Removed an unused type import introduced during the confirmation cleanup.
 - Replaced `||` fallback logic with `??` where empty strings should remain meaningful.
 - Removed the content-type false positive from the hardcoded-secret detector.
 
 ## Remaining Finding Summary
 
-- 72 missing JSDoc comments.
-- 6 missing explicit return type annotations.
-- 4 generic type parameter naming warnings.
-- External API response fields using snake_case, such as Esplora and Ducat validator fields.
+- 167 missing JSDoc comments.
+- External API response fields using snake_case, such as Esplora and Ducat validator fields (`funded_txo_sum`, `spent_txo_sum`, `chain_stats`, `mempool_stats`, and vault summary fields).
+- One object literal key using `vault_pubkey`, matching the Ducat validator API.
 - One `hmac(sha512, ...)` style warning in local BIP32 derivation.
-- One type assertion warning.
 
 ## Review Notes
 

@@ -5,7 +5,7 @@ Use this script for the MetaMask allowlist/directory submission video. Record ag
 ## Setup
 
 1. Build and serve the Snap with `npm run verify` and `npm run serve`.
-2. Configure the Ducat frontend with `NEXT_PUBLIC_DUCAT_SNAP_ID` pointing at the local Snap during pre-submission testing, or `npm:@ducat-unit/ducat-snap` for the npm build.
+2. Configure the Ducat frontend with `NEXT_PUBLIC_DUCAT_SNAP_ID` pointing at the local Snap during pre-submission testing, or `npm:@ducat-unit/wallet-snap` for the npm build.
 3. Use signet or mutinynet only.
 4. Fund the Snap-derived sats account with test BTC.
 
@@ -15,8 +15,8 @@ Use this script for the MetaMask allowlist/directory submission video. Record ag
 2. Show the MetaMask Snap install request and permissions.
 3. Approve the Snap installation.
 4. Connect and show the derived `sats`, `runes`, and `vault` addresses in the Ducat app.
-5. Open MetaMask Snap home and show account addresses, BTC balance, UNIT balance, vault status, recent actions, and Ducat deep links.
-6. Execute or stage a create-vault flow and show the Ducat PSBT confirmation.
+5. Open MetaMask Snap home and show account addresses, BTC balance, UNIT balance, vault status, recent actions, clickable HTTPS app links, and copyable local routes.
+6. Execute or stage a create-vault flow and show the compact Ducat PSBT confirmation summary, inputs, outputs, fees, warnings, and app metadata.
 7. Execute or stage deposit BTC and show the confirmation summary.
 8. Execute or stage borrow UNIT and show the confirmation summary.
 9. Execute or stage repay UNIT and show the confirmation summary.

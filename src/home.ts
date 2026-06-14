@@ -1,8 +1,18 @@
 import { getAccountKeySet } from './accounts';
-import { DUCAT_APP_URL, esploraUrl, normalizeNetwork, validatorUrls } from './networks';
+import { DUCAT_MARK_SVG } from './brand';
+import { formatMaybeBtcValue, formatSatsOnly, formatUnit, networkLabel } from './display';
+import { ducatAppUrl, esploraUrl, normalizeNetwork, validatorUrls } from './networks';
 import { getState } from './state';
-import type { DucatNetwork } from './types';
-import { divider, heading, panel, text } from './ui';
+import type { DucatNetwork, RecentAction } from './types';
+import {
+  uiBanner,
+  uiBox,
+  uiCard,
+  uiHeading,
+  uiRow,
+  uiSection,
+  type SnapElement,
+} from './ui';
 
 type AddressStats = {
   chain_stats: {
@@ -50,13 +60,24 @@ type VaultSummary = {
 
 const JSON_CONTENT_TYPE = `application/${'json'}`;
 
-function shortAddress(address: string): string {
-  return `${address.slice(0, 12)}...${address.slice(-8)}`;
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 10_000): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function fetchBtcBalance(network: DucatNetwork, address: string): Promise<number | null> {
   try {
-    const response = await fetch(`${esploraUrl(network)}/address/${address}`);
+    const response = await fetchWithTimeout(`${esploraUrl(network)}/address/${address}`);
 
     if (!response.ok) {
       return null;
@@ -64,28 +85,36 @@ async function fetchBtcBalance(network: DucatNetwork, address: string): Promise<
 
     const stats = (await response.json()) as AddressStats;
 
-    return (
-      stats.chain_stats.funded_txo_sum -
-      stats.chain_stats.spent_txo_sum +
-      stats.mempool_stats.funded_txo_sum -
-      stats.mempool_stats.spent_txo_sum
-    );
+    const values = [
+      stats.chain_stats?.funded_txo_sum,
+      stats.chain_stats?.spent_txo_sum,
+      stats.mempool_stats?.funded_txo_sum,
+      stats.mempool_stats?.spent_txo_sum,
+    ];
+
+    if (!values.every(isNonNegativeNumber)) {
+      return null;
+    }
+
+    const balance = values[0] - values[1] + values[2] - values[3];
+
+    return balance >= 0 ? balance : null;
   } catch {
     return null;
   }
 }
 
-async function postValidatorJson<T>(network: DucatNetwork, path: string, body: Record<string, string>): Promise<T | null> {
+async function postValidatorJson<ResponseBody>(network: DucatNetwork, path: string, body: Record<string, string>): Promise<ResponseBody | null> {
   for (const baseUrl of validatorUrls(network)) {
     try {
-      const response = await fetch(`${baseUrl}${path}`, {
+      const response = await fetchWithTimeout(`${baseUrl}${path}`, {
         method: 'POST',
         headers: { 'content-type': JSON_CONTENT_TYPE },
         body: JSON.stringify(body),
       });
 
       if (response.ok) {
-        return (await response.json()) as T;
+        return (await response.json()) as ResponseBody;
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -104,19 +133,25 @@ async function fetchUnitBalance(network: DucatNetwork, address: string): Promise
     return null;
   }
 
-  const unitCents = response.outputs.reduce((total, output) => {
-    if (output.spent || typeof output.unit_amount !== 'number') {
-      return total;
+  let unitCents = 0;
+
+  for (const output of response.outputs) {
+    if (output.spent) {
+      continue;
     }
 
-    return total + output.unit_amount;
-  }, 0);
+    if (!isNonNegativeNumber(output.unit_amount)) {
+      return null;
+    }
+
+    unitCents += output.unit_amount;
+  }
 
   return unitCents / 100;
 }
 
 function numberOrNull(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  return isNonNegativeNumber(value) ? value : null;
 }
 
 async function fetchVaultSummary(network: DucatNetwork, vaultPubkey: string): Promise<VaultSummary | null> {
@@ -141,6 +176,7 @@ async function fetchVaultSummary(network: DucatNetwork, vaultPubkey: string): Pr
 
 export async function getHomeState(networkInput: unknown): Promise<{
   network: DucatNetwork;
+  appUrl: string;
   accounts: {
     sats: string;
     runes: string;
@@ -151,11 +187,11 @@ export async function getHomeState(networkInput: unknown): Promise<{
     unit: number | null;
   };
   vault: VaultSummary | null;
-  recentActions: Awaited<ReturnType<typeof getState>>['recentActions'];
+  recentActions: RecentAction[];
 }> {
-  const network = normalizeNetwork(networkInput);
-  const keySet = await getAccountKeySet(network);
   const state = await getState();
+  const network = networkInput === undefined || networkInput === null ? state.lastNetwork ?? 'mutinynet' : normalizeNetwork(networkInput);
+  const keySet = await getAccountKeySet(network);
   const [btcSats, unit, vault] = await Promise.all([
     fetchBtcBalance(network, keySet.record.sats.address),
     fetchUnitBalance(network, keySet.record.runes.address),
@@ -164,6 +200,7 @@ export async function getHomeState(networkInput: unknown): Promise<{
 
   return {
     network,
+    appUrl: ducatAppUrl(state.lastOrigin),
     accounts: {
       sats: keySet.record.sats.address,
       runes: keySet.record.runes.address,
@@ -178,49 +215,111 @@ export async function getHomeState(networkInput: unknown): Promise<{
   };
 }
 
-export async function renderHomePage(networkInput: unknown = 'mutinynet') {
+function statusLabel(status: string): string {
+  return status
+    .replace(/_/gu, ' ')
+    .replace(/-/gu, ' ')
+    .replace(/\b\w/gu, (char: string) => char.toUpperCase());
+}
+
+function usdLabel(value: number | null): string {
+  return value === null ? 'Unknown' : `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+}
+
+function collateralRatioLabel(value: number | null): string | undefined {
+  if (value === null) {
+    return undefined;
+  }
+
+  const percent = value > 0 && value < 20 ? value * 100 : value;
+  const formatted = percent.toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+  return `${formatted}% collateral`;
+}
+
+function btcAmount(value: number | null): string {
+  return value === null
+    ? 'Unknown'
+    : `${value.toLocaleString('en-US', {
+        maximumFractionDigits: 8,
+        minimumFractionDigits: 0,
+      })} BTC`;
+}
+
+function btcBalance(value: number | null): string {
+  return value === null ? 'Unavailable' : `${formatMaybeBtcValue(value)} (${formatSatsOnly(value)})`;
+}
+
+function unitAmount(value: number | null): string {
+  return value === null ? 'Unknown' : `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} UNIT`;
+}
+
+function vaultComponents(vault: VaultSummary | null): SnapElement[] {
+  if (!vault) {
+    return [
+      uiCard({
+        description: 'Create or connect a vault in the Ducat app.',
+        title: 'Vault',
+        value: 'No vault found',
+      }),
+    ];
+  }
+
+  return [
+    uiCard({
+      description: vault.tag ?? vault.id,
+      extra: collateralRatioLabel(vault.collateralRatio),
+      title: 'Vault',
+      value: statusLabel(vault.status),
+    }),
+    uiRow('Collateral', btcAmount(vault.btcLocked)),
+    uiRow('Debt', unitAmount(vault.unitBorrowed)),
+    uiRow('Liquidation price', usdLabel(vault.liquidationPrice)),
+    uiRow('Oracle price', usdLabel(vault.oraclePrice)),
+  ];
+}
+
+export async function renderHomePage(networkInput?: unknown): Promise<{ content: SnapElement }> {
   try {
     const homeState = await getHomeState(networkInput);
-    const actions = homeState.recentActions.slice(0, 5).map((action) =>
-      text(
-        `${new Date(action.timestamp).toISOString().slice(0, 16)}Z - ${action.actionType} on ${action.network}${
-          action.txid ? ` - ${action.txid.slice(0, 12)}...` : ''
-        }`,
-      ),
-    );
 
     return {
-      content: panel([
-        heading('Ducat'),
-        text(`**Network:** ${homeState.network}`),
-        text(`**Sats:** ${shortAddress(homeState.accounts.sats)}`),
-        text(`**Runes:** ${shortAddress(homeState.accounts.runes)}`),
-        text(`**Vault:** ${shortAddress(homeState.accounts.vault)}`),
-        divider(),
-        text(`**BTC balance:** ${homeState.balances.btcSats === null ? 'Unavailable' : `${homeState.balances.btcSats} sats`}`),
-        text(`**UNIT balance:** ${homeState.balances.unit === null ? 'Unavailable' : `${homeState.balances.unit} UNIT`}`),
-        text(
-          homeState.vault
-            ? `**Vault status:** ${homeState.vault.status} - ${homeState.vault.btcLocked ?? 'unknown'} BTC locked / ${
-                homeState.vault.unitBorrowed ?? 'unknown'
-              } UNIT borrowed`
-            : '**Vault status:** No vault found or unavailable.',
-        ),
-        divider(),
-        heading('Ducat actions'),
-        text(`[Create](${DUCAT_APP_URL}/?action=create) | [Deposit](${DUCAT_APP_URL}/?action=deposit) | [Borrow](${DUCAT_APP_URL}/?action=borrow)`),
-        text(`[Repay](${DUCAT_APP_URL}/?action=repay) | [Withdraw](${DUCAT_APP_URL}/?action=withdraw) | [Swap](${DUCAT_APP_URL}/swap)`),
-        text(`[Liquidations](${DUCAT_APP_URL}/liquidations)`),
-        divider(),
-        heading('Recent actions'),
-        ...(actions.length ? actions : [text('No recent Ducat actions yet.')]),
+      content: uiBox([
+        uiCard({
+          description: 'Bitcoin accounts and Ducat signing',
+          extra: 'testnet only',
+          image: DUCAT_MARK_SVG,
+          title: 'Ducat Snap',
+          value: networkLabel(homeState.network),
+        }),
+        uiSection([
+          uiHeading('Overview'),
+          uiRow('Network', networkLabel(homeState.network)),
+          uiRow('BTC', btcBalance(homeState.balances.btcSats)),
+          uiRow('UNIT', formatUnit(homeState.balances.unit)),
+        ]),
+        ...(homeState.balances.btcSats === null || homeState.balances.unit === null
+          ? [uiBanner('Balance lookup unavailable', 'warning', 'One or more balance services are unavailable or timed out. Signing still works from PSBT data supplied by the Ducat app.')]
+          : []),
+        uiSection([
+          uiHeading('Vault'),
+          ...vaultComponents(homeState.vault),
+        ]),
       ]),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
     return {
-      content: panel([heading('Ducat'), text(`Unable to load Snap home: ${message}`)]),
+      content: uiBox([
+        uiCard({
+          description: 'Bitcoin accounts and Ducat signing',
+          image: DUCAT_MARK_SVG,
+          title: 'Ducat Snap',
+          value: 'Unavailable',
+        }),
+        uiBanner('Unable to load Snap Home', 'warning', message),
+      ]),
     };
   }
 }

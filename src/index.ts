@@ -2,14 +2,14 @@ import type { OnHomePageHandler, OnInstallHandler, OnRpcRequestHandler } from '@
 
 import { renderHomePage } from './home';
 import { handleRpcRequest } from './rpc';
-import { heading, panel, text } from './ui';
+import { uiBanner, uiBox, uiHeading, uiMuted, uiRow, uiSection } from './ui';
 
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
   return handleRpcRequest(origin, request);
 };
 
 export const onHomePage: OnHomePageHandler = async () => {
-  return renderHomePage('mutinynet');
+  return renderHomePage();
 };
 
 export const onInstall: OnInstallHandler = async () => {
@@ -17,9 +17,16 @@ export const onInstall: OnInstallHandler = async () => {
     method: 'snap_dialog',
     params: {
       type: 'alert',
-      content: panel([
-        heading('Ducat installed'),
-        text('Use the Ducat web app to connect MetaMask and sign Ducat actions on signet or mutinynet. Mainnet is not enabled in this release.'),
+      content: uiBox([
+        uiHeading('Ducat installed', 'lg'),
+        uiSection([
+          uiRow('Networks', 'Signet / Mutinynet'),
+          uiRow('Accounts', 'Bitcoin testnet accounts from MetaMask SRP'),
+          uiRow('Keys', 'Stay inside MetaMask'),
+          uiRow('Approvals', 'Required for every message, PSBT, batch, and transfer'),
+        ]),
+        uiBanner('Mainnet disabled', 'info', 'Mainnet remains disabled until audit and allowlist approval.'),
+        uiMuted('Use the Ducat web app for create, deposit, borrow, repay, withdraw, swap, and liquidation flows.'),
       ]),
     },
   });

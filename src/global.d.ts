@@ -1,3 +1,3 @@
 declare const snap: {
-  request: <T = unknown>(args: { method: string; params?: unknown }) => Promise<T>;
+  request: <Result = unknown>(args: { method: string; params?: unknown }) => Promise<Result>;
 };

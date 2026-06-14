@@ -1,8 +1,8 @@
 # Ducat Snap Auditor Handoff
 
-Date prepared: 2026-06-12
+Date prepared: 2026-06-14
 
-This document is the external security review handoff for `@ducat-unit/ducat-snap` v0.1.0. It complements `AUDIT_SCOPE.md`, `RELEASE_EVIDENCE.md`, `SNAPPER_REVIEW.md`, and `DEPENDENCY_AUDIT.md`.
+This document is the external security review handoff for `@ducat-unit/wallet-snap` v0.1.0. It complements `AUDIT_SCOPE.md`, `RELEASE_EVIDENCE.md`, `SNAPPER_REVIEW.md`, and `DEPENDENCY_AUDIT.md`.
 
 ## Review Objective
 
@@ -11,13 +11,19 @@ Assess whether the Ducat Snap can safely derive signet/mutinynet Bitcoin account
 ## Candidate Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- npm package name: `@ducat-unit/ducat-snap`
+- Audit candidate tag: `audit-candidate-0.1.0-20260614-wallet-snap-tag-gate`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-wallet-snap-tag-gate`
+- GitHub Actions verification: see the current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/1
+- npm package name: `@ducat-unit/wallet-snap`
 - Package version: `0.1.0`
+- Package dry-run shasum: `94940cc6034f82a5e48f612261f2abffc5093972`
+- Package dry-run integrity: `sha512-KoZ+D4ubPEJSuxarXf7cRA2aNBWHYb263q82eNBFWiCYhSlq7Ih9zn6POCZXkK8Wg1XuR4PfrQiqPIU89XhIxA==`
+- Snap manifest source shasum: `wlBzjawKn763zsDzD5OBDYiA6DNFmK5U2kq/Ou3ZUg8=`
 - Proposed Snap name: `Ducat`
 - Intended launch scope: signet/mutinynet only
 - Mainnet support: intentionally out of scope for v0.1.0
 
-Use the latest audit-candidate tag recorded in `RELEASE_EVIDENCE.md` unless the Ducat team provides a newer fixed-candidate tag.
+Use the candidate above unless the Ducat team provides a newer fixed-candidate tag.
 
 ## Required MetaMask Audit Coverage
 
@@ -76,17 +82,17 @@ npm run verify:release
 
 - `snap.manifest.json` for minimal permissions and origin caveats.
 - `src/bip32.ts`, `src/accounts.ts`, and `src/message.ts` for entropy handling and signing.
-- `src/psbt.ts` for PSBT ownership checks, input index checks, network checks, and finalization behavior.
+- `src/psbt.ts` for PSBT ownership checks, input index checks, network checks, Taproot script-path commitment checks, and Ducat vault sequence/OP_RETURN decoding.
 - `src/rpc.ts` for origin validation, parameter validation, and method routing.
 - `src/confirmations.ts` and `src/ui.ts` for confirmation clarity and safe rendering of arbitrary messages.
 - `src/transfer.ts` and `src/home.ts` for network calls and state updates.
-- `src/__tests__/` for the release test coverage baseline.
+- `src/__tests__/` for the release test coverage baseline, including submission fixture replay against captured PSBT confirmation text once final fixtures are present.
 
 ## Known Pre-Audit Notes
 
 - Production dependency audit is clean.
 - Full `npm audit` still reports development-toolchain findings from build/test dependencies; see `DEPENDENCY_AUDIT.md`.
 - Snapper currently reports style/scanner-policy findings; see `SNAPPER_REVIEW.md`.
-- Signet/mutinynet alpha vault PSBTs currently use a compatibility path for Taproot script-path inputs in `src/psbt.ts`; see the README alpha note and include this path in manual review before any mainnet expansion.
+- Taproot script-path inputs must prove the provided tapleaf commits to the prevout P2TR output key. Include this commitment check in manual review before any mainnet expansion.
 - The package is not yet published to npm until npm authentication is configured.
 - Production support and legal privacy URLs must be finalized before MetaMask directory submission.
