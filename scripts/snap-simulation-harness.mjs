@@ -2,7 +2,7 @@
 
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { extname, resolve } from 'node:path';
+import { extname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { installSnap } from '@metamask/snaps-simulation';
@@ -24,8 +24,9 @@ export function serveSnapDirectory(root, port = 0) {
     const server = createServer((request, response) => {
       const urlPath = (request.url ?? '/').split('?')[0].replace(/^\//u, '');
       const filePath = resolve(rootPath, urlPath || 'snap.manifest.json');
+      const relativePath = relative(rootPath, filePath);
 
-      if (filePath !== rootPath && !filePath.startsWith(`${rootPath}/`)) {
+      if (relativePath === '..' || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
         response.writeHead(403);
         response.end('Forbidden');
         return;
@@ -66,16 +67,26 @@ export function serveSnapDirectory(root, port = 0) {
 }
 
 export function collectInterfaceText(value) {
+  return collectInterfaceTextValue(value, new WeakSet());
+}
+
+function collectInterfaceTextValue(value, visited) {
   if (typeof value === 'string') {
     return [value];
   }
 
-  if (Array.isArray(value)) {
-    return value.flatMap(collectInterfaceText);
-  }
-
   if (!value || typeof value !== 'object') {
     return [];
+  }
+
+  if (visited.has(value)) {
+    return [];
+  }
+
+  visited.add(value);
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectInterfaceTextValue(item, visited));
   }
 
   const props = value.props ?? {};
@@ -91,7 +102,11 @@ export function collectInterfaceText(value) {
     props.tooltip,
   ].filter((item) => typeof item === 'string');
 
-  return [...candidates, ...collectInterfaceText(value.children), ...collectInterfaceText(props.children)];
+  return [
+    ...candidates,
+    ...collectInterfaceTextValue(value.children, visited),
+    ...collectInterfaceTextValue(props.children, visited),
+  ];
 }
 
 function unwrapSnapResponse(method, response) {

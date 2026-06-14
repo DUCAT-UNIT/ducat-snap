@@ -880,18 +880,21 @@ describe('RPC router', () => {
 
       if (href.includes('validator-testnet4.dev.ducatprotocol.com/api/vault/pubkey/')) {
         return new Response(
-          JSON.stringify([
-            {
-              root_txid: 'vault-1',
-              thold_price: 40_000,
-              unit_balance: 100_000,
-              unit_price: 100_000,
-              vault_action: 'active',
-              vault_balance: 50_000_000,
-              vault_config: { label: 'Alpha vault' },
-              vault_ratio: 6.233342137488894,
-            },
-          ]),
+          JSON.stringify({
+            data: [],
+            items: [
+              {
+                root_txid: 'vault-1',
+                thold_price: 40_000,
+                unit_balance: 100_000,
+                unit_price: 100_000,
+                vault_action: 'active',
+                vault_balance: 50_000_000,
+                vault_config: { label: 'Alpha vault' },
+                vault_ratio: 6.233342137488894,
+              },
+            ],
+          }),
           { status: 200 },
         );
       }

@@ -39,7 +39,7 @@ This is an internal pre-audit review for `@ducat-unit/wallet-snap@0.1.0`. It is 
 
 Severity: High
 
-The PSBT validator previously accepted any committed Taproot script leaf that contained the Ducat vault pubkey. That was too broad for audit-grade signing policy. A Snap should not sign a Taproot script-path input unless the provided tapleaf is the Ducat cosign template and the control block recomputes to the prevout P2TR output key.
+The PSBT validator previously accepted Taproot script-path data when the supplied leaf merely contained the Ducat vault pubkey, without requiring control-block proof that the leaf committed to the prevout P2TR output key. That was too broad for audit-grade signing policy. A Snap should not sign a Taproot script-path input unless the provided tapleaf is the Ducat cosign template and the control block recomputes to the prevout P2TR output key.
 
 Remediation:
 

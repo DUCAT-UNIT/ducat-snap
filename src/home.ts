@@ -141,10 +141,8 @@ async function postValidatorJson<ResponseBody>(network: DucatNetwork, path: stri
       if (response.ok) {
         return (await response.json()) as ResponseBody;
       }
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return null;
-      }
+    } catch {
+      continue;
     }
   }
 
@@ -159,10 +157,8 @@ async function getValidatorJson<ResponseBody>(network: DucatNetwork, path: strin
       if (response.ok) {
         return (await response.json()) as ResponseBody;
       }
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return null;
-      }
+    } catch {
+      continue;
     }
   }
 
@@ -222,7 +218,13 @@ function listVaults(response: VaultListResponse | null): ValidatorVault[] {
     return response;
   }
 
-  return response?.data ?? response?.items ?? response?.vaults ?? [];
+  for (const vaults of [response?.data, response?.items, response?.vaults]) {
+    if (Array.isArray(vaults) && vaults.length > 0) {
+      return vaults;
+    }
+  }
+
+  return [];
 }
 
 function firstString(...values: unknown[]): string | null {

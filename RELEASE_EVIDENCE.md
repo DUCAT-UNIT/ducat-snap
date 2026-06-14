@@ -2,16 +2,16 @@
 
 Date: 2026-06-14
 
-This document captures the current local audit and submission handoff state for `@ducat-unit/wallet-snap` v0.1.1.
+This document captures the current local audit and submission handoff state for `@ducat-unit/wallet-snap` v0.1.2.
 
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `main`
-- Implementation tag: `audit-candidate-0.1.1-20260614-distinct-cosign-keys`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.1-20260614-distinct-cosign-keys`
+- Implementation tag: `audit-candidate-0.1.2-20260614-audit-review-fixes`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.2-20260614-audit-review-fixes`
 - Package name: `@ducat-unit/wallet-snap`
-- Version: `0.1.1`
+- Version: `0.1.2`
 - Proposed Snap name: `Ducat`
 - Launch network: signet/mutinynet only
 - Mainnet: intentionally disabled
@@ -98,13 +98,13 @@ This document captures the current local audit and submission handoff state for 
 ## Package Evidence
 
 - Package dry-run command: `npm pack --dry-run --json`
-- Dry-run filename: `ducat-unit-wallet-snap-0.1.1.tgz`
-- Dry-run package size: `1328247`
-- Dry-run unpacked size: `2263759`
+- Dry-run filename: `ducat-unit-wallet-snap-0.1.2.tgz`
+- Dry-run package size: `1328289`
+- Dry-run unpacked size: `2263910`
 - Dry-run file count: `15`
-- npm package shasum: `00d0b313b7ebdc614b5bc1749b84d9863f7c1578`
-- npm package integrity: `sha512-1pU63q8U5+rcXBfu+qcIOLDL17LTSknWyGEKeFZJ1iewD4eRCMs3WxJ1/NHFZISbh726XhuEquhnx6wrmf5wjw==`
-- Snap manifest source shasum: `/G8Rmg/O7yA6VlB4Dx5tQ2pZse2B9SWuW0/9nniyJVc=`
+- npm package shasum: `42ec5814afb35c0944d6e431367d8c6cc4a8cc28`
+- npm package integrity: `sha512-tULG/rHgrxUdUekei6WiMImuIZ7eoP7LRgVZ9o2bZdK0uGwhzmKW76VyGJyIgY43/ZOSTziSQ0Yl9K0fzirBsA==`
+- Snap manifest source shasum: `Xt2Yo/tidiM2kzb7aSHvawb/vP9u8DwiG3/EueWi/Ic=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -133,7 +133,7 @@ Packaged files:
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
 - Snapper result: completed with 206 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
-- Current release stance: findings are documented and not treated as a v0.1.1 release blocker pending third-party audit review
+- Current release stance: findings are documented and not treated as a v0.1.2 release blocker pending third-party audit review
 - Release manifest guard: `npm run verify:release-manifest` derives a submission manifest origin set from `submission/metamask-directory.json` and fails if any release origin is localhost, non-HTTPS, duplicated, wildcarded, or outside the current development manifest.
 - Publish guard: `prepublishOnly` runs `npm run verify:release`, so local npm publication attempts execute tests, build, manifest sync, MetaMask simulation harness smoke testing, production dependency audit, Snapper, release metadata checks, release manifest checks, and package dry-run before publish.
 - Submission-ready guard: `npm run verify:submission-ready` is intentionally separate from release CI and fails with a complete blocker list until pending external fields are replaced, Snap identity and HTTPS submission URLs are consistent, audit/fixed commit fields bind to the candidate source, real PSBT fixtures exist for every required Ducat flow, captured fixture confirmation text replays against the current Snap UI, final E2E scenario evidence is captured against the exact audit candidate tag/commit, package shasum, package integrity, and manifest shasum, final reviewable PNG screenshots exist, audit/demo URLs are HTTPS, and the published npm package metadata matches the submission packet.
@@ -168,9 +168,9 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.1-20260614-distinct-cosign-keys` to the external Snap auditor.
+- Send `audit-candidate-0.1.2-20260614-audit-review-fixes` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
-- Publish `@ducat-unit/wallet-snap@0.1.1` to npm after audit fixes, if any.
+- Publish `@ducat-unit/wallet-snap@0.1.2` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
 - Merge audit fixes, if any, and tag the fixed source commit.
 - Capture final listing screenshots from the audited build.

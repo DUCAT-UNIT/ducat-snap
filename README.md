@@ -99,7 +99,7 @@ For the published Snap, use:
 
 ```bash
 NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wallet-snap"
-NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.1"
+NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.2"
 ```
 
 Run the frontend on an origin allowed by `snap.manifest.json`, for example:
@@ -194,7 +194,7 @@ Errors returned to the frontend are friendly by default and include a stable `co
 
 ### Taproot Script-Path Policy
 
-Vault PSBTs that spend Taproot script-path inputs must include a Ducat cosign tapleaf and control-block data that recomputes to the prevout P2TR output key. The Snap rejects uncommitted script-path inputs and generic leaves even if the leaf contains the derived Ducat vault key.
+Vault PSBTs that spend Taproot script-path inputs must include a Ducat cosign tapleaf and control-block data that recomputes to the prevout P2TR output key. The tapleaf must place the derived Ducat vault key in the client slot, and the client and guard pubkeys must be distinct. The Snap rejects uncommitted script-path inputs, client/guard key collapse, and generic leaves even if the leaf contains the derived Ducat vault key.
 
 Mainnet support still requires a separate audit pass, but the signet/mutinynet Snap no longer contains the earlier alpha fallback that accepted uncommitted tapleaf data.
 
@@ -217,7 +217,7 @@ Current candidate progress: duplicate previous-output rejection, missing previou
 3. Tag the audit candidate.
 4. Complete the third-party audit required for `snap_getBip32Entropy`.
 5. Merge any audit fixes and tag the fixed candidate.
-6. Publish `@ducat-unit/wallet-snap@0.1.1` to npm.
+6. Publish `@ducat-unit/wallet-snap@0.1.2` to npm.
 7. Replace pending external fields in `submission/metamask-directory.json` and `submission/ALLOWLIST_SUBMISSION.md`.
 8. Capture real PSBT fixtures into `submission/fixtures/`.
 9. Capture final E2E evidence into `submission/e2e/evidence.json`.

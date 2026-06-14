@@ -29,7 +29,7 @@ This file defines the minimum security review scope before publishing `@ducat-un
 - Any unauthorized origin able to invoke Snap RPC methods.
 - Any malformed PSBT, wrong-network PSBT, unknown address, or unknown input index that is accepted.
 - Any package dependency that violates MetaMask Snap SES constraints or creates avoidable key-management risk.
-- Any Taproot script-path behavior that signs a Ducat vault input without proving the tapleaf is a Ducat cosign leaf, commits to the prevout output key, and contains the derived vault pubkey in the client slot.
+- Any Taproot script-path behavior that signs a Ducat vault input without proving the tapleaf is a Ducat cosign leaf, commits to the prevout output key, contains the derived vault pubkey in the client slot, and uses distinct client and guard pubkeys.
 
 ## Audit Evidence
 
