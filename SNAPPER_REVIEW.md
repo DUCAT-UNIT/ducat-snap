@@ -6,7 +6,7 @@ Last local command:
 npx --yes @sayfer_io/snapper --path . --output snapper-report.json
 ```
 
-Local result: 184 findings, all risk 1 and all under the `ESLinting` category.
+Local result: 206 findings, all risk 1 and all under the `ESLinting` category.
 
 ## Addressed Findings
 
@@ -22,8 +22,8 @@ The first local scan reported 105 findings. The implementation now fixes the non
 
 ## Remaining Finding Summary
 
-- 167 missing JSDoc comments.
-- External API response fields using snake_case, such as Esplora and Ducat validator fields (`funded_txo_sum`, `spent_txo_sum`, `chain_stats`, `mempool_stats`, and vault summary fields).
+- 178 missing JSDoc comments.
+- External API response fields using snake_case, such as Esplora and Ducat validator fields (`funded_txo_sum`, `spent_txo_sum`, `chain_stats`, `mempool_stats`, `asset_balance`, `unit_balance`, and vault summary fields).
 - One object literal key using `vault_pubkey`, matching the Ducat validator API.
 - One `hmac(sha512, ...)` style warning in local BIP32 derivation.
 

@@ -13,9 +13,12 @@ describe('Ducat account derivation', () => {
 
     expect(keySet.record.sats.address).toMatch(/^tb1q/);
     expect(keySet.record.runes.address).toMatch(/^tb1p/);
-    expect(keySet.record.vault.address).toBe(keySet.record.runes.address);
+    expect(keySet.record.vault.address).toMatch(/^tb1p/);
+    expect(keySet.record.vault.address).not.toBe(keySet.record.runes.address);
     expect(keySet.record.sats.pubkey).toHaveLength(66);
     expect(keySet.record.runes.pubkey).toHaveLength(64);
+    expect(keySet.record.vault.pubkey).toHaveLength(64);
+    expect(keySet.record.vault.pubkey).not.toBe(keySet.record.runes.pubkey);
     expect(keySet.record.authCandidates).toEqual([
       expect.objectContaining({
         address: keySet.record.sats.address,
@@ -36,9 +39,15 @@ describe('Ducat account derivation', () => {
 
     expect(publicSet.record).toEqual(keySet.record);
     expect(publicSet.satsOutputScript.equals(keySet.satsOutputScript)).toBe(true);
+    expect(publicSet.runesOutputScript.equals(keySet.runesOutputScript)).toBe(true);
+    expect(publicSet.vaultOutputScript.equals(keySet.vaultOutputScript)).toBe(true);
+    expect(publicSet.runesInternalPubkey.equals(keySet.runesInternalPubkey)).toBe(true);
+    expect(publicSet.vaultInternalPubkey.equals(keySet.vaultInternalPubkey)).toBe(true);
     expect(publicSet.taprootOutputScript.equals(keySet.taprootOutputScript)).toBe(true);
     expect(publicSet.taprootInternalPubkey.equals(keySet.taprootInternalPubkey)).toBe(true);
     expect('satsNode' in publicSet).toBe(false);
+    expect('runesNode' in publicSet).toBe(false);
+    expect('vaultNode' in publicSet).toBe(false);
     expect('taprootNode' in publicSet).toBe(false);
   });
 

@@ -14,7 +14,8 @@ The Snap derives deterministic Bitcoin testnet accounts from the user's MetaMask
 - Mainnet: intentionally disabled until audit, soak testing, and allowlist approval
 - Derivation paths:
   - sats: `m/84'/1'/0'/0/0`, P2WPKH `tb1q...`, compressed 33-byte public key
-  - runes/vault: `m/86'/1'/0'/0/0`, P2TR `tb1p...`, x-only 32-byte internal public key
+  - runes: `m/86'/1'/0'/0/0`, P2TR `tb1p...`, x-only 32-byte internal public key
+  - vault: `m/86'/1'/0'/0/1`, P2TR `tb1p...`, x-only 32-byte internal public key
 
 ## Requirements
 
@@ -47,7 +48,15 @@ Or run the combined gate:
 npm run verify
 ```
 
-The stricter release gate also runs the production dependency audit, Snapper, and an npm package dry-run:
+After `npm run verify`, smoke-test the built Snap in MetaMask's simulation runtime:
+
+```bash
+npm run harness:accounts
+```
+
+The harness serves the local Snap, installs it with a deterministic test Secret Recovery Phrase, and invokes `ducat_getAccounts`.
+
+The stricter release gate also runs the MetaMask simulation harness smoke test, production dependency audit, Snapper, and an npm package dry-run:
 
 ```bash
 npm run verify:release
@@ -185,7 +194,7 @@ Errors returned to the frontend are friendly by default and include a stable `co
 
 ### Taproot Script-Path Policy
 
-Vault PSBTs that spend Taproot script-path inputs must include tapleaf and control-block data that recomputes to the prevout P2TR output key. The Snap rejects uncommitted script-path inputs even if the leaf contains the derived Ducat vault key.
+Vault PSBTs that spend Taproot script-path inputs must include a Ducat cosign tapleaf and control-block data that recomputes to the prevout P2TR output key. The Snap rejects uncommitted script-path inputs and generic leaves even if the leaf contains the derived Ducat vault key.
 
 Mainnet support still requires a separate audit pass, but the signet/mutinynet Snap no longer contains the earlier alpha fallback that accepted uncommitted tapleaf data.
 

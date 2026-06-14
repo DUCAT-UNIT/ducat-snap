@@ -55,12 +55,21 @@ Each file must be captured from the audited Snap candidate and the frontend/clie
     "frontendCommit": "40-character-frontend-git-sha",
     "snapCommit": "40-character-snap-git-sha",
     "clientSdkVersion": "0.25.2",
-    "validatorUrl": "https://validator.dev.ducatprotocol.com"
+    "validatorUrl": "https://validator-mutinynet.dev.ducatprotocol.com"
   }
 }
 ```
 
-`accounts` must be the exact `WalletAccountRecord` returned by the Snap during capture. Auth candidate public keys must be 33-byte compressed pubkeys. `signInputs` must be keyed only by the fixture account addresses, each input array must be non-empty, indexes must be non-negative safe integers, and duplicate input indexes are rejected across the whole fixture. `expectedConfirmationText` entries must be unique non-empty strings.
+To capture the Snap-derived account record and confirmation text from a draft PSBT fixture, build the Snap first, then run:
+
+```bash
+npm run build
+npm run fixture:capture -- draft.json submission/fixtures/deposit.json
+```
+
+The draft must include `action`, `network`, `psbt`, `signInputs`, optional `context`, and `capturedFrom` evidence fields. The capture script uses the MetaMask Snap simulation harness, auto-approves the confirmation, records the confirmation text, and writes the final fixture JSON. Any missing external evidence fields are written as `PENDING_*` placeholders so `npm run verify:submission-ready` still blocks incomplete evidence.
+
+`accounts` must be the exact `WalletAccountRecord` returned by the Snap during capture. The `runes` and `vault` Taproot accounts must be distinct. Auth candidate public keys must be 33-byte compressed pubkeys. `signInputs` must be keyed only by the fixture account addresses, each input array must be non-empty, indexes must be non-negative safe integers, and duplicate input indexes are rejected across the whole fixture. `expectedConfirmationText` entries must be unique non-empty strings.
 
 `capturedFrom.snapCommit` must match the current audit candidate tag in `../metamask-directory.json`. The submission gate reconstructs output scripts from these public keys, parses the PSBT, renders the confirmation, and checks every `expectedConfirmationText` string against the current Snap UI. This keeps the final fixture corpus useful without committing private keys.
 

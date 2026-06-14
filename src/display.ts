@@ -22,8 +22,8 @@ const ACTION_LABELS: Record<string, string> = {
 
 const ROLE_LABELS: Record<DucatAddressRole, string> = {
   sats: 'BTC account',
-  runes: 'UNIT / Vault account',
-  vault: 'UNIT / Vault account',
+  runes: 'UNIT account',
+  vault: 'Vault multisig',
 };
 
 function normalizeLabelKey(value: string): string {

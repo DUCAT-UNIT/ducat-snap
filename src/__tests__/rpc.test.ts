@@ -164,7 +164,7 @@ function makeVaultInputPsbt(value: number, seed: number) {
     hash: Buffer.alloc(32, seed).toString('hex'),
     index: 0,
     witnessUtxo: {
-      script: keySet.taprootOutputScript,
+      script: keySet.vaultOutputScript,
       value,
     },
   });
@@ -228,8 +228,8 @@ function collectDialogText(value: unknown): string[] {
 
 describe('RPC router', () => {
   it('uses the dev validator for Snap home data', () => {
-    expect(validatorUrls('signet')).toEqual(['https://validator.dev.ducatprotocol.com']);
-    expect(validatorUrls('mutinynet')).toEqual(['https://validator.dev.ducatprotocol.com']);
+    expect(validatorUrls('signet')).toEqual(['https://validator-testnet4.dev.ducatprotocol.com']);
+    expect(validatorUrls('mutinynet')).toEqual(['https://validator-mutinynet.dev.ducatprotocol.com']);
   });
 
   it('rejects unknown RPC methods', async () => {
@@ -298,6 +298,8 @@ describe('RPC router', () => {
         authCandidates: expect.any(Array),
       }),
     );
+    expect((accounts as ReturnType<typeof testKeySet>['record']).runes.address).not.toBe((accounts as ReturnType<typeof testKeySet>['record']).vault.address);
+    expect((accounts as ReturnType<typeof testKeySet>['record']).runes.pubkey).not.toBe((accounts as ReturnType<typeof testKeySet>['record']).vault.pubkey);
   });
 
   it('rejects unsupported networks before requesting entropy', async () => {
@@ -591,7 +593,7 @@ describe('RPC router', () => {
 
     const rendered = dialogValues(request).join('\n');
 
-    expect(rendered).toContain('UNIT / Vault multisig');
+    expect(rendered).toContain('Vault multisig');
     expect(rendered).toContain('Only Snap-managed inputs');
     expect(rendered).not.toContain('Warnings need review');
     expect(rendered).not.toContain('Alpha compatibility');
@@ -862,7 +864,7 @@ describe('RPC router', () => {
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const href = String(url);
 
-      if (href.includes('/address/')) {
+      if (href.includes('mempool.space/signet/api/address/')) {
         return new Response(
           JSON.stringify({
             chain_stats: { funded_txo_sum: 50_000, spent_txo_sum: 10_000 },
@@ -872,26 +874,24 @@ describe('RPC router', () => {
         );
       }
 
-      if (href.includes('/api/unit_utxos_by_address')) {
-        return new Response(JSON.stringify({ outputs: [{ spent: false, unit_amount: 12345 }] }), { status: 200 });
+      if (href.includes('validator-testnet4.dev.ducatprotocol.com/api/address/')) {
+        return new Response(JSON.stringify({ data: [{ asset_balance: 12345 }] }), { status: 200 });
       }
 
-      if (href.includes('/api/vault_list')) {
+      if (href.includes('validator-testnet4.dev.ducatprotocol.com/api/vault/pubkey/')) {
         return new Response(
-          JSON.stringify({
-            vaults: [
-              {
-                btc_locked: 0.5,
-                collateral_ratio: 6.233342137488894,
-                liquidation_price: 40_000,
-                oracle_price: 100_000,
-                unit_borrowed: 1_000,
-                vault_id: 'vault-1',
-                vault_last_action: 'active',
-                vault_tag: 'Alpha vault',
-              },
-            ],
-          }),
+          JSON.stringify([
+            {
+              root_txid: 'vault-1',
+              thold_price: 40_000,
+              unit_balance: 100_000,
+              unit_price: 100_000,
+              vault_action: 'active',
+              vault_balance: 50_000_000,
+              vault_config: { label: 'Alpha vault' },
+              vault_ratio: 6.233342137488894,
+            },
+          ]),
           { status: 200 },
         );
       }
@@ -937,7 +937,7 @@ describe('RPC router', () => {
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const href = String(url);
 
-      if (href.includes('/address/')) {
+      if (href.includes('mempool.space/signet/api/address/')) {
         return new Response(
           JSON.stringify({
             chain_stats: { funded_txo_sum: 10_000, spent_txo_sum: 20_000 },
@@ -947,25 +947,23 @@ describe('RPC router', () => {
         );
       }
 
-      if (href.includes('/api/unit_utxos_by_address')) {
-        return new Response(JSON.stringify({ outputs: [{ spent: false, unit_amount: -1 }] }), { status: 200 });
+      if (href.includes('validator-testnet4.dev.ducatprotocol.com/api/address/')) {
+        return new Response(JSON.stringify({ data: [{ asset_balance: -1 }] }), { status: 200 });
       }
 
-      if (href.includes('/api/vault_list')) {
+      if (href.includes('validator-testnet4.dev.ducatprotocol.com/api/vault/pubkey/')) {
         return new Response(
-          JSON.stringify({
-            vaults: [
-              {
-                btc_locked: -0.5,
-                collateral_ratio: -6,
-                liquidation_price: -40_000,
-                oracle_price: -100_000,
-                unit_borrowed: -1_000,
-                vault_id: 'vault-invalid',
-                vault_last_action: 'active',
-              },
-            ],
-          }),
+          JSON.stringify([
+            {
+              root_txid: 'vault-invalid',
+              thold_price: -40_000,
+              unit_balance: -1_000,
+              unit_price: -100_000,
+              vault_action: 'active',
+              vault_balance: -50_000_000,
+              vault_ratio: -6,
+            },
+          ]),
           { status: 200 },
         );
       }

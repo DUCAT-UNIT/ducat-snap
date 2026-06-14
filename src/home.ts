@@ -26,17 +26,24 @@ type AddressStats = {
 };
 
 type UnitUtxoResponse = {
+  data?: {
+    asset_balance?: number;
+  }[];
   outputs?: {
     spent?: boolean;
     unit_amount?: number;
   }[];
 };
 
-type VaultListResponse = {
-  vaults?: ValidatorVault[];
-};
+type VaultListResponse =
+  | ValidatorVault[]
+  | {
+      data?: ValidatorVault[];
+      items?: ValidatorVault[];
+      vaults?: ValidatorVault[];
+    };
 
-type ValidatorVault = {
+type LegacyValidatorVault = {
   btc_locked?: number;
   collateral_ratio?: number;
   liquidation_price?: number;
@@ -45,6 +52,24 @@ type ValidatorVault = {
   vault_id?: string;
   vault_last_action?: string;
   vault_tag?: string;
+};
+
+type ValidatorVault = LegacyValidatorVault & {
+  root_txid?: string;
+  thold_price?: number | null;
+  unit_balance?: number;
+  unit_price?: number | null;
+  vault_action?: string;
+  vault_balance?: number;
+  vault_config?: {
+    label?: string;
+  } | null;
+  vault_ratio?: number | null;
+  vault_value?: number | null;
+};
+
+type LegacyVaultListResponse = {
+  vaults?: ValidatorVault[];
 };
 
 type VaultSummary = {
@@ -126,8 +151,46 @@ async function postValidatorJson<ResponseBody>(network: DucatNetwork, path: stri
   return null;
 }
 
+async function getValidatorJson<ResponseBody>(network: DucatNetwork, path: string): Promise<ResponseBody | null> {
+  for (const baseUrl of validatorUrls(network)) {
+    try {
+      const response = await fetchWithTimeout(`${baseUrl}${path}`);
+
+      if (response.ok) {
+        return (await response.json()) as ResponseBody;
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return null;
+      }
+    }
+  }
+
+  return null;
+}
+
+function encodePathSegment(value: string): string {
+  return encodeURIComponent(value);
+}
+
 async function fetchUnitBalance(network: DucatNetwork, address: string): Promise<number | null> {
-  const response = await postValidatorJson<UnitUtxoResponse>(network, '/api/unit_utxos_by_address', { address });
+  const response =
+    (await getValidatorJson<UnitUtxoResponse>(network, `/api/address/${encodePathSegment(address)}`)) ??
+    (await postValidatorJson<UnitUtxoResponse>(network, '/api/unit_utxos_by_address', { address }));
+
+  if (Array.isArray(response?.data)) {
+    let unitCents = 0;
+
+    for (const output of response.data) {
+      if (!isNonNegativeNumber(output.asset_balance)) {
+        return null;
+      }
+
+      unitCents += output.asset_balance;
+    }
+
+    return unitCents / 100;
+  }
 
   if (!Array.isArray(response?.outputs)) {
     return null;
@@ -154,23 +217,47 @@ function numberOrNull(value: unknown): number | null {
   return isNonNegativeNumber(value) ? value : null;
 }
 
-async function fetchVaultSummary(network: DucatNetwork, vaultPubkey: string): Promise<VaultSummary | null> {
-  const response = await postValidatorJson<VaultListResponse>(network, '/api/vault_list', { vault_pubkey: vaultPubkey });
-  const vault = response?.vaults?.[0];
+function listVaults(response: VaultListResponse | null): ValidatorVault[] {
+  if (Array.isArray(response)) {
+    return response;
+  }
 
-  if (!vault?.vault_id) {
+  return response?.data ?? response?.items ?? response?.vaults ?? [];
+}
+
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+async function fetchVaultSummary(network: DucatNetwork, vaultPubkey: string): Promise<VaultSummary | null> {
+  const response =
+    (await getValidatorJson<VaultListResponse>(network, `/api/vault/pubkey/${encodePathSegment(vaultPubkey)}`)) ??
+    (await postValidatorJson<LegacyVaultListResponse>(network, '/api/vault_list', { vault_pubkey: vaultPubkey }));
+  const vault = listVaults(response)[0];
+  const id = firstString(vault?.root_txid, vault?.vault_id);
+
+  if (!vault || !id) {
     return null;
   }
 
+  const unitBalanceCents = numberOrNull(vault.unit_balance);
+  const vaultBalanceSats = numberOrNull(vault.vault_balance);
+
   return {
-    id: vault.vault_id,
-    tag: typeof vault.vault_tag === 'string' && vault.vault_tag ? vault.vault_tag : null,
-    status: typeof vault.vault_last_action === 'string' && vault.vault_last_action ? vault.vault_last_action : 'Unknown',
-    btcLocked: numberOrNull(vault.btc_locked),
-    unitBorrowed: numberOrNull(vault.unit_borrowed),
-    collateralRatio: numberOrNull(vault.collateral_ratio),
-    liquidationPrice: numberOrNull(vault.liquidation_price),
-    oraclePrice: numberOrNull(vault.oracle_price),
+    id,
+    tag: firstString(vault.vault_config?.label, vault.vault_tag),
+    status: firstString(vault.vault_action, vault.vault_last_action) ?? 'Unknown',
+    btcLocked: vaultBalanceSats === null ? numberOrNull(vault.btc_locked) : vaultBalanceSats / 100_000_000,
+    unitBorrowed: unitBalanceCents === null ? numberOrNull(vault.unit_borrowed) : unitBalanceCents / 100,
+    collateralRatio: numberOrNull(vault.vault_ratio) ?? numberOrNull(vault.collateral_ratio),
+    liquidationPrice: numberOrNull(vault.thold_price) ?? numberOrNull(vault.liquidation_price),
+    oraclePrice: numberOrNull(vault.unit_price) ?? numberOrNull(vault.oracle_price),
   };
 }
 

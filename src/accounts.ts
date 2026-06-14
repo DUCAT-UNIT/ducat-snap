@@ -20,12 +20,21 @@ export type AccountPublicSet = {
   network: DucatNetwork;
   record: WalletAccountRecord;
   satsOutputScript: Buffer;
+  runesOutputScript: Buffer;
+  vaultOutputScript: Buffer;
+  runesInternalPubkey: Buffer;
+  vaultInternalPubkey: Buffer;
+  /** Compatibility alias for the vault Taproot account. Prefer vaultOutputScript. */
   taprootOutputScript: Buffer;
+  /** Compatibility alias for the vault Taproot account. Prefer vaultInternalPubkey. */
   taprootInternalPubkey: Buffer;
 };
 
 export type AccountKeySet = AccountPublicSet & {
   satsNode: DucatKeyNode;
+  runesNode: DucatKeyNode;
+  vaultNode: DucatKeyNode;
+  /** Compatibility alias for the vault Taproot account. Prefer vaultNode. */
   taprootNode: DucatKeyNode;
 };
 
@@ -43,29 +52,37 @@ function hexBuffer(label: string, hex: string, expectedBytes: number): Buffer {
   return Buffer.from(value, 'hex');
 }
 
-function deriveAccountNode(baseNode: DucatKeyNode): DucatKeyNode {
-  return baseNode.deriveHardened(0).derive(0).derive(0);
+function deriveAccountNode(baseNode: DucatKeyNode, index = 0): DucatKeyNode {
+  return baseNode.deriveHardened(0).derive(0).derive(index);
 }
 
 export function toXOnly(publicKey: Buffer): Buffer {
   return publicKey.length === 32 ? publicKey : publicKey.subarray(1, 33);
 }
 
-function accountRecordFromNodes(network: DucatNetwork, satsNode: DucatKeyNode, taprootNode: DucatKeyNode): AccountKeySet {
+function taprootPayment(network: DucatNetwork, label: string, internalPubkey: Buffer): { address: string; output: Buffer } {
+  const net = bitcoinNetwork(network);
+  const payment = payments.p2tr({ internalPubkey, network: net });
+
+  if (!payment.address || !payment.output) {
+    throw new Error(`Failed to derive Ducat ${label} account.`);
+  }
+
+  return { address: payment.address, output: payment.output };
+}
+
+function accountRecordFromNodes(network: DucatNetwork, satsNode: DucatKeyNode, runesNode: DucatKeyNode, vaultNode: DucatKeyNode): AccountKeySet {
   const net = bitcoinNetwork(network);
   const satsPubkey = Buffer.from(satsNode.publicKey);
-  const taprootPubkey = Buffer.from(taprootNode.publicKey);
-  const taprootInternalPubkey = toXOnly(taprootPubkey);
+  const runesInternalPubkey = toXOnly(Buffer.from(runesNode.publicKey));
+  const vaultInternalPubkey = toXOnly(Buffer.from(vaultNode.publicKey));
 
   const satsPayment = payments.p2wpkh({ pubkey: satsPubkey, network: net });
-  const taprootPayment = payments.p2tr({ internalPubkey: taprootInternalPubkey, network: net });
+  const runesPayment = taprootPayment(network, 'runes', runesInternalPubkey);
+  const vaultPayment = taprootPayment(network, 'vault', vaultInternalPubkey);
 
   if (!satsPayment.address || !satsPayment.output) {
     throw new Error('Failed to derive Ducat sats account.');
-  }
-
-  if (!taprootPayment.address || !taprootPayment.output) {
-    throw new Error('Failed to derive Ducat taproot account.');
   }
 
   const record: WalletAccountRecord = {
@@ -74,12 +91,12 @@ function accountRecordFromNodes(network: DucatNetwork, satsNode: DucatKeyNode, t
       pubkey: satsPubkey.toString('hex'),
     },
     runes: {
-      address: taprootPayment.address,
-      pubkey: taprootInternalPubkey.toString('hex'),
+      address: runesPayment.address,
+      pubkey: runesInternalPubkey.toString('hex'),
     },
     vault: {
-      address: taprootPayment.address,
-      pubkey: taprootInternalPubkey.toString('hex'),
+      address: vaultPayment.address,
+      pubkey: vaultInternalPubkey.toString('hex'),
     },
     authCandidates: [
       {
@@ -95,10 +112,16 @@ function accountRecordFromNodes(network: DucatNetwork, satsNode: DucatKeyNode, t
     network,
     record,
     satsNode,
-    taprootNode,
+    runesNode,
+    vaultNode,
+    taprootNode: vaultNode,
     satsOutputScript: satsPayment.output,
-    taprootOutputScript: taprootPayment.output,
-    taprootInternalPubkey,
+    runesOutputScript: runesPayment.output,
+    vaultOutputScript: vaultPayment.output,
+    taprootOutputScript: vaultPayment.output,
+    runesInternalPubkey,
+    vaultInternalPubkey,
+    taprootInternalPubkey: vaultInternalPubkey,
   };
 }
 
@@ -106,36 +129,42 @@ export function accountPublicSetFromRecord(networkInput: unknown, record: Wallet
   const network = normalizeNetwork(networkInput);
   const net = bitcoinNetwork(network);
   const satsPubkey = hexBuffer('sats.pubkey', record.sats.pubkey, 33);
-  const taprootInternalPubkey = hexBuffer('vault.pubkey', record.vault.pubkey, 32);
+  const runesInternalPubkey = hexBuffer('runes.pubkey', record.runes.pubkey, 32);
+  const vaultInternalPubkey = hexBuffer('vault.pubkey', record.vault.pubkey, 32);
   const satsPayment = payments.p2wpkh({ pubkey: satsPubkey, network: net });
-  const taprootPayment = payments.p2tr({ internalPubkey: taprootInternalPubkey, network: net });
+  const runesPayment = taprootPayment(network, 'runes', runesInternalPubkey);
+  const vaultPayment = taprootPayment(network, 'vault', vaultInternalPubkey);
 
   if (!satsPayment.address || !satsPayment.output) {
     throw new Error('Failed to reconstruct Ducat sats account.');
-  }
-
-  if (!taprootPayment.address || !taprootPayment.output) {
-    throw new Error('Failed to reconstruct Ducat taproot account.');
   }
 
   if (record.sats.address !== satsPayment.address) {
     throw new Error(`sats address does not match sats.pubkey. Expected ${satsPayment.address}, got ${record.sats.address}.`);
   }
 
-  if (record.vault.address !== taprootPayment.address) {
-    throw new Error(`vault address does not match vault.pubkey. Expected ${taprootPayment.address}, got ${record.vault.address}.`);
+  if (record.runes.address !== runesPayment.address) {
+    throw new Error(`runes address does not match runes.pubkey. Expected ${runesPayment.address}, got ${record.runes.address}.`);
   }
 
-  if (record.runes.address !== taprootPayment.address || record.runes.pubkey !== record.vault.pubkey) {
-    throw new Error('runes and vault accounts must share the v0.1.0 Taproot key.');
+  if (record.vault.address !== vaultPayment.address) {
+    throw new Error(`vault address does not match vault.pubkey. Expected ${vaultPayment.address}, got ${record.vault.address}.`);
+  }
+
+  if (record.runes.address === record.vault.address || record.runes.pubkey === record.vault.pubkey) {
+    throw new Error('runes and vault accounts must use distinct Taproot keys.');
   }
 
   return {
     network,
     record,
     satsOutputScript: satsPayment.output,
-    taprootOutputScript: taprootPayment.output,
-    taprootInternalPubkey,
+    runesOutputScript: runesPayment.output,
+    vaultOutputScript: vaultPayment.output,
+    taprootOutputScript: vaultPayment.output,
+    runesInternalPubkey,
+    vaultInternalPubkey,
+    taprootInternalPubkey: vaultInternalPubkey,
   };
 }
 
@@ -146,7 +175,7 @@ export function deriveAccountSetFromBaseNodes(
 ): AccountKeySet {
   const network = normalizeNetwork(networkInput);
 
-  return accountRecordFromNodes(network, deriveAccountNode(satsBaseNode), deriveAccountNode(taprootBaseNode));
+  return accountRecordFromNodes(network, deriveAccountNode(satsBaseNode), deriveAccountNode(taprootBaseNode, 0), deriveAccountNode(taprootBaseNode, 1));
 }
 
 async function getBip32BaseNode(path: string[]): Promise<DucatKeyNode> {
@@ -189,6 +218,22 @@ export function getRoleForAddress(keySet: AccountPublicSet, address: string): Du
   return null;
 }
 
+export function getOutputScriptForRole(keySet: AccountPublicSet, role: DucatAddressRole): Buffer {
+  if (role === 'sats') {
+    return keySet.satsOutputScript;
+  }
+
+  return role === 'runes' ? keySet.runesOutputScript : keySet.vaultOutputScript;
+}
+
+export function getInternalPubkeyForRole(keySet: AccountPublicSet, role: Exclude<DucatAddressRole, 'sats'>): Buffer {
+  return role === 'runes' ? keySet.runesInternalPubkey : keySet.vaultInternalPubkey;
+}
+
 export function getNodeForRole(keySet: AccountKeySet, role: DucatAddressRole): DucatKeyNode {
-  return role === 'sats' ? keySet.satsNode : keySet.taprootNode;
+  if (role === 'sats') {
+    return keySet.satsNode;
+  }
+
+  return role === 'runes' ? keySet.runesNode : keySet.vaultNode;
 }

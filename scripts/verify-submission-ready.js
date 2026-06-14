@@ -22,6 +22,8 @@ const allowedE2eFiles = new Set(['README.md', 'evidence.json']);
 const minimumScreenshotWidth = 360;
 const minimumScreenshotHeight = 360;
 const gitCommitHashPattern = /^[0-9a-f]{40}$/iu;
+const packageShasumPattern = /^[0-9a-f]{40}$/iu;
+const packageIntegrityPattern = /^sha512-[A-Za-z0-9+/]+={0,2}$/u;
 const maximumFixtureSignInputs = 80;
 const requiredE2eScenarios = [
   'install',
@@ -151,6 +153,29 @@ function assertGitCommitHash(label, value) {
   assert(gitCommitHashPattern.test(value), `${label} must be a 40-character git commit hash.`);
 }
 
+function assertPackageShasum(label, value) {
+  assertString(label, value);
+  assert(packageShasumPattern.test(value), `${label} must be a 40-character npm package shasum.`);
+}
+
+function assertPackageIntegrity(label, value) {
+  assertString(label, value);
+  assert(packageIntegrityPattern.test(value), `${label} must be a sha512 npm package integrity string.`);
+}
+
+function gitIsAncestor(ancestor, descendant) {
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
+      cwd: root,
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 let cachedAuditCandidateCommit;
 
 function auditCandidateCommit() {
@@ -204,8 +229,8 @@ function assertWalletAccountRecord(relativePath, accounts) {
     assertAuthCandidate(`${relativePath} accounts.authCandidates[${index}]`, candidate);
   });
 
-  assert(accounts.runes.address === accounts.vault.address, `${relativePath} accounts.runes.address must match accounts.vault.address for v0.1.0.`);
-  assert(accounts.runes.pubkey === accounts.vault.pubkey, `${relativePath} accounts.runes.pubkey must match accounts.vault.pubkey for v0.1.0.`);
+  assert(accounts.runes.address !== accounts.vault.address, `${relativePath} accounts.runes.address must be distinct from accounts.vault.address.`);
+  assert(accounts.runes.pubkey !== accounts.vault.pubkey, `${relativePath} accounts.runes.pubkey must be distinct from accounts.vault.pubkey.`);
 }
 
 function assertSignInputs(label, value, accounts) {
@@ -291,6 +316,37 @@ function assertFixtureConfirmationReplay() {
   assert(output.includes('PASS'), 'Submission fixture replay did not report a passing Jest run.');
 }
 
+function assertSubmissionMetadata() {
+  assert(directory.snap.packageName === packageJson.name, `submission snap.packageName must match package.json name ${packageJson.name}.`);
+  assert(directory.snap.version === packageJson.version, `submission snap.version must match package.json version ${packageJson.version}.`);
+  assert(directory.snap.snapId === `npm:${packageJson.name}`, `submission snap.snapId must be npm:${packageJson.name}.`);
+  assertHttpsUrl('submission repository URL', directory.snap.repositoryUrl);
+  assertHttpsUrl('submission npm URL', directory.snap.npmUrl);
+  assertString('submission builder name', directory.builder?.name);
+  assertHttpsUrl('submission builder URL', directory.builder?.url);
+  assertHttpsUrl('submission privacy policy URL', directory.policies?.privacyPolicyUrl);
+  assertHttpsUrl('submission support URL', directory.policies?.supportUrl);
+  assertHttpsUrl('submission security process URL', directory.policies?.securityProcessUrl);
+  assertPackageShasum('submission package shasum', directory.verification?.packageShasum);
+  assertPackageIntegrity('submission package integrity', directory.verification?.packageIntegrity);
+  assertString('submission manifest source shasum', directory.verification?.manifestSourceShasum);
+}
+
+function assertAuditCommitBinding() {
+  const candidateCommit = auditCandidateCommit();
+
+  assertGitCommitHash('submission audit auditedCommit', directory.audit.auditedCommit);
+  assertGitCommitHash('submission audit fixedCommit', directory.audit.fixedCommit);
+  assert(
+    directory.audit.auditedCommit === candidateCommit || gitIsAncestor(directory.audit.auditedCommit, candidateCommit),
+    `submission audit auditedCommit must be ${directory.audit.candidateTag} (${candidateCommit}) or an ancestor of it.`,
+  );
+  assert(
+    directory.audit.fixedCommit === candidateCommit,
+    `submission audit fixedCommit must match ${directory.audit.candidateTag} (${candidateCommit}).`,
+  );
+}
+
 function assertE2eEvidence() {
   const evidence = readJson('submission/e2e/evidence.json');
 
@@ -300,9 +356,11 @@ function assertE2eEvidence() {
   assertGitCommitHash('submission/e2e/evidence.json snapCommit', evidence.snapCommit);
   assert(evidence.snapCommit === auditCandidateCommit(), `submission/e2e/evidence.json snapCommit must match ${directory.audit.candidateTag} (${auditCandidateCommit()}).`);
   assertGitCommitHash('submission/e2e/evidence.json frontendCommit', evidence.frontendCommit);
-  assertString('submission/e2e/evidence.json packageShasum', evidence.packageShasum);
+  assertPackageShasum('submission/e2e/evidence.json packageShasum', evidence.packageShasum);
+  assertPackageIntegrity('submission/e2e/evidence.json packageIntegrity', evidence.packageIntegrity);
   assertString('submission/e2e/evidence.json manifestSourceShasum', evidence.manifestSourceShasum);
   assert(evidence.packageShasum === directory.verification.packageShasum, 'submission/e2e/evidence.json packageShasum must match submission metadata.');
+  assert(evidence.packageIntegrity === directory.verification.packageIntegrity, 'submission/e2e/evidence.json packageIntegrity must match submission metadata.');
   assert(evidence.manifestSourceShasum === directory.verification.manifestSourceShasum, 'submission/e2e/evidence.json manifestSourceShasum must match submission metadata.');
   assertHttpsUrl('submission/e2e/evidence.json demoVideoUrl', evidence.demoVideoUrl);
   assert(evidence.demoVideoUrl === directory.submissionAssets.demoVideoUrl, 'submission/e2e/evidence.json demoVideoUrl must match submission metadata.');
@@ -379,6 +437,10 @@ runCheck(failures, 'Pending placeholders in external gate tracker', () => {
   assertNoPendingTokens('submission/EXTERNAL_GATES.md', externalGates);
 });
 
+runCheck(failures, 'Submission metadata consistency', assertSubmissionMetadata);
+
+runCheck(failures, 'Audit commit binding', assertAuditCommitBinding);
+
 runCheck(failures, 'Audit report URL', () => {
   assertHttpsUrl('audit report URL', directory.audit.auditReportUrl);
 });
@@ -409,6 +471,8 @@ runCheck(failures, 'Published npm package metadata', () => {
   const npmMetadata = npmPackageMetadata(packageJson.name, packageJson.version);
 
   assert(npmMetadata.version === packageJson.version, `Published npm version mismatch. Expected ${packageJson.version}, got ${npmMetadata.version}.`);
+  assertPackageShasum('published npm shasum', npmMetadata['dist.shasum']);
+  assertPackageIntegrity('published npm integrity', npmMetadata['dist.integrity']);
   assert(npmMetadata['dist.shasum'] === directory.verification.packageShasum, 'Published npm shasum does not match submission metadata.');
   assert(npmMetadata['dist.integrity'] === directory.verification.packageIntegrity, 'Published npm integrity does not match submission metadata.');
 });
