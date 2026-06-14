@@ -2,7 +2,7 @@
 
 Date: 2026-06-13
 
-This is an internal pre-audit review for `@ducat-unit/wallet-snap@0.1.3`. It is not a substitute for the required third-party audit for `snap_getBip32Entropy`, but it documents the audit approach, reviewed attack surface, findings, and remediations before external handoff.
+This is an internal pre-audit review for `@ducat-unit/wallet-snap@0.1.4`. It is not a substitute for the required third-party audit for `snap_getBip32Entropy`, but it documents the audit approach, reviewed attack surface, findings, and remediations before external handoff.
 
 ## Scope
 
@@ -43,7 +43,7 @@ The PSBT validator previously accepted Taproot script-path data when the supplie
 
 Remediation:
 
-- Removed the alpha compatibility acceptance path.
+- Removed the legacy compatibility acceptance path.
 - Taproot script-path signing now requires a Ducat cosign tapleaf with the derived vault pubkey in the client slot and control-block data that commits to the prevout output key.
 - Added regression tests that reject uncommitted vault script-path inputs and generic Taproot leaves that merely contain the derived vault pubkey.
 

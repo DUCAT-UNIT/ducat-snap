@@ -24,12 +24,12 @@ Use this shape:
 ```json
 {
   "network": "mutinynet",
-  "snapCandidateTag": "audit-candidate-0.1.3-YYYYMMDD-final",
-  "snapCommit": "40-character-snap-git-sha",
+  "snapCandidateTag": "audit-candidate-0.1.4-20260614-docs-cleanup",
+  "snapCommit": "tag target for audit-candidate-0.1.4-20260614-docs-cleanup",
   "frontendCommit": "40-character-frontend-git-sha",
   "packageShasum": "published-npm-package-shasum",
   "packageIntegrity": "published-npm-package-integrity",
-  "manifestSourceShasum": "snap-manifest-source-shasum",
+  "manifestSourceShasum": "sy23b6nyxx0qLVjtlJLztj4FDCCfv1Q353VYSZsVOsE=",
   "demoVideoUrl": "https://...",
   "scenarios": [
     {

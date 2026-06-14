@@ -1,5 +1,5 @@
 {
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Ducat Bitcoin accounts, Ducat-aware confirmations, and PSBT/message signing for MetaMask.",
   "proposedName": "Ducat",
   "repository": {
@@ -7,7 +7,7 @@
     "url": "git+https://github.com/DUCAT-UNIT/ducat-snap.git"
   },
   "source": {
-    "shasum": "lze5NyjNhkzcJ/sg0DONxhxGGPN4IhjXznyN8rAP8UA=",
+    "shasum": "sy23b6nyxx0qLVjtlJLztj4FDCCfv1Q353VYSZsVOsE=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",

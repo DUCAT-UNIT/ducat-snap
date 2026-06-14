@@ -2,49 +2,50 @@
 
 Date prepared: 2026-06-14
 
-This document is the external security review handoff for `@ducat-unit/wallet-snap` v0.1.3. It complements `AUDIT_SCOPE.md`, `RELEASE_EVIDENCE.md`, `SNAPPER_REVIEW.md`, and `DEPENDENCY_AUDIT.md`.
+This document is the external security review handoff for `@ducat-unit/wallet-snap@0.1.4`. It complements `AUDIT_SCOPE.md`, `RELEASE_EVIDENCE.md`, `INTERNAL_SECURITY_REVIEW.md`, `SNAPPER_REVIEW.md`, and `DEPENDENCY_AUDIT.md`.
 
 ## Review Objective
 
-Assess whether the Ducat Snap can safely derive signet/mutinynet Bitcoin accounts from MetaMask entropy and sign Ducat-requested messages, PSBTs, PSBT batches, and simple transfers without exposing private key material or allowing unauthorized signing.
+Assess whether the Ducat Snap can safely derive signet and mutinynet Bitcoin accounts from MetaMask entropy and sign Ducat-requested messages, PSBTs, PSBT batches, and simple transfers without exposing private key material or allowing unauthorized signing.
 
 ## Candidate Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Audit candidate tag: `audit-candidate-0.1.3-20260614-capability-harness-fix`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.3-20260614-capability-harness-fix`
-- GitHub Actions verification: run `Verify Ducat Snap` on the candidate branch after pushing it
+- Audit candidate tag: `audit-candidate-0.1.4-20260614-docs-cleanup`
+- Audit candidate commit: tag target for `audit-candidate-0.1.4-20260614-docs-cleanup`
+- GitHub Actions verification: `Verify Ducat Snap`
 - npm package name: `@ducat-unit/wallet-snap`
-- Package version: `0.1.3`
-- Package dry-run shasum: `e3115571b8f4656c6e49a1ddb788b4b0731fc535`
-- Package dry-run integrity: `sha512-kh0zXZOX9SO8rhx7UZ+zTHi8XLwbrUW9JrfS6ntIPQlDLIUzIH08Zk+IUuDyeaY6VqQ94tZa7SVAikk9PwaEnA==`
-- Snap manifest source shasum: `lze5NyjNhkzcJ/sg0DONxhxGGPN4IhjXznyN8rAP8UA=`
+- npm package version: `0.1.4`
+- npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
+- Package dry-run shasum: `16f0bdf810f515393e801d4ff57be40745fee051`
+- Package dry-run integrity: `sha512-yZyfOoodgTJDhmIh2O72CxbHscEfvRCEklE8zPZqG89VqeNSiC8/ADOQUUHFgjmA5MSAM2Ebypqz7yRzROFeaw==`
+- Snap manifest source shasum: `sy23b6nyxx0qLVjtlJLztj4FDCCfv1Q353VYSZsVOsE=`
 - Proposed Snap name: `Ducat`
 - Intended launch scope: signet/mutinynet only
-- Mainnet support: intentionally out of scope for v0.1.3
+- Mainnet support: intentionally out of scope for v0.1.4
 
-Use the candidate above unless the Ducat team provides a newer fixed-candidate tag.
+Use this candidate unless the Ducat team provides a newer fixed-candidate tag after audit remediation.
 
 ## Required MetaMask Audit Coverage
 
 The Snap requests `snap_getBip32Entropy`, so the review must cover:
 
-- The Snap source code that runs inside the Snaps execution environment.
-- All local modules used for Bitcoin key derivation and signing.
+- Snap source code that runs inside the Snaps execution environment.
+- Local modules used for Bitcoin key derivation and signing.
 - Package manifest permissions and allowed origins.
-- The built bundle and release package produced by the documented verification commands.
+- Built bundle and release package produced by the documented verification commands.
 
-The final report must identify:
+The final report should identify:
 
-- The commit or tag that was audited.
-- The commit or tag containing fixes, if any fixes are required.
+- The commit or tag audited.
+- The commit or tag containing fixes, if fixes are required.
 - Every vulnerability found, including severity, impact, recommendation, and Ducat's fix or risk acceptance.
-- Explicit confirmation that medium, high, and critical findings are fixed or otherwise accepted in a way MetaMask can review.
+- Explicit confirmation that medium, high, and critical findings are fixed or otherwise accepted in a form MetaMask can review.
 
 ## Security Invariants To Verify
 
 - No RPC method, error path, log path, state path, or UI path returns raw entropy, private keys, WIFs, or child private keys.
-- The Snap derives only testnet Bitcoin paths for v0.1.3: `m/84'/1'` and `m/86'/1'`.
+- The Snap derives only testnet Bitcoin paths for v0.1.4: `m/84'/1'` and `m/86'/1'`.
 - The Snap exposes only signet/mutinynet account data and rejects mainnet requests.
 - `ducat_signPsbt` signs only input indexes explicitly listed in `signInputs`.
 - `ducat_signPsbt` signs only inputs controlled by Snap-derived addresses.
@@ -53,8 +54,8 @@ The final report must identify:
 - Confirmation UI displays origin, network, action context, signed input indexes, output summary, and fee when calculable.
 - Friendly frontend context is treated as untrusted display metadata; parsed PSBT facts are the signing source of truth.
 - Unauthorized origins cannot invoke the Snap RPC API.
-- Network access is limited to the public balance, vault, fee, UTXO, and broadcast behavior needed for v0.1.3.
-- Snap state stores only recent Ducat action metadata needed for Snap home.
+- Network access is limited to public balance, vault, fee, UTXO, and broadcast behavior needed for v0.1.4.
+- Snap state stores only recent Ducat action metadata needed for Snap Home.
 
 ## Suggested Review Commands
 
@@ -63,36 +64,29 @@ Run from the repository root:
 ```bash
 npm ci
 npm run type-check
-npm test
+npm test -- --runInBand
 npm run build
 npm run manifest
-npm audit
+npm run verify:harness
 npm run audit:prod
 npm run snapper
-npm pack --dry-run
-```
-
-The release gate command is:
-
-```bash
 npm run verify:release
 ```
 
 ## Manual Review Focus
 
-- `snap.manifest.json` for minimal permissions and origin caveats.
+- `snap.manifest.json` for permissions and origin scope.
 - `src/bip32.ts`, `src/accounts.ts`, and `src/message.ts` for entropy handling and signing.
 - `src/psbt.ts` for PSBT ownership checks, input index checks, network checks, Taproot script-path commitment checks, and Ducat vault sequence/OP_RETURN decoding.
 - `src/rpc.ts` for origin validation, parameter validation, and method routing.
 - `src/confirmations.ts` and `src/ui.ts` for confirmation clarity and safe rendering of arbitrary messages.
 - `src/transfer.ts` and `src/home.ts` for network calls and state updates.
-- `src/__tests__/` for the release test coverage baseline, including submission fixture replay against captured PSBT confirmation text once final fixtures are present.
+- `src/__tests__/` for the release test coverage baseline and submission fixture replay path.
 
 ## Known Pre-Audit Notes
 
 - Production dependency audit is clean.
-- Full `npm audit` still reports development-toolchain findings from build/test dependencies; see `DEPENDENCY_AUDIT.md`.
-- Snapper currently reports style/scanner-policy findings; see `SNAPPER_REVIEW.md`.
-- Taproot script-path inputs must prove the provided tapleaf commits to the prevout P2TR output key. Include this commitment check in manual review before any mainnet expansion.
-- The package is not yet published to npm until npm authentication is configured.
-- Production support and legal privacy URLs must be finalized before MetaMask directory submission.
+- Full `npm audit` reports development-toolchain findings from build/test dependencies; see `DEPENDENCY_AUDIT.md`.
+- Snapper reports low-risk style/scanner-policy findings; see `SNAPPER_REVIEW.md`.
+- Taproot script-path inputs must prove the supplied tapleaf commits to the prevout P2TR output key.
+- Production support, escalation, and legal privacy URLs must be finalized before MetaMask directory submission.

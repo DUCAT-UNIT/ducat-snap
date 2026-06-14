@@ -9,7 +9,7 @@ Use this file as the working copy for the MetaMask Snaps Directory Information f
 - Snap name: `Ducat`
 - Package name: `@ducat-unit/wallet-snap`
 - Snap ID: `npm:@ducat-unit/wallet-snap`
-- Version to allowlist: `0.1.3`
+- Version to allowlist: `0.1.4`
 - Repository URL: https://github.com/DUCAT-UNIT/ducat-snap
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
 - Builder name: `DUCAT-UNIT`
@@ -40,8 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.3-20260614-capability-harness-fix`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.3-20260614-capability-harness-fix`
+- Audit candidate tag: `audit-candidate-0.1.4-20260614-docs-cleanup`
+- Audit candidate commit: tag target for `audit-candidate-0.1.4-20260614-docs-cleanup`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,9 +55,9 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `e3115571b8f4656c6e49a1ddb788b4b0731fc535`
-- npm package integrity: `sha512-kh0zXZOX9SO8rhx7UZ+zTHi8XLwbrUW9JrfS6ntIPQlDLIUzIH08Zk+IUuDyeaY6VqQ94tZa7SVAikk9PwaEnA==`
-- Snap manifest source shasum: `lze5NyjNhkzcJ/sg0DONxhxGGPN4IhjXznyN8rAP8UA=`
+- npm package shasum: `16f0bdf810f515393e801d4ff57be40745fee051`
+- npm package integrity: `sha512-yZyfOoodgTJDhmIh2O72CxbHscEfvRCEklE8zPZqG89VqeNSiC8/ADOQUUHFgjmA5MSAM2Ebypqz7yRzROFeaw==`
+- Snap manifest source shasum: `sy23b6nyxx0qLVjtlJLztj4FDCCfv1Q353VYSZsVOsE=`
 
 ## Permissions Summary
 
@@ -65,6 +65,7 @@ Mainnet is intentionally not enabled in this release.
 - `snap_getBip32Entropy`: derives Bitcoin signet/mutinynet account keys for `m/84'/1'` and `m/86'/1'`.
 - `snap_dialog`: shows mandatory confirmations before message signing, PSBT signing, batch signing, and transfers.
 - `snap_manageState`: stores recent Ducat action metadata for Snap home.
+- `snap_notify`: shows informational pending, completed, and failed-action notifications.
 - `endowment:page-home`: shows Ducat account status and Ducat app routes in MetaMask.
 - `endowment:network-access`: fetches public balance, vault, fee, UTXO, and broadcast data.
 - `endowment:lifecycle-hooks`: shows the install notice.
@@ -75,9 +76,9 @@ Mainnet is intentionally not enabled in this release.
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.3-20260614-capability-harness-fix/SECURITY.md
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.4-20260614-docs-cleanup/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.3-20260614-capability-harness-fix/PRIVACY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.4-20260614-docs-cleanup/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo
@@ -114,7 +115,7 @@ Required demo coverage:
 - `npm run verify:submission-ready` succeeds.
 - Real create/deposit/borrow/repay/withdraw/swap/liquidation/repossess PSBT fixtures are present in `submission/fixtures/` and replay against the current Snap confirmation UI.
 - Final E2E scenario evidence is present in `submission/e2e/evidence.json`.
-- `npm view @ducat-unit/wallet-snap@0.1.3` returns the published package.
+- `npm view @ducat-unit/wallet-snap@0.1.4` returns the published package.
 - `package.json` and `snap.manifest.json` versions match.
 - `snap.manifest.json` source shasum matches the built bundle.
 - The audited/fixed commit is public.

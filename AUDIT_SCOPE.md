@@ -1,6 +1,6 @@
 # Ducat Snap Audit Scope
 
-This file defines the minimum security review scope before publishing `@ducat-unit/wallet-snap` or submitting it for MetaMask allowlisting.
+This file defines the minimum security review scope before MetaMask allowlisting for `@ducat-unit/wallet-snap@0.1.4`.
 
 ## In Scope
 
@@ -17,7 +17,7 @@ This file defines the minimum security review scope before publishing `@ducat-un
 - User confirmation content in `src/confirmations.ts`.
 - State storage in `src/state.ts`.
 - Home page network fetches in `src/home.ts`.
-- Build artifacts produced by `npm run verify`.
+- Build artifacts produced by `npm run verify:release`.
 
 ## Required Findings To Rule Out
 
@@ -40,7 +40,7 @@ The final audit package should include:
 - Fixed commit hash, if fixes are required.
 - `npm pack --dry-run` output.
 - `npm audit --omit=dev` output.
-- `npm run verify` output.
+- `npm run verify:release` output.
 - Snapper/security scan output.
 - Final `snap.manifest.json` shasum.
 - Demo video URL following `DEMO_SCRIPT.md`.
