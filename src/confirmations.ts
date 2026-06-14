@@ -67,7 +67,11 @@ function sumNullable(values: (number | null)[]): number | null {
 }
 
 function signedInputTitle(role: DucatAddressRole): string {
-  return role === 'sats' ? 'BTC account' : 'UNIT / Vault multisig';
+  if (role === 'sats') {
+    return 'BTC account';
+  }
+
+  return role === 'runes' ? 'UNIT account' : 'Vault multisig';
 }
 
 function outputDetailLabel(output: PsbtOutputSummary): string {

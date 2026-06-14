@@ -204,8 +204,8 @@ function assertWalletAccountRecord(relativePath, accounts) {
     assertAuthCandidate(`${relativePath} accounts.authCandidates[${index}]`, candidate);
   });
 
-  assert(accounts.runes.address === accounts.vault.address, `${relativePath} accounts.runes.address must match accounts.vault.address for v0.1.0.`);
-  assert(accounts.runes.pubkey === accounts.vault.pubkey, `${relativePath} accounts.runes.pubkey must match accounts.vault.pubkey for v0.1.0.`);
+  assert(accounts.runes.address !== accounts.vault.address, `${relativePath} accounts.runes.address must be distinct from accounts.vault.address.`);
+  assert(accounts.runes.pubkey !== accounts.vault.pubkey, `${relativePath} accounts.runes.pubkey must be distinct from accounts.vault.pubkey.`);
 }
 
 function assertSignInputs(label, value, accounts) {

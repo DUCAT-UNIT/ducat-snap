@@ -44,18 +44,18 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-wallet-snap-tag-gate/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-cosign-policy-main/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-wallet-snap-tag-gate/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-cosign-policy-main/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.0-20260614-wallet-snap-tag-gate",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260614-wallet-snap-tag-gate",
+    "candidateTag": "audit-candidate-0.1.0-20260614-cosign-policy-main",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260614-cosign-policy-main",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/1",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
@@ -73,9 +73,9 @@
       "npm ci",
       "npm run verify:release"
     ],
-    "packageShasum": "94940cc6034f82a5e48f612261f2abffc5093972",
-    "packageIntegrity": "sha512-KoZ+D4ubPEJSuxarXf7cRA2aNBWHYb263q82eNBFWiCYhSlq7Ih9zn6POCZXkK8Wg1XuR4PfrQiqPIU89XhIxA==",
-    "manifestSourceShasum": "wlBzjawKn763zsDzD5OBDYiA6DNFmK5U2kq/Ou3ZUg8=",
+    "packageShasum": "fe52e9c22816ebed22fc581e14be2b34f84924eb",
+    "packageIntegrity": "sha512-uG4RawobNM11/vYLMF8w3tjbAqa4k5qGF57eLqF2tkNExvUH741nTSxqGvbqdFcOI1TDoW5AlYi79dqOXnGvwQ==",
+    "manifestSourceShasum": "W9Ht6hngwcUnDJ1WKQ7rgNUaoyRcv5IWjRvd/mwGWfc=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
   }

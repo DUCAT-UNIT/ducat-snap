@@ -39,13 +39,13 @@ This is an internal pre-audit review for `@ducat-unit/wallet-snap@0.1.0`. It is 
 
 Severity: High
 
-The PSBT validator accepted a compatibility path where a Taproot script leaf contained the Ducat vault pubkey but could not be proven to commit to the prevout output key. This was useful for alpha PSBTs, but it is not audit-grade signing policy. A Snap should not sign a Taproot script-path input unless the provided tapleaf and control block recompute to the prevout P2TR output key.
+The PSBT validator previously accepted any committed Taproot script leaf that contained the Ducat vault pubkey. That was too broad for audit-grade signing policy. A Snap should not sign a Taproot script-path input unless the provided tapleaf is the Ducat cosign template and the control block recomputes to the prevout P2TR output key.
 
 Remediation:
 
 - Removed the alpha compatibility acceptance path.
-- Taproot script-path signing now requires an owned tapleaf that commits to the prevout output key.
-- Added a regression test that rejects uncommitted vault script-path inputs.
+- Taproot script-path signing now requires a Ducat cosign tapleaf with the derived vault pubkey in the client slot and control-block data that commits to the prevout output key.
+- Added regression tests that reject uncommitted vault script-path inputs and generic Taproot leaves that merely contain the derived vault pubkey.
 
 ### F-002: Message Signing Could Hide Content Beyond The Confirmation Preview
 

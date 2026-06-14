@@ -7,6 +7,7 @@ import { bitcoinNetwork } from '../networks';
 import { preparePsbtForSigning, signPreparedPsbt } from '../psbt';
 
 const UNSPENDABLE_TAPROOT_KEY = Buffer.from('50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0', 'hex');
+const GUARD_TAPROOT_KEY = Buffer.alloc(32, 8);
 
 function makeKeySet() {
   return deriveAccountSetFromBaseNodes(
@@ -18,6 +19,15 @@ function makeKeySet() {
 
 function makeScriptPathPayment(xOnlyPubkey: Buffer) {
   const redeemScript = btcScript.compile([xOnlyPubkey, opcodes.OP_CHECKSIG]);
+  return makeTaprootScriptPathPayment(redeemScript);
+}
+
+function makeCosignScriptPathPayment(vaultXOnlyPubkey: Buffer) {
+  const redeemScript = btcScript.compile([vaultXOnlyPubkey, opcodes.OP_CHECKSIGVERIFY, GUARD_TAPROOT_KEY, opcodes.OP_CHECKSIG]);
+  return makeTaprootScriptPathPayment(redeemScript);
+}
+
+function makeTaprootScriptPathPayment(redeemScript: Buffer) {
   const payment = payments.p2tr({
     internalPubkey: UNSPENDABLE_TAPROOT_KEY,
     network: bitcoinNetwork('signet'),
@@ -222,9 +232,9 @@ describe('PSBT signing', () => {
     }
   });
 
-  it('signs committed Taproot script-path inputs that contain the derived vault pubkey', () => {
+  it('signs committed Ducat cosign script-path inputs for the derived vault pubkey', () => {
     const keySet = makeKeySet();
-    const scriptPath = makeScriptPathPayment(keySet.taprootInternalPubkey);
+    const scriptPath = makeCosignScriptPathPayment(keySet.vaultInternalPubkey);
     const psbt = new Psbt({ network: bitcoinNetwork('signet') });
 
     psbt.addInput({
@@ -252,13 +262,48 @@ describe('PSBT signing', () => {
     const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
 
     expect(prepared.summary.warnings).toEqual([]);
+    expect(prepared.summary.signedInputs[0]).toMatchObject({
+      role: 'vault',
+      verification: 'committed-ducat-cosign-leaf',
+    });
     expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
+    expect(signed.data.inputs[0].tapScriptSig?.[0].leafHash).toBeDefined();
     expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
+  });
+
+  it('rejects committed Taproot script-path inputs that are not Ducat cosign leaves', () => {
+    const keySet = makeKeySet();
+    const scriptPath = makeScriptPathPayment(keySet.vaultInternalPubkey);
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '34'.repeat(32),
+      index: 0,
+      tapLeafScript: [
+        {
+          controlBlock: scriptPath.controlBlock,
+          leafVersion: 0xc0,
+          script: scriptPath.redeemScript,
+        },
+      ],
+      witnessUtxo: {
+        script: scriptPath.output,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] })).toThrow(
+      'different Ducat Snap account',
+    );
   });
 
   it('rejects Taproot script-path inputs when the vault leaf is not committed to the prevout', () => {
     const keySet = makeKeySet();
-    const scriptPath = makeScriptPathPayment(keySet.taprootInternalPubkey);
+    const scriptPath = makeCosignScriptPathPayment(keySet.vaultInternalPubkey);
     const differentScriptPath = makeScriptPathPayment(Buffer.alloc(32, 9));
     const psbt = new Psbt({ network: bitcoinNetwork('signet') });
 
