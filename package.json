@@ -56,7 +56,7 @@
     "verify:submission-ready": "node scripts/verify-submission-ready.js",
     "verify:release": "bash scripts/verify-release.sh",
     "pack:dry-run": "npm pack --dry-run",
-    "prepublishOnly": "npm run verify"
+    "prepublishOnly": "npm run verify:release"
   },
   "dependencies": {
     "@bitcoin-js/tiny-secp256k1-asmjs": "2.2.4",
