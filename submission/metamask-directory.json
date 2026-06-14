@@ -2,7 +2,7 @@
   "snap": {
     "packageName": "@ducat-unit/wallet-snap",
     "proposedName": "Ducat",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "snapId": "npm:@ducat-unit/wallet-snap",
     "repositoryUrl": "https://github.com/DUCAT-UNIT/ducat-snap",
     "npmUrl": "https://www.npmjs.com/package/@ducat-unit/wallet-snap",
@@ -44,19 +44,19 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.2-20260614-audit-review-fixes/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.3-20260614-capability-harness-fix/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.2-20260614-audit-review-fixes/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.3-20260614-capability-harness-fix/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.2-20260614-audit-review-fixes",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.2-20260614-audit-review-fixes",
-    "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/3",
+    "candidateTag": "audit-candidate-0.1.3-20260614-capability-harness-fix",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.3-20260614-capability-harness-fix",
+    "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/actions/workflows/verify.yml",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
     "fixedCommit": "PENDING_AUDIT_FIX_COMMIT",
@@ -73,9 +73,9 @@
       "npm ci",
       "npm run verify:release"
     ],
-    "packageShasum": "42ec5814afb35c0944d6e431367d8c6cc4a8cc28",
-    "packageIntegrity": "sha512-tULG/rHgrxUdUekei6WiMImuIZ7eoP7LRgVZ9o2bZdK0uGwhzmKW76VyGJyIgY43/ZOSTziSQ0Yl9K0fzirBsA==",
-    "manifestSourceShasum": "Xt2Yo/tidiM2kzb7aSHvawb/vP9u8DwiG3/EueWi/Ic=",
+    "packageShasum": "e3115571b8f4656c6e49a1ddb788b4b0731fc535",
+    "packageIntegrity": "sha512-kh0zXZOX9SO8rhx7UZ+zTHi8XLwbrUW9JrfS6ntIPQlDLIUzIH08Zk+IUuDyeaY6VqQ94tZa7SVAikk9PwaEnA==",
+    "manifestSourceShasum": "lze5NyjNhkzcJ/sg0DONxhxGGPN4IhjXznyN8rAP8UA=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
   }

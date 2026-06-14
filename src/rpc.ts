@@ -12,6 +12,7 @@ import { preparePsbtForSigning, signPreparedPsbt } from './psbt';
 import { appendRecentAction, clearRecentActions, rememberDucatSession } from './state';
 import { sendTransfer } from './transfer';
 import type { DucatActionContext, DucatNetwork, SignInputs } from './types';
+import packageJson from '../package.json';
 
 type JsonRpcRequest = {
   method: string;
@@ -346,7 +347,7 @@ function assertSingleNetwork(summaries: { network: DucatNetwork }[]): void {
 function capabilities(): CapabilitiesResponse {
   return {
     snap: '@ducat-unit/wallet-snap',
-    version: '0.1.0',
+    version: packageJson.version,
     networks: ['signet', 'mutinynet'],
     methods: [
       'ducat_clearRecentActions',

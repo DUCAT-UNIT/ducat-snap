@@ -6,6 +6,7 @@ import { DucatKeyNode } from '../bip32';
 import { renderHomePage } from '../home';
 import { bitcoinNetwork, validatorUrls } from '../networks';
 import { ALLOWED_ORIGINS, handleRpcRequest } from '../rpc';
+import packageJson from '../../package.json';
 import manifest from '../../snap.manifest.json';
 
 const ORIGIN = 'http://localhost:3000';
@@ -248,6 +249,7 @@ describe('RPC router', () => {
     expect(result).toEqual(
       expect.objectContaining({
         snap: '@ducat-unit/wallet-snap',
+        version: packageJson.version,
         networks: ['signet', 'mutinynet'],
         methods: expect.arrayContaining(['ducat_clearRecentActions']),
         features: expect.objectContaining({

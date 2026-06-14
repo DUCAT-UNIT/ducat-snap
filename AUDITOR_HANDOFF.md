@@ -2,7 +2,7 @@
 
 Date prepared: 2026-06-14
 
-This document is the external security review handoff for `@ducat-unit/wallet-snap` v0.1.2. It complements `AUDIT_SCOPE.md`, `RELEASE_EVIDENCE.md`, `SNAPPER_REVIEW.md`, and `DEPENDENCY_AUDIT.md`.
+This document is the external security review handoff for `@ducat-unit/wallet-snap` v0.1.3. It complements `AUDIT_SCOPE.md`, `RELEASE_EVIDENCE.md`, `SNAPPER_REVIEW.md`, and `DEPENDENCY_AUDIT.md`.
 
 ## Review Objective
 
@@ -11,17 +11,17 @@ Assess whether the Ducat Snap can safely derive signet/mutinynet Bitcoin account
 ## Candidate Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Audit candidate tag: `audit-candidate-0.1.2-20260614-audit-review-fixes`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.2-20260614-audit-review-fixes`
-- GitHub Actions verification: see the current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/3
+- Audit candidate tag: `audit-candidate-0.1.3-20260614-capability-harness-fix`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.3-20260614-capability-harness-fix`
+- GitHub Actions verification: run `Verify Ducat Snap` on the candidate branch after pushing it
 - npm package name: `@ducat-unit/wallet-snap`
-- Package version: `0.1.2`
-- Package dry-run shasum: `42ec5814afb35c0944d6e431367d8c6cc4a8cc28`
-- Package dry-run integrity: `sha512-tULG/rHgrxUdUekei6WiMImuIZ7eoP7LRgVZ9o2bZdK0uGwhzmKW76VyGJyIgY43/ZOSTziSQ0Yl9K0fzirBsA==`
-- Snap manifest source shasum: `Xt2Yo/tidiM2kzb7aSHvawb/vP9u8DwiG3/EueWi/Ic=`
+- Package version: `0.1.3`
+- Package dry-run shasum: `e3115571b8f4656c6e49a1ddb788b4b0731fc535`
+- Package dry-run integrity: `sha512-kh0zXZOX9SO8rhx7UZ+zTHi8XLwbrUW9JrfS6ntIPQlDLIUzIH08Zk+IUuDyeaY6VqQ94tZa7SVAikk9PwaEnA==`
+- Snap manifest source shasum: `lze5NyjNhkzcJ/sg0DONxhxGGPN4IhjXznyN8rAP8UA=`
 - Proposed Snap name: `Ducat`
 - Intended launch scope: signet/mutinynet only
-- Mainnet support: intentionally out of scope for v0.1.2
+- Mainnet support: intentionally out of scope for v0.1.3
 
 Use the candidate above unless the Ducat team provides a newer fixed-candidate tag.
 
@@ -44,7 +44,7 @@ The final report must identify:
 ## Security Invariants To Verify
 
 - No RPC method, error path, log path, state path, or UI path returns raw entropy, private keys, WIFs, or child private keys.
-- The Snap derives only testnet Bitcoin paths for v0.1.2: `m/84'/1'` and `m/86'/1'`.
+- The Snap derives only testnet Bitcoin paths for v0.1.3: `m/84'/1'` and `m/86'/1'`.
 - The Snap exposes only signet/mutinynet account data and rejects mainnet requests.
 - `ducat_signPsbt` signs only input indexes explicitly listed in `signInputs`.
 - `ducat_signPsbt` signs only inputs controlled by Snap-derived addresses.
@@ -53,7 +53,7 @@ The final report must identify:
 - Confirmation UI displays origin, network, action context, signed input indexes, output summary, and fee when calculable.
 - Friendly frontend context is treated as untrusted display metadata; parsed PSBT facts are the signing source of truth.
 - Unauthorized origins cannot invoke the Snap RPC API.
-- Network access is limited to the public balance, vault, fee, UTXO, and broadcast behavior needed for v0.1.2.
+- Network access is limited to the public balance, vault, fee, UTXO, and broadcast behavior needed for v0.1.3.
 - Snap state stores only recent Ducat action metadata needed for Snap home.
 
 ## Suggested Review Commands

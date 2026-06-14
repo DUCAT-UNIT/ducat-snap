@@ -2,10 +2,14 @@
 
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { createRequire } from 'node:module';
 import { extname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { installSnap } from '@metamask/snaps-simulation';
+
+const require = createRequire(import.meta.url);
+const { address: btcAddress, networks, Psbt } = require('bitcoinjs-lib');
 
 const DEFAULT_ORIGIN = 'http://localhost:3000';
 const DEFAULT_NETWORK = 'mutinynet';
@@ -121,6 +125,12 @@ function unwrapSnapResponse(method, response) {
   return response.response.result;
 }
 
+function assertHarness(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
 export async function openDucatSnapHarness(options = {}) {
   const root = resolve(options.root ?? process.env.DUCAT_SNAP_DIR ?? process.cwd());
   const origin = options.origin ?? process.env.DUCAT_HARNESS_ORIGIN ?? DEFAULT_ORIGIN;
@@ -204,6 +214,7 @@ function usage() {
   return [
     'Usage:',
     '  node scripts/snap-simulation-harness.mjs accounts',
+    '  node scripts/snap-simulation-harness.mjs smoke-signing',
     "  node scripts/snap-simulation-harness.mjs sign-psbt '<base64-psbt>' '<signInputs-json>'",
     '',
     'Environment:',
@@ -213,6 +224,56 @@ function usage() {
   ].join('\n');
 }
 
+async function runSmokeSigning(harness) {
+  const accounts = await harness.getAccounts();
+  const satsAddress = accounts?.sats?.address;
+  const satsPubkey = accounts?.sats?.pubkey;
+
+  assertHarness(typeof satsAddress === 'string' && satsAddress.length > 0, 'ducat_getAccounts returned no sats address.');
+  assertHarness(typeof satsPubkey === 'string' && /^[0-9a-f]{66}$/iu.test(satsPubkey), 'ducat_getAccounts returned no compressed sats pubkey.');
+
+  const inputValueSats = 100_000;
+  const psbt = new Psbt({ network: networks.testnet });
+  psbt.addInput({
+    hash: Buffer.alloc(32, 7).toString('hex'),
+    index: 0,
+    witnessUtxo: {
+      script: btcAddress.toOutputScript(satsAddress, networks.testnet),
+      value: inputValueSats,
+    },
+  });
+  psbt.addOutput({
+    address: satsAddress,
+    value: inputValueSats - 1_000,
+  });
+
+  const result = await harness.signPsbt(psbt.toBase64(), { [satsAddress]: [0] }, { actionType: 'smoke-signing', title: 'Harness smoke signing' });
+  const signedPsbt = Psbt.fromBase64(result.psbt, { network: networks.testnet });
+  const partialSignatures = signedPsbt.data.inputs[0]?.partialSig ?? [];
+
+  assertHarness(partialSignatures.length === 1, `Expected one partial signature on input 0, got ${partialSignatures.length}.`);
+
+  const [signature] = partialSignatures;
+
+  assertHarness(Buffer.from(signature.pubkey).toString('hex') === satsPubkey, 'Partial signature pubkey does not match the Ducat sats account.');
+  assertHarness(signature.signature.length > 8, 'Partial signature is too short to be a valid DER signature with sighash byte.');
+  assertHarness(signature.signature[signature.signature.length - 1] === 0x01, 'Partial signature does not use SIGHASH_ALL.');
+
+  console.log(
+    JSON.stringify(
+      {
+        address: satsAddress,
+        inputIndex: 0,
+        pubkey: satsPubkey,
+        signatureBytes: signature.signature.length,
+        status: 'signed',
+      },
+      null,
+      2,
+    ),
+  );
+}
+
 async function runCli() {
   const command = process.argv[2] ?? 'accounts';
   const harness = await openDucatSnapHarness();
@@ -220,6 +281,11 @@ async function runCli() {
   try {
     if (command === 'accounts') {
       console.log(JSON.stringify(await harness.getAccounts(), null, 2));
+      return;
+    }
+
+    if (command === 'smoke-signing') {
+      await runSmokeSigning(harness);
       return;
     }
 

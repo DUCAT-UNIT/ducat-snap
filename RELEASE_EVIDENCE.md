@@ -2,16 +2,16 @@
 
 Date: 2026-06-14
 
-This document captures the current local audit and submission handoff state for `@ducat-unit/wallet-snap` v0.1.2.
+This document captures the current local audit and submission handoff state for `@ducat-unit/wallet-snap` v0.1.3.
 
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `main`
-- Implementation tag: `audit-candidate-0.1.2-20260614-audit-review-fixes`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.2-20260614-audit-review-fixes`
+- Implementation tag: `audit-candidate-0.1.3-20260614-capability-harness-fix`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.3-20260614-capability-harness-fix`
 - Package name: `@ducat-unit/wallet-snap`
-- Version: `0.1.2`
+- Version: `0.1.3`
 - Proposed Snap name: `Ducat`
 - Launch network: signet/mutinynet only
 - Mainnet: intentionally disabled
@@ -20,11 +20,11 @@ This document captures the current local audit and submission handoff state for 
 
 - Local release command: `npm run verify:release`
 - Local release command result: passed
-- Pull request: https://github.com/DUCAT-UNIT/ducat-snap/pull/3
-- Pull request status: merged
+- Pull request: pending for the `0.1.3` cleanup candidate
+- Pull request status: not opened from this local candidate yet
 - GitHub Actions workflow: `Verify Ducat Snap`
-- GitHub Actions status for audit candidate commit: passed
-- GitHub Actions evidence: see the current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/3
+- GitHub Actions status for audit candidate commit: pending until the candidate branch is pushed
+- GitHub Actions evidence: run the `Verify Ducat Snap` workflow after pushing the candidate branch
 - GitHub Actions release gate: `.github/workflows/verify.yml` runs `npm run verify:release`
 
 `npm run verify:release` covers:
@@ -78,6 +78,7 @@ This document captures the current local audit and submission handoff state for 
   - RPC origin validation
   - Manifest/RPC allowed-origin sync
   - `ducat_getCapabilities`
+  - Capabilities version synchronized with `package.json`
   - Confirmed recent-action clearing
   - Compact Snap Home status rendering from last connected network and origin
   - Network-specific Snap Home validator endpoint selection for signet and mutinynet
@@ -94,17 +95,18 @@ This document captures the current local audit and submission handoff state for 
   - Exact npm package artifact allowlist enforcement
   - Audit candidate tag existence, target-commit, and clean tracked worktree enforcement
   - MetaMask Snap simulation harness account smoke test
+  - MetaMask Snap simulation harness deterministic P2WPKH signing smoke test
 
 ## Package Evidence
 
 - Package dry-run command: `npm pack --dry-run --json`
-- Dry-run filename: `ducat-unit-wallet-snap-0.1.2.tgz`
-- Dry-run package size: `1328289`
-- Dry-run unpacked size: `2263910`
+- Dry-run filename: `ducat-unit-wallet-snap-0.1.3.tgz`
+- Dry-run package size: `1328312`
+- Dry-run unpacked size: `2264036`
 - Dry-run file count: `15`
-- npm package shasum: `42ec5814afb35c0944d6e431367d8c6cc4a8cc28`
-- npm package integrity: `sha512-tULG/rHgrxUdUekei6WiMImuIZ7eoP7LRgVZ9o2bZdK0uGwhzmKW76VyGJyIgY43/ZOSTziSQ0Yl9K0fzirBsA==`
-- Snap manifest source shasum: `Xt2Yo/tidiM2kzb7aSHvawb/vP9u8DwiG3/EueWi/Ic=`
+- npm package shasum: `e3115571b8f4656c6e49a1ddb788b4b0731fc535`
+- npm package integrity: `sha512-kh0zXZOX9SO8rhx7UZ+zTHi8XLwbrUW9JrfS6ntIPQlDLIUzIH08Zk+IUuDyeaY6VqQ94tZa7SVAikk9PwaEnA==`
+- Snap manifest source shasum: `lze5NyjNhkzcJ/sg0DONxhxGGPN4IhjXznyN8rAP8UA=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -133,7 +135,7 @@ Packaged files:
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
 - Snapper result: completed with 206 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
-- Current release stance: findings are documented and not treated as a v0.1.2 release blocker pending third-party audit review
+- Current release stance: findings are documented and not treated as a v0.1.3 release blocker pending third-party audit review
 - Release manifest guard: `npm run verify:release-manifest` derives a submission manifest origin set from `submission/metamask-directory.json` and fails if any release origin is localhost, non-HTTPS, duplicated, wildcarded, or outside the current development manifest.
 - Publish guard: `prepublishOnly` runs `npm run verify:release`, so local npm publication attempts execute tests, build, manifest sync, MetaMask simulation harness smoke testing, production dependency audit, Snapper, release metadata checks, release manifest checks, and package dry-run before publish.
 - Submission-ready guard: `npm run verify:submission-ready` is intentionally separate from release CI and fails with a complete blocker list until pending external fields are replaced, Snap identity and HTTPS submission URLs are consistent, audit/fixed commit fields bind to the candidate source, real PSBT fixtures exist for every required Ducat flow, captured fixture confirmation text replays against the current Snap UI, final E2E scenario evidence is captured against the exact audit candidate tag/commit, package shasum, package integrity, and manifest shasum, final reviewable PNG screenshots exist, audit/demo URLs are HTTPS, and the published npm package metadata matches the submission packet.
@@ -167,10 +169,10 @@ Known frontend CI note:
 
 ## Remaining External Gates
 
-- Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.2-20260614-audit-review-fixes` to the external Snap auditor.
+- Open the cleanup PR and keep GitHub Actions green.
+- Send `audit-candidate-0.1.3-20260614-capability-harness-fix` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
-- Publish `@ducat-unit/wallet-snap@0.1.2` to npm after audit fixes, if any.
+- Publish `@ducat-unit/wallet-snap@0.1.3` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
 - Merge audit fixes, if any, and tag the fixed source commit.
 - Capture final listing screenshots from the audited build.
