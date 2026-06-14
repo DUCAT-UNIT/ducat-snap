@@ -29,4 +29,8 @@ describe('Ducat cosign leaf matcher', () => {
   it('rejects scripts that merely contain the client key outside the cosign shape', () => {
     expect(matchCosignLeafHex(`20${CLIENT}ac`)).toBeNull();
   });
+
+  it('rejects a cosign leaf where the guard key equals the client key', () => {
+    expect(matchCosignLeafHex(`20${CLIENT}ad20${CLIENT}ac`)).toBeNull();
+  });
 });

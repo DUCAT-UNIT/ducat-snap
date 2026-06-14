@@ -121,6 +121,18 @@ Remediation:
 - Preserved warning behavior for malformed Ducat-looking OP_RETURN outputs.
 - Added regression tests for valid current core payloads and malformed Ducat-looking payloads.
 
+### F-008: Duplicate-Key Cosign Leaf Collapsed Vault Multisig
+
+Severity: High
+
+The cosign leaf matcher accepted leaves where the client and guard x-only pubkeys were identical, for example `<vault> OP_CHECKSIGVERIFY <vault> OP_CHECKSIG`. A coordinator could duplicate the Snap's single Schnorr signature in the final witness and satisfy both checks, making the displayed 2-of-2 vault approval effectively a 1-of-1 Snap-key spend.
+
+Remediation:
+
+- `matchCosignLeafHex` now rejects cosign leaves where `client === guard`.
+- Added direct matcher coverage for duplicate-key leaves.
+- Added PSBT-level coverage for a committed duplicate-key Taproot leaf to ensure it is rejected before signing and never appears as a committed Ducat cosign approval.
+
 ## Residual Risk
 
 - The Snap still depends on third-party APIs for balances, vault summaries, fee estimates, and transfer broadcast. Transfer signing does not trust those APIs for private keys, but availability and data quality remain external dependencies.

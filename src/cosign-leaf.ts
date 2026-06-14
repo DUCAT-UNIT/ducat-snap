@@ -100,6 +100,10 @@ export function matchCosignLeafHex(leafHex: string): CosignLeafMatch | null {
     return null;
   }
 
+  if (client === guard) {
+    return null;
+  }
+
   if (envelope && !isOrdEnvelope(envelope)) {
     return null;
   }

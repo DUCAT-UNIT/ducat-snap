@@ -27,6 +27,11 @@ function makeCosignScriptPathPayment(vaultXOnlyPubkey: Buffer) {
   return makeTaprootScriptPathPayment(redeemScript);
 }
 
+function makeDuplicateKeyCosignScriptPathPayment(vaultXOnlyPubkey: Buffer) {
+  const redeemScript = btcScript.compile([vaultXOnlyPubkey, opcodes.OP_CHECKSIGVERIFY, vaultXOnlyPubkey, opcodes.OP_CHECKSIG]);
+  return makeTaprootScriptPathPayment(redeemScript);
+}
+
 function makeTaprootScriptPathPayment(redeemScript: Buffer) {
   const payment = payments.p2tr({
     internalPubkey: UNSPENDABLE_TAPROOT_KEY,
@@ -299,6 +304,44 @@ describe('PSBT signing', () => {
     expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] })).toThrow(
       'different Ducat Snap account',
     );
+  });
+
+  it('rejects committed cosign-looking leaves that reuse the vault key as the guard key', () => {
+    const keySet = makeKeySet();
+    const scriptPath = makeDuplicateKeyCosignScriptPathPayment(keySet.vaultInternalPubkey);
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '38'.repeat(32),
+      index: 0,
+      tapLeafScript: [
+        {
+          controlBlock: scriptPath.controlBlock,
+          leafVersion: 0xc0,
+          script: scriptPath.redeemScript,
+        },
+      ],
+      witnessUtxo: {
+        script: scriptPath.output,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    try {
+      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] });
+      throw new Error('Expected preparePsbtForSigning to fail.');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'PSBT_INPUT_ACCOUNT_MISMATCH',
+        details: expect.objectContaining({
+          taprootScriptPathCheck: 'no tapLeafScript is a Ducat cosign leaf for the derived vault pubkey',
+        }),
+      });
+    }
   });
 
   it('rejects Taproot script-path inputs when the vault leaf is not committed to the prevout', () => {
