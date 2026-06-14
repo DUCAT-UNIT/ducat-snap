@@ -56,7 +56,7 @@ npm run harness:accounts
 
 The harness serves the local Snap, installs it with a deterministic test Secret Recovery Phrase, and invokes `ducat_getAccounts`.
 
-The stricter release gate also runs the production dependency audit, Snapper, and an npm package dry-run:
+The stricter release gate also runs the MetaMask simulation harness smoke test, production dependency audit, Snapper, and an npm package dry-run:
 
 ```bash
 npm run verify:release

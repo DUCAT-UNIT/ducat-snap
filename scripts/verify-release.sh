@@ -4,6 +4,7 @@ set -euo pipefail
 rm -f ducat-unit-wallet-snap-*.tgz
 
 npm run verify
+npm run verify:harness
 npm run audit:prod
 npm run snapper
 npm run verify:metadata

@@ -51,6 +51,7 @@
     "audit:prod": "npm audit --omit=dev",
     "fixture:capture": "node scripts/capture-submission-fixture.mjs",
     "harness:accounts": "node scripts/snap-simulation-harness.mjs accounts",
+    "verify:harness": "npm run harness:accounts",
     "snapper": "npx --yes @sayfer_io/snapper --path . --output snapper-report.json",
     "verify:metadata": "node scripts/verify-release-metadata.js",
     "verify:release-manifest": "node scripts/verify-release-manifest.js",

@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `codex/snap-cosign-policy-hardening`
-- Implementation tag: `audit-candidate-0.1.0-20260614-cosign-policy-main`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-cosign-policy-main`
+- Implementation tag: `audit-candidate-0.1.0-20260614-release-harness-gate`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-release-harness-gate`
 - Package name: `@ducat-unit/wallet-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -20,11 +20,11 @@ This document captures the current local audit and submission handoff state for 
 
 - Local release command: `npm run verify:release`
 - Local release command result: passed
-- Pull request: https://github.com/DUCAT-UNIT/ducat-snap/pull/1
-- Pull request status: draft
+- Pull request: https://github.com/DUCAT-UNIT/ducat-snap/pull/3
+- Pull request status: ready for review
 - GitHub Actions workflow: `Verify Ducat Snap`
 - GitHub Actions status for audit candidate commit: passed
-- GitHub Actions evidence: see the current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/1
+- GitHub Actions evidence: see the current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/3
 - GitHub Actions release gate: `.github/workflows/verify.yml` runs `npm run verify:release`
 
 `npm run verify:release` covers:
@@ -33,6 +33,7 @@ This document captures the current local audit and submission handoff state for 
 - `npm test`
 - `npm run build`
 - `npm run manifest`
+- `npm run verify:harness`
 - `npm audit --omit=dev`
 - `npm run snapper`
 - `npm run verify:metadata`
@@ -41,8 +42,8 @@ This document captures the current local audit and submission handoff state for 
 
 ## Test Evidence
 
-- Jest suites: 7 passed
-- Jest tests: 66 passed
+- Jest suites: 8 passed
+- Jest tests: 71 passed
 - Covered areas:
   - Deterministic signet/mutinynet account derivation
   - Public account ownership reconstruction for fixture replay without private keys
@@ -95,11 +96,11 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-wallet-snap-0.1.0.tgz`
-- Dry-run package size: `1328010`
-- Dry-run unpacked size: `2262887`
+- Dry-run package size: `1328045`
+- Dry-run unpacked size: `2262977`
 - Dry-run file count: `15`
-- npm package shasum: `fe52e9c22816ebed22fc581e14be2b34f84924eb`
-- npm package integrity: `sha512-uG4RawobNM11/vYLMF8w3tjbAqa4k5qGF57eLqF2tkNExvUH741nTSxqGvbqdFcOI1TDoW5AlYi79dqOXnGvwQ==`
+- npm package shasum: `16b7e015b8edf732860bf930eb670d827ae6a097`
+- npm package integrity: `sha512-OkBz+RS+v7vOddMBpl1kr481a/b0rsJUkRu9JghaGDjG49csigLwdfnbDzyWU6/jXkksd/o3m5ucje3xt0t5DA==`
 - Snap manifest source shasum: `W9Ht6hngwcUnDJ1WKQ7rgNUaoyRcv5IWjRvd/mwGWfc=`
 - Actual npm publish: blocked until npm auth is configured
 
@@ -131,13 +132,13 @@ Packaged files:
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 - Release manifest guard: `npm run verify:release-manifest` derives a submission manifest origin set from `submission/metamask-directory.json` and fails if any release origin is localhost, non-HTTPS, duplicated, wildcarded, or outside the current development manifest.
-- Publish guard: `prepublishOnly` runs `npm run verify:release`, so local npm publication attempts execute tests, build, manifest sync, production dependency audit, Snapper, release metadata checks, release manifest checks, and package dry-run before publish.
+- Publish guard: `prepublishOnly` runs `npm run verify:release`, so local npm publication attempts execute tests, build, manifest sync, MetaMask simulation harness smoke testing, production dependency audit, Snapper, release metadata checks, release manifest checks, and package dry-run before publish.
 - Submission-ready guard: `npm run verify:submission-ready` is intentionally separate from release CI and fails with a complete blocker list until pending external fields are replaced, real PSBT fixtures exist for every required Ducat flow, captured fixture confirmation text replays against the current Snap UI, final E2E scenario evidence is captured against the exact audit candidate tag/commit and package hashes, final reviewable PNG screenshots exist, audit/demo URLs are HTTPS, and the published npm package metadata matches the submission packet.
 
 ## Frontend Integration Evidence
 
 - Frontend PR: https://github.com/DUCAT-UNIT/frontend/pull/675
-- PR status: draft
+- PR status: ready for review
 - Branch: `feat/metamask-snap-connector`
 - Local current commit: `d242e1cb`
 - Local worktree: `/Users/lucasrodriguez/Desktop/Ducat/frontend-metamask-snap`
@@ -164,7 +165,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260614-cosign-policy-main` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260614-release-harness-gate` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/wallet-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

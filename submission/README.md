@@ -6,9 +6,9 @@ Use `ALLOWLIST_SUBMISSION.md` as the working copy for the MetaMask form fields. 
 
 Current audit candidate:
 
-- Tag: `audit-candidate-0.1.0-20260614-cosign-policy-main`
-- Commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-cosign-policy-main`
-- Verification evidence: current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/1
+- Tag: `audit-candidate-0.1.0-20260614-release-harness-gate`
+- Commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-release-harness-gate`
+- Verification evidence: current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/3
 
 ## Before Submission
 
