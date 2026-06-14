@@ -24,7 +24,7 @@ Use this shape:
 ```json
 {
   "network": "mutinynet",
-  "snapCandidateTag": "audit-candidate-0.1.0-YYYYMMDD-final",
+  "snapCandidateTag": "audit-candidate-0.1.1-YYYYMMDD-final",
   "snapCommit": "40-character-snap-git-sha",
   "frontendCommit": "40-character-frontend-git-sha",
   "packageShasum": "published-npm-package-shasum",

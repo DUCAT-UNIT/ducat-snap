@@ -6,8 +6,8 @@ Use `ALLOWLIST_SUBMISSION.md` as the working copy for the MetaMask form fields. 
 
 Current audit candidate:
 
-- Tag: `audit-candidate-0.1.0-20260614-distinct-cosign-keys`
-- Commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-distinct-cosign-keys`
+- Tag: `audit-candidate-0.1.1-20260614-distinct-cosign-keys`
+- Commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.1-20260614-distinct-cosign-keys`
 - Verification evidence: current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/3
 
 ## Before Submission
@@ -21,7 +21,7 @@ Current audit candidate:
 7. Attach the third-party audit report required for `snap_getBip32Entropy`.
 8. Confirm the audited and fixed commits are listed in the audit report.
 9. Run `npm ci && npm run verify:release` from the repository root.
-10. Publish `@ducat-unit/wallet-snap@0.1.0` to npm after audit fixes are merged.
+10. Publish `@ducat-unit/wallet-snap@0.1.1` to npm after audit fixes are merged.
 11. Run `npm run verify:submission-ready` after npm publish, final screenshots, demo video, audit report, fixtures, E2E evidence, and pending fields are complete. The gate validates final Snap identity, HTTPS submission URLs, package shasum/integrity, audit commit binding, screenshot files, fixture replay, E2E evidence, and published npm metadata.
 
 The submission verifier rejects unexpected files in `submission/fixtures/`, `submission/screenshots/`, and `submission/e2e/`. Keep raw browser profiles, logs, private capture notes, and temporary exports outside this repository.

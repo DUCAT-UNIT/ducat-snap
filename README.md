@@ -99,7 +99,7 @@ For the published Snap, use:
 
 ```bash
 NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wallet-snap"
-NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.0"
+NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.1"
 ```
 
 Run the frontend on an origin allowed by `snap.manifest.json`, for example:
@@ -217,7 +217,7 @@ Current candidate progress: duplicate previous-output rejection, missing previou
 3. Tag the audit candidate.
 4. Complete the third-party audit required for `snap_getBip32Entropy`.
 5. Merge any audit fixes and tag the fixed candidate.
-6. Publish `@ducat-unit/wallet-snap@0.1.0` to npm.
+6. Publish `@ducat-unit/wallet-snap@0.1.1` to npm.
 7. Replace pending external fields in `submission/metamask-directory.json` and `submission/ALLOWLIST_SUBMISSION.md`.
 8. Capture real PSBT fixtures into `submission/fixtures/`.
 9. Capture final E2E evidence into `submission/e2e/evidence.json`.
