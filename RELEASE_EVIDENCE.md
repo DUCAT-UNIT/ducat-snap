@@ -89,11 +89,11 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1327126`
-- Dry-run unpacked size: `2259982`
+- Dry-run package size: `1327134`
+- Dry-run unpacked size: `2260080`
 - Dry-run file count: `15`
-- npm package shasum: `c92825ee7e15b84aecd0ae2821e86a8c70460edb`
-- npm package integrity: `sha512-BvfTGUIneGzXXd0FWmEGBXjlQE9U0jDo8MQ/pMxviae9B1AixHDhAQWiux0Vs47Az73BFSwHHGQKA//kQ/iOPA==`
+- npm package shasum: `780b36c268bf9b1efd08e4a6ac5a7d3883d5d18a`
+- npm package integrity: `sha512-RtnZdxubC5kIgKNtcZdyW5gWIg8UljmU4YEMj64Wew4Usp1dx2Qi1n5q0HO42kQArzD1AtGmhmTU0F5s2YjOXA==`
 - Snap manifest source shasum: `YScs5bbbLPPE3Re9W2BA3y+LICNC8M5GKmChP/TM0k0=`
 - Actual npm publish: blocked until npm auth is configured
 

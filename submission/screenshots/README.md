@@ -23,3 +23,4 @@ Use the same Snap package, manifest shasum, frontend environment, and testnet ne
 - Do not show private keys, seed phrases, browser profiles, or unrelated tabs.
 - Prefer a clean browser profile with only MetaMask/Flask and the Ducat frontend visible.
 - Re-capture all screenshots if the audited commit, package shasum, manifest shasum, or frontend Snap ID changes.
+- Do not add extra files to this directory. The submission gate only allows this README, `.gitkeep`, and the eight required PNG captures.

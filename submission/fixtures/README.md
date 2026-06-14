@@ -65,3 +65,5 @@ Each file must be captured from the audited Snap candidate and the frontend/clie
 `capturedFrom.snapCommit` must match the current audit candidate tag in `../metamask-directory.json`. The submission gate reconstructs output scripts from these public keys, parses the PSBT, renders the confirmation, and checks every `expectedConfirmationText` string against the current Snap UI. This keeps the final fixture corpus useful without committing private keys.
 
 Do not commit private keys, seed phrases, browser profiles, cookies, access tokens, or unrelated transaction data. Re-capture every fixture if the audited Snap commit, frontend commit, client SDK version, validator behavior, package shasum, or manifest shasum changes.
+
+Do not add extra files to this directory. The submission gate only allows this README and the eight required fixture JSON files.

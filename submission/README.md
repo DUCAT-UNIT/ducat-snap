@@ -6,8 +6,8 @@ Use `ALLOWLIST_SUBMISSION.md` as the working copy for the MetaMask form fields. 
 
 Current audit candidate:
 
-- Tag: `audit-candidate-0.1.0-20260614-fixture-shape`
-- Commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-fixture-shape`
+- Tag: `audit-candidate-0.1.0-20260614-artifact-hygiene`
+- Commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-artifact-hygiene`
 - Verification evidence: current checks on https://github.com/DUCAT-UNIT/ducat-snap/pull/1
 
 ## Before Submission
@@ -23,6 +23,8 @@ Current audit candidate:
 9. Run `npm ci && npm run verify:release` from the repository root.
 10. Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes are merged.
 11. Run `npm run verify:submission-ready` after npm publish, final screenshots, demo video, audit report, fixtures, E2E evidence, and pending fields are complete.
+
+The submission verifier rejects unexpected files in `submission/fixtures/`, `submission/screenshots/`, and `submission/e2e/`. Keep raw browser profiles, logs, private capture notes, and temporary exports outside this repository.
 
 ## Required External URLs
 

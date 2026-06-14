@@ -41,3 +41,5 @@ Use this shape:
 ```
 
 The `npm run verify:submission-ready` gate requires the Snap tag, Snap commit, package shasum, manifest shasum, and demo video URL to match `../metamask-directory.json`. Every scenario must have `status: "passed"` and a non-empty evidence string. Re-run and update this evidence if the audited Snap commit, package shasum, manifest shasum, frontend Snap ID, or frontend commit changes.
+
+Do not add extra files to this directory. The submission gate only allows this README and `evidence.json`.

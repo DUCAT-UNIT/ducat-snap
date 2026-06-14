@@ -107,6 +107,10 @@ Allowed local origins are:
 - `http://localhost:3002`
 - `http://localhost:3003`
 
+Allowed HTTPS QA origins are:
+
+- `https://dev-git-feat-metamask-snap-connector-ducat.vercel.app`
+
 These localhost origins are intentionally present for local development and Snap QA only. Do not remove them from the development manifest during local testing.
 
 ### Known Deferred Issue: Localhost Manifest Origins

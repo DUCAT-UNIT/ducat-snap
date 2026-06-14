@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const { execFileSync } = require('node:child_process');
-const { existsSync, readFileSync } = require('node:fs');
+const { existsSync, readdirSync, readFileSync } = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -16,6 +16,9 @@ const requiredScreenshots = [
   '08-snap-home.png',
 ];
 const requiredFixtureActions = ['create', 'deposit', 'borrow', 'repay', 'withdraw', 'swap', 'liquidation', 'repossess'];
+const allowedFixtureFiles = new Set(['README.md', ...requiredFixtureActions.map((action) => `${action}.json`)]);
+const allowedScreenshotFiles = new Set(['.gitkeep', 'README.md', ...requiredScreenshots]);
+const allowedE2eFiles = new Set(['README.md', 'evidence.json']);
 const minimumScreenshotWidth = 360;
 const minimumScreenshotHeight = 360;
 const gitCommitHashPattern = /^[0-9a-f]{40}$/iu;
@@ -113,6 +116,17 @@ function assertObject(label, value) {
 
 function assertArray(label, value) {
   assert(Array.isArray(value) && value.length > 0, `${label} must be a non-empty array.`);
+}
+
+function assertDirectoryContainsOnly(relativePath, allowedFileNames) {
+  const directoryPath = path.join(root, relativePath);
+
+  assert(existsSync(directoryPath), `Missing required directory: ${relativePath}`);
+
+  for (const entry of readdirSync(directoryPath, { withFileTypes: true })) {
+    assert(entry.isFile(), `${relativePath} must not contain directories or special files: ${entry.name}`);
+    assert(allowedFileNames.has(entry.name), `${relativePath} contains unexpected file: ${entry.name}`);
+  }
 }
 
 function assertStringArray(label, value) {
@@ -340,6 +354,18 @@ const allowlistSubmission = readText('submission/ALLOWLIST_SUBMISSION.md');
 const externalGates = readText('submission/EXTERNAL_GATES.md');
 const packageJson = readJson('package.json');
 const failures = [];
+
+runCheck(failures, 'Unexpected fixture artifacts', () => {
+  assertDirectoryContainsOnly('submission/fixtures', allowedFixtureFiles);
+});
+
+runCheck(failures, 'Unexpected screenshot artifacts', () => {
+  assertDirectoryContainsOnly('submission/screenshots', allowedScreenshotFiles);
+});
+
+runCheck(failures, 'Unexpected E2E artifacts', () => {
+  assertDirectoryContainsOnly('submission/e2e', allowedE2eFiles);
+});
 
 runCheck(failures, 'Pending placeholders in submission metadata', () => {
   assertNoPendingTokens('submission/metamask-directory.json', JSON.stringify(directory));
