@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260614-fixture-shape`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-fixture-shape`
+- Implementation tag: `audit-candidate-0.1.0-20260614-artifact-hygiene`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-artifact-hygiene`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -83,17 +83,18 @@ This document captures the current local audit and submission handoff state for 
   - Batch order preservation and whole-batch invalid rejection
   - Submission fixture replay harness for captured PSBT confirmation text
   - Submission fixture account, auth-candidate, sign-input, and expected-text shape validation
+  - Submission artifact directory hygiene checks for fixtures, screenshots, and E2E evidence
 
 ## Package Evidence
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-ducat-snap-0.1.0.tgz`
-- Dry-run package size: `1327088`
-- Dry-run unpacked size: `2259845`
+- Dry-run package size: `1327126`
+- Dry-run unpacked size: `2259982`
 - Dry-run file count: `15`
-- npm package shasum: `ac86d47c7ee32dbe5ede087e3b77797648175cd3`
-- npm package integrity: `sha512-4uq2Hndhb4yD7Znpq/jA8CY8VhskzAFSfQln1tUMzJletd7eYgnfd05O95dzQ7wIZjphhEpy6RsjSIP1jLjx7w==`
-- Snap manifest source shasum: `Eehx+iUe2tE1fy1tFReBk15xYg4es5TwW6Q8/c//WrA=`
+- npm package shasum: `c92825ee7e15b84aecd0ae2821e86a8c70460edb`
+- npm package integrity: `sha512-BvfTGUIneGzXXd0FWmEGBXjlQE9U0jDo8MQ/pMxviae9B1AixHDhAQWiux0Vs47Az73BFSwHHGQKA//kQ/iOPA==`
+- Snap manifest source shasum: `YScs5bbbLPPE3Re9W2BA3y+LICNC8M5GKmChP/TM0k0=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -156,7 +157,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260614-fixture-shape` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260614-artifact-hygiene` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

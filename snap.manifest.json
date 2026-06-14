@@ -7,7 +7,7 @@
     "url": "git+https://github.com/DUCAT-UNIT/ducat-snap.git"
   },
   "source": {
-    "shasum": "Eehx+iUe2tE1fy1tFReBk15xYg4es5TwW6Q8/c//WrA=",
+    "shasum": "YScs5bbbLPPE3Re9W2BA3y+LICNC8M5GKmChP/TM0k0=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
@@ -25,6 +25,7 @@
         "http://localhost:3002",
         "http://localhost:3003",
         "https://app.ducatprotocol.com",
+        "https://dev-git-feat-metamask-snap-connector-ducat.vercel.app",
         "https://dev.app.ducatprotocol.com",
         "https://staging.app.ducatprotocol.com"
       ]

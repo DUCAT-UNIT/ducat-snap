@@ -11,6 +11,7 @@ export const DUCAT_ALLOWED_ORIGINS = [
   'http://localhost:3002',
   'http://localhost:3003',
   'https://app.ducatprotocol.com',
+  'https://dev-git-feat-metamask-snap-connector-ducat.vercel.app',
   'https://dev.app.ducatprotocol.com',
   'https://staging.app.ducatprotocol.com',
 ] as const;

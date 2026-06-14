@@ -40,8 +40,8 @@ Mainnet is intentionally not enabled in this release.
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.0-20260614-fixture-shape`
-- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-fixture-shape`
+- Audit candidate tag: `audit-candidate-0.1.0-20260614-artifact-hygiene`
+- Audit candidate commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-artifact-hygiene`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,9 +55,9 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
-- npm package shasum: `ac86d47c7ee32dbe5ede087e3b77797648175cd3`
-- npm package integrity: `sha512-4uq2Hndhb4yD7Znpq/jA8CY8VhskzAFSfQln1tUMzJletd7eYgnfd05O95dzQ7wIZjphhEpy6RsjSIP1jLjx7w==`
-- Snap manifest source shasum: `Eehx+iUe2tE1fy1tFReBk15xYg4es5TwW6Q8/c//WrA=`
+- npm package shasum: `c92825ee7e15b84aecd0ae2821e86a8c70460edb`
+- npm package integrity: `sha512-BvfTGUIneGzXXd0FWmEGBXjlQE9U0jDo8MQ/pMxviae9B1AixHDhAQWiux0Vs47Az73BFSwHHGQKA//kQ/iOPA==`
+- Snap manifest source shasum: `YScs5bbbLPPE3Re9W2BA3y+LICNC8M5GKmChP/TM0k0=`
 
 ## Permissions Summary
 
@@ -75,9 +75,9 @@ Mainnet is intentionally not enabled in this release.
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-fixture-shape/SECURITY.md
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-artifact-hygiene/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-fixture-shape/PRIVACY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-artifact-hygiene/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo
