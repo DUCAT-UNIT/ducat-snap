@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260614-evidence-pinning`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-evidence-pinning`
+- Implementation tag: `audit-candidate-0.1.0-20260614-fixture-shape`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-fixture-shape`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -82,6 +82,7 @@ This document captures the current local audit and submission handoff state for 
   - User-declined confirmation rejection
   - Batch order preservation and whole-batch invalid rejection
   - Submission fixture replay harness for captured PSBT confirmation text
+  - Submission fixture account, auth-candidate, sign-input, and expected-text shape validation
 
 ## Package Evidence
 
@@ -155,7 +156,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260614-evidence-pinning` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260614-fixture-shape` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

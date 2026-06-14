@@ -19,6 +19,7 @@ const requiredFixtureActions = ['create', 'deposit', 'borrow', 'repay', 'withdra
 const minimumScreenshotWidth = 360;
 const minimumScreenshotHeight = 360;
 const gitCommitHashPattern = /^[0-9a-f]{40}$/iu;
+const maximumFixtureSignInputs = 80;
 const requiredE2eScenarios = [
   'install',
   'update',
@@ -114,6 +115,18 @@ function assertArray(label, value) {
   assert(Array.isArray(value) && value.length > 0, `${label} must be a non-empty array.`);
 }
 
+function assertStringArray(label, value) {
+  assertArray(label, value);
+
+  const seen = new Set();
+
+  for (const [index, item] of value.entries()) {
+    assertString(`${label}[${index}]`, item);
+    assert(!seen.has(item), `${label} must not contain duplicate text: ${item}`);
+    seen.add(item);
+  }
+}
+
 function assertHex(label, value, bytes) {
   assertString(label, value);
   assert(new RegExp(`^[0-9a-f]{${bytes * 2}}$`, 'iu').test(value), `${label} must be ${bytes} bytes of hex.`);
@@ -152,6 +165,20 @@ function assertAccount(label, value, pubkeyBytes) {
   assertHex(`${label}.pubkey`, value.pubkey, pubkeyBytes);
 }
 
+function assertAuthCandidate(label, value) {
+  assertObject(label, value);
+  assertString(`${label}.address`, value.address);
+  assertHex(`${label}.publicKey`, value.publicKey, 33);
+
+  if (value.addressType !== undefined) {
+    assertString(`${label}.addressType`, value.addressType);
+  }
+
+  if (value.isPreferred !== undefined) {
+    assert(typeof value.isPreferred === 'boolean', `${label}.isPreferred must be a boolean when present.`);
+  }
+}
+
 function assertWalletAccountRecord(relativePath, accounts) {
   assertObject(`${relativePath} accounts`, accounts);
   assertAccount(`${relativePath} accounts.sats`, accounts.sats, 33);
@@ -159,8 +186,39 @@ function assertWalletAccountRecord(relativePath, accounts) {
   assertAccount(`${relativePath} accounts.vault`, accounts.vault, 32);
   assertArray(`${relativePath} accounts.authCandidates`, accounts.authCandidates);
 
+  accounts.authCandidates.forEach((candidate, index) => {
+    assertAuthCandidate(`${relativePath} accounts.authCandidates[${index}]`, candidate);
+  });
+
   assert(accounts.runes.address === accounts.vault.address, `${relativePath} accounts.runes.address must match accounts.vault.address for v0.1.0.`);
   assert(accounts.runes.pubkey === accounts.vault.pubkey, `${relativePath} accounts.runes.pubkey must match accounts.vault.pubkey for v0.1.0.`);
+}
+
+function assertSignInputs(label, value, accounts) {
+  assertObject(label, value);
+
+  const entries = Object.entries(value);
+  const accountAddresses = new Set([accounts.sats.address, accounts.runes.address, accounts.vault.address]);
+  const seenIndexes = new Set();
+  let inputCount = 0;
+
+  assert(entries.length > 0, `${label} must not be empty.`);
+
+  for (const [address, indexes] of entries) {
+    assertString(`${label} address`, address);
+    assert(accountAddresses.has(address), `${label} address must belong to the fixture account record: ${address}`);
+    assertArray(`${label}.${address}`, indexes);
+
+    for (const index of indexes) {
+      assert(Number.isSafeInteger(index) && index >= 0, `${label}.${address} contains an invalid PSBT input index: ${index}`);
+      assert(!seenIndexes.has(index), `${label} contains a duplicate PSBT input index: ${index}`);
+
+      seenIndexes.add(index);
+      inputCount += 1;
+
+      assert(inputCount <= maximumFixtureSignInputs, `${label} requests too many input signatures for one fixture. Max: ${maximumFixtureSignInputs}`);
+    }
+  }
 }
 
 function assertRealPsbtFixture(action) {
@@ -172,9 +230,8 @@ function assertRealPsbtFixture(action) {
   assertWalletAccountRecord(relativePath, fixture.accounts);
   assertString(`${relativePath} psbt`, fixture.psbt);
   assert(fixture.psbt.startsWith('cHNidP'), `${relativePath} psbt must be a base64 PSBT.`);
-  assertObject(`${relativePath} signInputs`, fixture.signInputs);
-  assert(Object.keys(fixture.signInputs).length > 0, `${relativePath} signInputs must not be empty.`);
-  assertArray(`${relativePath} expectedConfirmationText`, fixture.expectedConfirmationText);
+  assertSignInputs(`${relativePath} signInputs`, fixture.signInputs, fixture.accounts);
+  assertStringArray(`${relativePath} expectedConfirmationText`, fixture.expectedConfirmationText);
   assertObject(`${relativePath} capturedFrom`, fixture.capturedFrom);
 
   for (const field of ['clientSdkVersion', 'validatorUrl']) {

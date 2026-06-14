@@ -60,6 +60,8 @@ Each file must be captured from the audited Snap candidate and the frontend/clie
 }
 ```
 
-`accounts` must be the exact `WalletAccountRecord` returned by the Snap during capture. `capturedFrom.snapCommit` must match the current audit candidate tag in `../metamask-directory.json`. The submission gate reconstructs output scripts from these public keys, parses the PSBT, renders the confirmation, and checks every `expectedConfirmationText` string against the current Snap UI. This keeps the final fixture corpus useful without committing private keys.
+`accounts` must be the exact `WalletAccountRecord` returned by the Snap during capture. Auth candidate public keys must be 33-byte compressed pubkeys. `signInputs` must be keyed only by the fixture account addresses, each input array must be non-empty, indexes must be non-negative safe integers, and duplicate input indexes are rejected across the whole fixture. `expectedConfirmationText` entries must be unique non-empty strings.
+
+`capturedFrom.snapCommit` must match the current audit candidate tag in `../metamask-directory.json`. The submission gate reconstructs output scripts from these public keys, parses the PSBT, renders the confirmation, and checks every `expectedConfirmationText` string against the current Snap UI. This keeps the final fixture corpus useful without committing private keys.
 
 Do not commit private keys, seed phrases, browser profiles, cookies, access tokens, or unrelated transaction data. Re-capture every fixture if the audited Snap commit, frontend commit, client SDK version, validator behavior, package shasum, or manifest shasum changes.
