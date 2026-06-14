@@ -8,7 +8,7 @@ This document records the source, package, verification, and remaining external-
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Candidate tag: `audit-candidate-0.1.4-20260614-docs-cleanup`
-- Candidate commit: tag target for `audit-candidate-0.1.4-20260614-docs-cleanup`
+- Candidate commit: `0536d4d765e3fbf437b39288842528df837bc254`
 - Package name: `@ducat-unit/wallet-snap`
 - Version: `0.1.4`
 - Snap ID: `npm:@ducat-unit/wallet-snap`
@@ -51,8 +51,8 @@ Packaged files:
 - Local release command: `npm run verify:release`
 - Local release result: passed for the candidate commit
 - GitHub workflow: `Verify Ducat Snap`
-- GitHub Actions run: record the pushed candidate run before external submission
-- GitHub Actions result: pending pushed-candidate verification
+- GitHub Actions run: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27488207792
+- GitHub Actions result: success
 - Release workflow file: `.github/workflows/verify.yml`
 - Release workflow command: `npm run verify:release`
 

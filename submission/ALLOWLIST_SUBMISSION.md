@@ -41,7 +41,7 @@ Mainnet is intentionally not enabled in this release.
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
 - Audit candidate tag: `audit-candidate-0.1.4-20260614-docs-cleanup`
-- Audit candidate commit: tag target for `audit-candidate-0.1.4-20260614-docs-cleanup`
+- Audit candidate commit: `0536d4d765e3fbf437b39288842528df837bc254`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -55,6 +55,7 @@ Mainnet is intentionally not enabled in this release.
 - Dependency audit source: `DEPENDENCY_AUDIT.md`
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
+- GitHub verification: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27488207792
 - npm package shasum: `16f0bdf810f515393e801d4ff57be40745fee051`
 - npm package integrity: `sha512-yZyfOoodgTJDhmIh2O72CxbHscEfvRCEklE8zPZqG89VqeNSiC8/ADOQUUHFgjmA5MSAM2Ebypqz7yRzROFeaw==`
 - Snap manifest source shasum: `sy23b6nyxx0qLVjtlJLztj4FDCCfv1Q353VYSZsVOsE=`

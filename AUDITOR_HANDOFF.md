@@ -12,8 +12,8 @@ Assess whether the Ducat Snap can safely derive signet and mutinynet Bitcoin acc
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Audit candidate tag: `audit-candidate-0.1.4-20260614-docs-cleanup`
-- Audit candidate commit: tag target for `audit-candidate-0.1.4-20260614-docs-cleanup`
-- GitHub Actions verification: `Verify Ducat Snap`
+- Audit candidate commit: `0536d4d765e3fbf437b39288842528df837bc254`
+- GitHub Actions verification: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27488207792
 - npm package name: `@ducat-unit/wallet-snap`
 - npm package version: `0.1.4`
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
