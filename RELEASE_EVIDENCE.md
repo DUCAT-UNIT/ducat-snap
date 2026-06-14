@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `feat/btc-snap-mutinynet-tx-open`
-- Implementation tag: `audit-candidate-0.1.0-20260614-artifact-hygiene`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-artifact-hygiene`
+- Implementation tag: `audit-candidate-0.1.0-20260614-package-allowlist`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-package-allowlist`
 - Package name: `@ducat-unit/ducat-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -84,6 +84,7 @@ This document captures the current local audit and submission handoff state for 
   - Submission fixture replay harness for captured PSBT confirmation text
   - Submission fixture account, auth-candidate, sign-input, and expected-text shape validation
   - Submission artifact directory hygiene checks for fixtures, screenshots, and E2E evidence
+  - Exact npm package artifact allowlist enforcement
 
 ## Package Evidence
 
@@ -157,7 +158,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260614-artifact-hygiene` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260614-package-allowlist` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/ducat-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

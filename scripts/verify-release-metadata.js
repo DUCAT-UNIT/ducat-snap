@@ -168,6 +168,7 @@ const requiredPackageFiles = [
   'package.json',
   'snap.manifest.json',
 ];
+const requiredPackageFileSet = new Set(requiredPackageFiles);
 
 assertRuntimeSourceClean();
 assertEqual(manifest.version, packageJson.version, 'manifest version');
@@ -224,6 +225,11 @@ for (const permission of bip32Permissions) {
 
 for (const requiredFile of requiredPackageFiles) {
   assert(packagedFiles.has(requiredFile), `npm package is missing required release artifact ${requiredFile}.`);
+}
+
+assertEqual(pack.entryCount, requiredPackageFiles.length, 'npm package file count');
+for (const packagedFile of packagedFiles) {
+  assert(requiredPackageFileSet.has(packagedFile), `npm package contains unexpected file ${packagedFile}.`);
 }
 
 for (const [label, contents] of [
