@@ -164,7 +164,7 @@ function makeVaultInputPsbt(value: number, seed: number) {
     hash: Buffer.alloc(32, seed).toString('hex'),
     index: 0,
     witnessUtxo: {
-      script: keySet.taprootOutputScript,
+      script: keySet.vaultOutputScript,
       value,
     },
   });
@@ -298,6 +298,8 @@ describe('RPC router', () => {
         authCandidates: expect.any(Array),
       }),
     );
+    expect((accounts as ReturnType<typeof testKeySet>['record']).runes.address).not.toBe((accounts as ReturnType<typeof testKeySet>['record']).vault.address);
+    expect((accounts as ReturnType<typeof testKeySet>['record']).runes.pubkey).not.toBe((accounts as ReturnType<typeof testKeySet>['record']).vault.pubkey);
   });
 
   it('rejects unsupported networks before requesting entropy', async () => {
@@ -591,7 +593,7 @@ describe('RPC router', () => {
 
     const rendered = dialogValues(request).join('\n');
 
-    expect(rendered).toContain('UNIT / Vault multisig');
+    expect(rendered).toContain('Vault multisig');
     expect(rendered).toContain('Only Snap-managed inputs');
     expect(rendered).not.toContain('Warnings need review');
     expect(rendered).not.toContain('Alpha compatibility');

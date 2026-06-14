@@ -2,11 +2,13 @@ import { address as btcAddress, crypto, opcodes, Psbt, script as btcScript } fro
 import { rootHashFromPath, tapleafHash, tweakKey } from 'bitcoinjs-lib/src/payments/bip341';
 import { Buffer } from 'buffer';
 
-import { type AccountKeySet, type AccountPublicSet, getRoleForAddress } from './accounts';
+import { type AccountKeySet, type AccountPublicSet, getNodeForRole, getOutputScriptForRole, getRoleForAddress } from './accounts';
 import type { DucatKeyNode } from './bip32';
+import { matchCosignLeafHex } from './cosign-leaf';
 import { ducatError } from './errors';
 import { bitcoinNetwork } from './networks';
 import type {
+  DucatAddressRole,
   DucatNetwork,
   DucatVaultActionFlag,
   DucatVaultReturnData,
@@ -114,6 +116,13 @@ function tapLeafContainsPubkey(script: Buffer, xOnlyPubkey: Buffer): boolean {
   return chunks?.some((chunk) => Buffer.isBuffer(chunk) && chunk.equals(xOnlyPubkey)) ?? false;
 }
 
+function tapLeafHashForSigning(tapLeaf: { leafVersion: number; script: Uint8Array }): Buffer {
+  return tapleafHash({
+    output: Buffer.from(tapLeaf.script),
+    version: tapLeaf.leafVersion,
+  });
+}
+
 function tapLeafCommitsToOutputKey(
   tapLeaf: { controlBlock: Uint8Array; leafVersion: number; script: Uint8Array },
   outputKey: Buffer,
@@ -121,9 +130,15 @@ function tapLeafCommitsToOutputKey(
   try {
     const controlBlock = Buffer.from(tapLeaf.controlBlock);
     const leafVersion = controlBlock[0] & TAPLEAF_VERSION_MASK;
+    const psbtLeafVersion = tapLeaf.leafVersion & TAPLEAF_VERSION_MASK;
+
+    if (psbtLeafVersion !== leafVersion) {
+      return false;
+    }
+
     const leafHash = tapleafHash({
       output: Buffer.from(tapLeaf.script),
-      version: leafVersion,
+      version: tapLeaf.leafVersion,
     });
     const merkleRoot = rootHashFromPath(controlBlock, leafHash);
     const internalKey = controlBlock.subarray(1, 33);
@@ -138,13 +153,19 @@ function tapLeafCommitsToOutputKey(
 type TaprootScriptPathOwnership = {
   ok: boolean;
   reason: string;
+  leafHash?: Buffer;
 };
 
 function checkOwnedTaprootScriptPathInput(
   input: Psbt['data']['inputs'][number],
   outputScript: Buffer,
   keySet: AccountPublicSet,
+  role: DucatAddressRole,
 ): TaprootScriptPathOwnership {
+  if (role !== 'vault') {
+    return { ok: false, reason: 'Taproot script-path signing is restricted to the Ducat vault account' };
+  }
+
   const outputKey = parseP2trOutputKey(outputScript);
 
   if (!outputKey) {
@@ -155,21 +176,31 @@ function checkOwnedTaprootScriptPathInput(
     return { ok: false, reason: 'missing tapLeafScript data' };
   }
 
+  const vaultPubkeyHex = keySet.vaultInternalPubkey.toString('hex');
   const pubkeyLeafIndex = input.tapLeafScript.findIndex((tapLeaf) =>
-    tapLeafContainsPubkey(Buffer.from(tapLeaf.script), keySet.taprootInternalPubkey),
+    tapLeafContainsPubkey(Buffer.from(tapLeaf.script), keySet.vaultInternalPubkey),
   );
 
   if (pubkeyLeafIndex === -1) {
     return { ok: false, reason: `no tapLeafScript contains the Ducat Snap vault pubkey (${input.tapLeafScript.length} provided)` };
   }
 
-  const ownedCommittedLeafIndex = input.tapLeafScript.findIndex(
-    (tapLeaf) =>
-      tapLeafContainsPubkey(Buffer.from(tapLeaf.script), keySet.taprootInternalPubkey) && tapLeafCommitsToOutputKey(tapLeaf, outputKey),
+  const cosignLeafIndex = input.tapLeafScript.findIndex((tapLeaf) => matchCosignLeafHex(Buffer.from(tapLeaf.script).toString('hex'))?.client === vaultPubkeyHex);
+
+  if (cosignLeafIndex === -1) {
+    return { ok: false, reason: 'no tapLeafScript is a Ducat cosign leaf for the derived vault pubkey' };
+  }
+
+  const ownedCommittedLeaf = input.tapLeafScript.find(
+    (tapLeaf) => matchCosignLeafHex(Buffer.from(tapLeaf.script).toString('hex'))?.client === vaultPubkeyHex && tapLeafCommitsToOutputKey(tapLeaf, outputKey),
   );
 
-  if (ownedCommittedLeafIndex !== -1) {
-    return { ok: true, reason: 'owned committed Taproot script-path input' };
+  if (ownedCommittedLeaf) {
+    return {
+      ok: true,
+      reason: 'committed Ducat cosign leaf',
+      leafHash: tapLeafHashForSigning(ownedCommittedLeaf),
+    };
   }
 
   const committedLeafIndex = input.tapLeafScript.findIndex((tapLeaf) => tapLeafCommitsToOutputKey(tapLeaf, outputKey));
@@ -177,11 +208,11 @@ function checkOwnedTaprootScriptPathInput(
   if (committedLeafIndex !== -1) {
     return {
       ok: false,
-      reason: `vault pubkey tapleaf ${pubkeyLeafIndex} and committed tapleaf ${committedLeafIndex} are different leaves`,
+      reason: `Ducat cosign leaf ${cosignLeafIndex} and committed tapleaf ${committedLeafIndex} are different leaves`,
     };
   }
 
-  return { ok: false, reason: 'no tapleaf commits the Ducat Snap vault pubkey to the prevout output' };
+  return { ok: false, reason: 'no Ducat cosign leaf commits the derived vault pubkey to the prevout output' };
 }
 
 function validateSignedInput(psbt: Psbt, index: number, address: string, keySet: AccountPublicSet): PsbtInputSummary {
@@ -198,12 +229,12 @@ function validateSignedInput(psbt: Psbt, index: number, address: string, keySet:
     throw ducatError('MISSING_WITNESS_UTXO', 'This PSBT is missing required input value data and cannot be signed safely.', { inputIndex: index });
   }
 
-  const expectedScript = role === 'sats' ? keySet.satsOutputScript : keySet.taprootOutputScript;
+  const expectedScript = getOutputScriptForRole(keySet, role);
   const inputScript = Buffer.from(witnessUtxo.script);
   const actualAddress = parseOutputAddress(inputScript, keySet.network);
 
   if (!sameScript(inputScript, expectedScript)) {
-    const scriptPathOwnership = role !== 'sats' ? checkOwnedTaprootScriptPathInput(input, inputScript, keySet) : null;
+    const scriptPathOwnership = role !== 'sats' ? checkOwnedTaprootScriptPathInput(input, inputScript, keySet, role) : null;
 
     if (scriptPathOwnership?.ok) {
       return {
@@ -212,7 +243,7 @@ function validateSignedInput(psbt: Psbt, index: number, address: string, keySet:
         signingAddress: address,
         role,
         valueSats: witnessUtxo.value,
-        verification: 'committed-taproot-script-path',
+        verification: 'committed-ducat-cosign-leaf',
       };
     }
 
@@ -540,7 +571,11 @@ function outputRole(address: string, keySet: AccountPublicSet): PsbtOutputSummar
     return 'sats';
   }
 
-  if (address === keySet.record.runes.address || address === keySet.record.vault.address) {
+  if (address === keySet.record.runes.address) {
+    return 'runes';
+  }
+
+  if (address === keySet.record.vault.address) {
     return 'vault';
   }
 
@@ -673,29 +708,46 @@ export function signPreparedPsbt(psbt: Psbt, keySet: AccountKeySet, signInputs: 
     }
 
     for (const index of indexes) {
+      const node = getNodeForRole(keySet, role);
+
       if (role === 'sats') {
-        psbt.signInput(index, toSigner(keySet.satsNode));
+        psbt.signInput(index, toSigner(node));
       } else {
         const input = psbt.data.inputs[index];
         const inputScript = input.witnessUtxo ? Buffer.from(input.witnessUtxo.script) : null;
-        const isKeyPathSpend = !!inputScript && sameScript(inputScript, keySet.taprootOutputScript);
+        const expectedScript = getOutputScriptForRole(keySet, role);
+        const isKeyPathSpend = !!inputScript && sameScript(inputScript, expectedScript);
 
         if (isKeyPathSpend) {
           const currentTapInternalKey = input.tapInternalKey;
+          const expectedInternalPubkey = role === 'runes' ? keySet.runesInternalPubkey : keySet.vaultInternalPubkey;
 
-          if (currentTapInternalKey && !Buffer.from(currentTapInternalKey).equals(keySet.taprootInternalPubkey)) {
+          if (currentTapInternalKey && !Buffer.from(currentTapInternalKey).equals(expectedInternalPubkey)) {
             throw ducatError('PSBT_INPUT_ACCOUNT_MISMATCH', 'This Taproot input does not match the Ducat Snap account.', {
               inputIndex: index,
             });
           }
 
           if (!currentTapInternalKey) {
-            psbt.updateInput(index, { tapInternalKey: keySet.taprootInternalPubkey });
+            psbt.updateInput(index, { tapInternalKey: expectedInternalPubkey });
           }
 
-          psbt.signTaprootInput(index, taprootSigner(keySet.taprootNode));
+          psbt.signTaprootInput(index, taprootSigner(node));
         } else {
-          psbt.signTaprootInput(index, toSigner(keySet.taprootNode));
+          if (!inputScript) {
+            throw ducatError('MISSING_WITNESS_UTXO', 'This PSBT is missing required input value data and cannot be signed safely.', { inputIndex: index });
+          }
+
+          const scriptPathOwnership = checkOwnedTaprootScriptPathInput(input, inputScript, keySet, role);
+
+          if (!scriptPathOwnership.ok || !scriptPathOwnership.leafHash) {
+            throw ducatError('PSBT_INPUT_ACCOUNT_MISMATCH', 'This Taproot script-path input does not match the Ducat vault cosign policy.', {
+              inputIndex: index,
+              taprootScriptPathCheck: scriptPathOwnership.reason,
+            });
+          }
+
+          psbt.signTaprootInput(index, toSigner(keySet.vaultNode), scriptPathOwnership.leafHash);
         }
       }
     }

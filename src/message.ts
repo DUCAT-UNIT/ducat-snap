@@ -1,7 +1,7 @@
 import { crypto, opcodes, Psbt, Transaction } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
-import type { AccountKeySet } from './accounts';
+import { getInternalPubkeyForRole, getNodeForRole, getOutputScriptForRole, type AccountKeySet } from './accounts';
 import { bitcoinNetwork } from './networks';
 import { taprootSigner, toSigner } from './psbt';
 import type { DucatAddressRole } from './types';
@@ -41,7 +41,7 @@ function buildToSignPsbt(params: {
     ...(params.role === 'sats'
       ? {}
       : {
-          tapInternalKey: params.keySet.taprootInternalPubkey,
+          tapInternalKey: getInternalPubkeyForRole(params.keySet, params.role),
           sighashType: Transaction.SIGHASH_ALL,
         }),
   });
@@ -58,7 +58,7 @@ export function signBip322SimpleMessage(params: {
   role: DucatAddressRole;
   message: string;
 }): string {
-  const scriptPubKey = params.role === 'sats' ? params.keySet.satsOutputScript : params.keySet.taprootOutputScript;
+  const scriptPubKey = getOutputScriptForRole(params.keySet, params.role);
   const toSpendTx = buildToSpendTx(params.message, scriptPubKey);
   const toSignPsbt = buildToSignPsbt({
     keySet: params.keySet,
@@ -70,7 +70,7 @@ export function signBip322SimpleMessage(params: {
   if (params.role === 'sats') {
     toSignPsbt.signInput(0, toSigner(params.keySet.satsNode), [Transaction.SIGHASH_ALL]);
   } else {
-    toSignPsbt.signTaprootInput(0, taprootSigner(params.keySet.taprootNode), undefined, [Transaction.SIGHASH_ALL]);
+    toSignPsbt.signTaprootInput(0, taprootSigner(getNodeForRole(params.keySet, params.role)), undefined, [Transaction.SIGHASH_ALL]);
   }
 
   toSignPsbt.finalizeAllInputs();

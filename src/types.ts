@@ -75,7 +75,7 @@ export type PsbtOutputSummary = {
 
 export type PsbtInputVerification =
   | 'matched-account-output'
-  | 'committed-taproot-script-path';
+  | 'committed-ducat-cosign-leaf';
 
 export type PsbtInputSummary = {
   index: number;
