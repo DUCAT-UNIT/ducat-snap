@@ -8,8 +8,8 @@ This document captures the current local audit and submission handoff state for 
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
 - Implementation branch: `codex/snap-cosign-policy-hardening`
-- Implementation tag: `audit-candidate-0.1.0-20260614-submission-integrity-gate`
-- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-submission-integrity-gate`
+- Implementation tag: `audit-candidate-0.1.0-20260614-home-validator-audit-gate`
+- Implementation commit: resolve from the tag with `git rev-list -n 1 audit-candidate-0.1.0-20260614-home-validator-audit-gate`
 - Package name: `@ducat-unit/wallet-snap`
 - Version: `0.1.0`
 - Proposed Snap name: `Ducat`
@@ -78,6 +78,7 @@ This document captures the current local audit and submission handoff state for 
   - `ducat_getCapabilities`
   - Confirmed recent-action clearing
   - Compact Snap Home status rendering from last connected network and origin
+  - Network-specific Snap Home validator endpoint selection for signet and mutinynet
   - Malformed Snap Home public balance and vault response values displayed as unavailable
   - Recent-action state validation, sorting, capping, and clearing
   - Transfer UTXO selection, dust-change fee display, and insufficient funds rejection
@@ -96,12 +97,12 @@ This document captures the current local audit and submission handoff state for 
 
 - Package dry-run command: `npm pack --dry-run --json`
 - Dry-run filename: `ducat-unit-wallet-snap-0.1.0.tgz`
-- Dry-run package size: `1328045`
-- Dry-run unpacked size: `2262977`
+- Dry-run package size: `1328243`
+- Dry-run unpacked size: `2263752`
 - Dry-run file count: `15`
-- npm package shasum: `16b7e015b8edf732860bf930eb670d827ae6a097`
-- npm package integrity: `sha512-OkBz+RS+v7vOddMBpl1kr481a/b0rsJUkRu9JghaGDjG49csigLwdfnbDzyWU6/jXkksd/o3m5ucje3xt0t5DA==`
-- Snap manifest source shasum: `W9Ht6hngwcUnDJ1WKQ7rgNUaoyRcv5IWjRvd/mwGWfc=`
+- npm package shasum: `878a096d9b609b58ce68b50b63251344503fa625`
+- npm package integrity: `sha512-qlhxKWOFV2KOabCCEe43DKzEuxkKzsnSNwaj/VeQLOZgpk2sdd6rc93/nNe04R+syvH+WSJWqbpPrjnFfwwB3w==`
+- Snap manifest source shasum: `GuB4R05SU6S0clWaBGipvm+JRTb28DuI9OV21X06WMY=`
 - Actual npm publish: blocked until npm auth is configured
 
 Packaged files:
@@ -128,12 +129,12 @@ Packaged files:
 - Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`.
 - Transitive dependency versions are locked by `package-lock.json`.
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
-- Snapper result: completed with 192 low-risk ESLinting findings
+- Snapper result: completed with 206 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Current release stance: findings are documented and not treated as a v0.1.0 release blocker pending third-party audit review
 - Release manifest guard: `npm run verify:release-manifest` derives a submission manifest origin set from `submission/metamask-directory.json` and fails if any release origin is localhost, non-HTTPS, duplicated, wildcarded, or outside the current development manifest.
 - Publish guard: `prepublishOnly` runs `npm run verify:release`, so local npm publication attempts execute tests, build, manifest sync, MetaMask simulation harness smoke testing, production dependency audit, Snapper, release metadata checks, release manifest checks, and package dry-run before publish.
-- Submission-ready guard: `npm run verify:submission-ready` is intentionally separate from release CI and fails with a complete blocker list until pending external fields are replaced, real PSBT fixtures exist for every required Ducat flow, captured fixture confirmation text replays against the current Snap UI, final E2E scenario evidence is captured against the exact audit candidate tag/commit, package shasum, package integrity, and manifest shasum, final reviewable PNG screenshots exist, audit/demo URLs are HTTPS, and the published npm package metadata matches the submission packet.
+- Submission-ready guard: `npm run verify:submission-ready` is intentionally separate from release CI and fails with a complete blocker list until pending external fields are replaced, Snap identity and HTTPS submission URLs are consistent, audit/fixed commit fields bind to the candidate source, real PSBT fixtures exist for every required Ducat flow, captured fixture confirmation text replays against the current Snap UI, final E2E scenario evidence is captured against the exact audit candidate tag/commit, package shasum, package integrity, and manifest shasum, final reviewable PNG screenshots exist, audit/demo URLs are HTTPS, and the published npm package metadata matches the submission packet.
 
 ## Frontend Integration Evidence
 
@@ -165,7 +166,7 @@ Known frontend CI note:
 ## Remaining External Gates
 
 - Keep GitHub Actions green on the cleanup PR.
-- Send `audit-candidate-0.1.0-20260614-submission-integrity-gate` to the external Snap auditor.
+- Send `audit-candidate-0.1.0-20260614-home-validator-audit-gate` to the external Snap auditor.
 - Configure npm authentication for the `@ducat-unit` package scope.
 - Publish `@ducat-unit/wallet-snap@0.1.0` to npm after audit fixes, if any.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.

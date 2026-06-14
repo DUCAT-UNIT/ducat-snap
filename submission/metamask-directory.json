@@ -44,18 +44,18 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-submission-integrity-gate/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-home-validator-audit-gate/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-submission-integrity-gate/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-home-validator-audit-gate/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.0-20260614-submission-integrity-gate",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260614-submission-integrity-gate",
+    "candidateTag": "audit-candidate-0.1.0-20260614-home-validator-audit-gate",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260614-home-validator-audit-gate",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/3",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
@@ -73,9 +73,9 @@
       "npm ci",
       "npm run verify:release"
     ],
-    "packageShasum": "16b7e015b8edf732860bf930eb670d827ae6a097",
-    "packageIntegrity": "sha512-OkBz+RS+v7vOddMBpl1kr481a/b0rsJUkRu9JghaGDjG49csigLwdfnbDzyWU6/jXkksd/o3m5ucje3xt0t5DA==",
-    "manifestSourceShasum": "W9Ht6hngwcUnDJ1WKQ7rgNUaoyRcv5IWjRvd/mwGWfc=",
+    "packageShasum": "878a096d9b609b58ce68b50b63251344503fa625",
+    "packageIntegrity": "sha512-qlhxKWOFV2KOabCCEe43DKzEuxkKzsnSNwaj/VeQLOZgpk2sdd6rc93/nNe04R+syvH+WSJWqbpPrjnFfwwB3w==",
+    "manifestSourceShasum": "GuB4R05SU6S0clWaBGipvm+JRTb28DuI9OV21X06WMY=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
   }

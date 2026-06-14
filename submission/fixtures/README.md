@@ -55,7 +55,7 @@ Each file must be captured from the audited Snap candidate and the frontend/clie
     "frontendCommit": "40-character-frontend-git-sha",
     "snapCommit": "40-character-snap-git-sha",
     "clientSdkVersion": "0.25.2",
-    "validatorUrl": "https://validator.dev.ducatprotocol.com"
+    "validatorUrl": "https://validator-mutinynet.dev.ducatprotocol.com"
   }
 }
 ```
