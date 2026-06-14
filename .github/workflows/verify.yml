@@ -33,17 +33,5 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Verify Snap
-        run: npm run verify
-
-      - name: Production Dependency Audit
-        run: npm run audit:prod
-
-      - name: Snapper Scan
-        run: npm run snapper
-
-      - name: Release Metadata Consistency
-        run: npm run verify:metadata
-
-      - name: Package Dry Run
-        run: npm run pack:dry-run
+      - name: Release Verification
+        run: npm run verify:release
