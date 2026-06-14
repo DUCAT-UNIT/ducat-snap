@@ -301,8 +301,10 @@ function assertE2eEvidence() {
   assert(evidence.snapCommit === auditCandidateCommit(), `submission/e2e/evidence.json snapCommit must match ${directory.audit.candidateTag} (${auditCandidateCommit()}).`);
   assertGitCommitHash('submission/e2e/evidence.json frontendCommit', evidence.frontendCommit);
   assertString('submission/e2e/evidence.json packageShasum', evidence.packageShasum);
+  assertString('submission/e2e/evidence.json packageIntegrity', evidence.packageIntegrity);
   assertString('submission/e2e/evidence.json manifestSourceShasum', evidence.manifestSourceShasum);
   assert(evidence.packageShasum === directory.verification.packageShasum, 'submission/e2e/evidence.json packageShasum must match submission metadata.');
+  assert(evidence.packageIntegrity === directory.verification.packageIntegrity, 'submission/e2e/evidence.json packageIntegrity must match submission metadata.');
   assert(evidence.manifestSourceShasum === directory.verification.manifestSourceShasum, 'submission/e2e/evidence.json manifestSourceShasum must match submission metadata.');
   assertHttpsUrl('submission/e2e/evidence.json demoVideoUrl', evidence.demoVideoUrl);
   assert(evidence.demoVideoUrl === directory.submissionAssets.demoVideoUrl, 'submission/e2e/evidence.json demoVideoUrl must match submission metadata.');

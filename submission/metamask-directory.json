@@ -44,18 +44,18 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-release-harness-gate/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-submission-integrity-gate/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-release-harness-gate/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.0-20260614-submission-integrity-gate/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.0-20260614-release-harness-gate",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260614-release-harness-gate",
+    "candidateTag": "audit-candidate-0.1.0-20260614-submission-integrity-gate",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.0-20260614-submission-integrity-gate",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/3",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
