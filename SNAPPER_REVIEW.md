@@ -6,7 +6,7 @@ Last local command:
 npx --yes @sayfer_io/snapper --path . --output snapper-report.json
 ```
 
-Local result: 219 findings across the `ESLinting`, `ExcessiveComments`, and `HardcodedSecrets` categories.
+Local result: 221 findings across the `ESLinting`, `ExcessiveComments`, and `HardcodedSecrets` categories.
 
 The three `HardcodedSecrets` findings are the Ducat guardian x-only **public** key (`ef8e6d84…ca2e`) hardcoded per network in `src/networks.ts`. It is a public key that is intended to be embedded so the Snap can pin the vault cosigner identity; it is not a secret. The remaining findings are style/comment-density scanner policy, not signing, key-export, origin-authorization, confirmation-bypass, or network-scope findings.
 
