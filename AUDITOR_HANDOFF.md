@@ -17,9 +17,9 @@ Assess whether the Ducat Snap can safely derive mainnet, signet, and mutinynet B
 - npm package name: `@ducat-unit/wallet-snap`
 - npm package version: `0.1.5`
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
-- Package dry-run shasum: `f3bab06ca658e171c2798c5d1b8565856a0ccb15`
-- Package dry-run integrity: `sha512-oPCtkvL7INWgF8fMHhsx6VRu50xSJ2dLgnQVGlzB/S+C3olbnuDMKokbAil/g+YiaYDeUIAklKejk64W1KbjPA==`
-- Snap manifest source shasum: `hFYJEUoX/p0URVav/fsuKNlAP04o99xuwXlmYyZo7d4=`
+- Package dry-run shasum: `56b22770dab6fd6f492dec807abbadaf1d7604a2`
+- Package dry-run integrity: `sha512-elVA6H/PUjGwIMd7Hii1XeqXN+P4JRdaoj/UoABtC93sZqU4JzICeAnFb8f6BY/FGJL+DGxyU2CI29xS8YLwUw==`
+- Snap manifest source shasum: `pMt/qmJuhxHHwLbNFdsPrZYjMbsBpK8EerupB8+vdTw=`
 - Proposed Snap name: `Ducat`
 - Intended launch scope: mainnet, signet, and mutinynet
 - Mainnet support: enabled in this audit candidate and in scope for external review
