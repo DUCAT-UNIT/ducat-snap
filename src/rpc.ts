@@ -78,6 +78,7 @@ const MAX_MESSAGE_LENGTH = 800;
 const MAX_METADATA_ENTRIES = 16;
 const MAX_METADATA_KEY_LENGTH = 64;
 const MAX_METADATA_VALUE_LENGTH = 200;
+const MAX_CONTEXT_LABEL_LENGTH = 200;
 
 export const ALLOWED_ORIGINS = new Set<string>(DUCAT_ALLOWED_ORIGINS);
 
@@ -114,6 +115,10 @@ function isVaultContext(value: unknown): value is NonNullable<DucatActionContext
   );
 }
 
+function isOptionalLabel(value: unknown): value is string | undefined {
+  return value === undefined || (typeof value === 'string' && value.length <= MAX_CONTEXT_LABEL_LENGTH);
+}
+
 function isMetadataValue(value: unknown): value is string | number | boolean | null | undefined {
   if (value === undefined || value === null || typeof value === 'boolean') {
     return true;
@@ -147,9 +152,9 @@ function isActionContext(value: unknown): value is DucatActionContext {
   const context = value as DucatActionContext;
 
   return (
-    (context.actionType === undefined || typeof context.actionType === 'string') &&
-    (context.title === undefined || typeof context.title === 'string') &&
-    (context.flow === undefined || typeof context.flow === 'string') &&
+    isOptionalLabel(context.actionType) &&
+    isOptionalLabel(context.title) &&
+    isOptionalLabel(context.flow) &&
     (context.metadata === undefined || isMetadataContext(context.metadata)) &&
     (context.vault === undefined || isVaultContext(context.vault))
   );

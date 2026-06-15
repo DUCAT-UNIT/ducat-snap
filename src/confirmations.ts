@@ -15,6 +15,7 @@ import {
   originNameLabel,
   originUrlLabel,
   roleLabel,
+  sanitizeMarkdown,
   truncateMiddle,
 } from './display';
 import { ducatError } from './errors';
@@ -190,25 +191,34 @@ function contextFromDecodedVault(summary: PsbtSummary, context?: DucatActionCont
   const vaultData = summary.vaultUpdates[0];
 
   if (!vaultData) {
-    return context ?? {};
+    // No Ducat vault data is decodable from the PSBT. We cannot vouch for any vault numbers the
+    // app supplied, so we drop the entire context.vault block rather than render unverified
+    // collateral/debt/health/liquidation figures as if they were facts.
+    if (!context) {
+      return {};
+    }
+
+    const contextWithoutVault: DucatActionContext = { ...context };
+
+    delete contextWithoutVault.vault;
+
+    return contextWithoutVault;
   }
 
   const healthAfter = vaultHealthFromReturnData(vaultData);
-  const trustedContextVault = { ...context?.vault };
 
-  delete trustedContextVault.amountSats;
-  delete trustedContextVault.amountUnit;
-
+  // Every numeric field below is taken strictly from the PSBT-decoded vault data. App-supplied
+  // vault numbers are never used as a fallback, and `source` is always stamped by us so the
+  // "decoded from vault data" provenance cannot be forged via context.
   return {
     ...context,
     actionType: vaultData.actionType,
     title: actionLabel({ actionType: vaultData.actionType }, 'Ducat vault update'),
     vault: {
-      ...trustedContextVault,
-      collateralAfterSats: vaultData.collateralSats ?? context?.vault?.collateralAfterSats,
+      collateralAfterSats: vaultData.collateralSats,
       debtAfterUnit: vaultData.unitBalanceUnit,
       effect: vaultEffect(vaultData.actionType),
-      healthAfter: healthAfter === undefined ? context?.vault?.healthAfter : healthAfter,
+      healthAfter: healthAfter === undefined ? undefined : healthAfter,
       liquidationPrice: vaultData.isLocked ? vaultData.tholdPrice : undefined,
       price: vaultData.unitPrice,
       source: 'op_return',
@@ -337,7 +347,7 @@ function contextSection(context?: DucatActionContext, note = 'App labels are sho
   return [
     uiCollapsibleSection('Ducat app context', [
       uiMuted(note),
-      ...metadata.slice(0, 8).map(([key, value]) => uiRow(formatMetadataKey(key), String(value).slice(0, 140))),
+      ...metadata.slice(0, 8).map(([key, value]) => uiRow(formatMetadataKey(key), sanitizeMarkdown(String(value).slice(0, 140)))),
     ]),
   ];
 }
@@ -354,6 +364,63 @@ function vaultDataDetail(vaultData: DucatVaultReturnData): string {
   }
 
   return `${actionLabel({ actionType: vaultData.actionType })} - ${parts.join(', ')}`;
+}
+
+function batchEntryRecipientRows(summary: PsbtSummary): SnapElement[] {
+  const externalOutputs = summary.outputs.filter((output) => !output.isMine && !isDataOutput(output));
+
+  if (!externalOutputs.length) {
+    return [uiMuted('Self-transfer only - no external recipient.')];
+  }
+
+  const visible = externalOutputs.slice(0, 3);
+  const hidden = externalOutputs.slice(visible.length);
+  const rows = visible.map((output) =>
+    uiRow(
+      'To',
+      detailValue(formatBtcValue(output.valueSats), truncateMiddle(output.address, 12, 8)),
+      output.role === 'unknown' ? 'warning' : undefined,
+    ),
+  );
+
+  if (hidden.length) {
+    const hiddenSats = hidden.reduce((total, output) => total + output.valueSats, 0);
+    rows.push(uiMuted(`+ ${hidden.length} more recipient${hidden.length === 1 ? '' : 's'} (${formatSatsOnly(hiddenSats)})`));
+  }
+
+  return rows;
+}
+
+function cosignInputsSection(cosignInputs: PsbtSummary['signedInputs']): SnapElement[] {
+  if (!cosignInputs.length) {
+    return [];
+  }
+
+  const guardKeys = [...new Set(cosignInputs.map((input) => input.cosignGuardPubkey).filter((key): key is string => !!key))];
+  const allGuardiansKnown = cosignInputs.every((input) => input.cosignGuardianKnown === true);
+  const rows: SnapElement[] = [
+    uiMuted('This vault spend uses a Ducat cosign (2-of-2) script path. Confirm the cosigner before approving.'),
+  ];
+
+  if (guardKeys.length) {
+    for (const guardKey of guardKeys.slice(0, 3)) {
+      rows.push(uiRow('Cosigner key', uiCopyable(guardKey)));
+    }
+
+    if (guardKeys.length > 3) {
+      rows.push(uiMuted(`+ ${guardKeys.length - 3} more cosigner keys`));
+    }
+  } else {
+    rows.push(uiMuted('Cosigner key could not be parsed from the cosign leaf.'));
+  }
+
+  rows.push(
+    allGuardiansKnown
+      ? uiRow('Cosigner', inlineSecurity('Approved Ducat guardian', 'success'))
+      : uiRow('Cosigner', inlineSecurity('Not verified as a Ducat guardian', 'warning'), 'warning'),
+  );
+
+  return [uiCollapsibleSection(`Vault cosigner (${cosignInputs.length})`, rows, !allGuardiansKnown)];
 }
 
 export async function confirmMessage(params: {
@@ -468,6 +535,8 @@ export async function confirmPsbt(params: {
           ),
         )
       : [uiMuted('No inputs requested for signing.')];
+  const cosignInputs = summary.signedInputs.filter((input) => input.verification === 'committed-ducat-cosign-leaf');
+  const cosignSection = cosignInputsSection(cosignInputs);
   let recipientNumber = 0;
   let changeNumber = 0;
   const outputRows =
@@ -528,6 +597,7 @@ export async function confirmPsbt(params: {
             visibleWarnings.length ? 'warning' : undefined,
           ),
         ]),
+        ...cosignSection,
         uiCollapsibleSection(
           `Inspect signed inputs (${summary.signedInputs.length})`,
           [...inputRows, ...(summary.signedInputs.length > visibleSignedInputs.length ? [uiMuted(`+ ${summary.signedInputs.length - visibleSignedInputs.length} more inputs`)] : [])],
@@ -576,6 +646,8 @@ export async function confirmBatch(params: {
   const network = summaries[0]?.network ?? 'mutinynet';
   const warningCount = summaries.reduce((total, summary) => total + summary.warnings.length, 0);
   const visibleEntries = params.entries.slice(0, 6);
+  const hiddenEntries = params.entries.slice(visibleEntries.length);
+  const hiddenExternalTotal = hiddenEntries.reduce((total, entry) => total + entry.summary.externalOutputSats, 0);
   const statusTitle = warningCount ? 'Batch warnings' : 'Batch ready';
   const statusSeverity = warningCount ? 'warning' : 'success';
   const statusBody = warningCount
@@ -618,26 +690,31 @@ export async function confirmBatch(params: {
         uiCollapsibleSection(
           `Inspect transactions (${summaries.length})`,
           [
-            ...visibleEntries.map(({ summary, context }, index) => {
+            ...visibleEntries.flatMap(({ summary, context }, index) => {
               const entryContext = contextFromDecodedVault(summary, context);
 
-              return uiRow(
-                `#${index + 1} ${actionLabel(entryContext, 'Transaction')}`,
-                detailValue(
-                  formatMaybeBtcValue(maybeAddSats(summary.externalOutputSats, summary.feeSats)),
-                  `${summary.signedInputIndexes.length} input${summary.signedInputIndexes.length === 1 ? '' : 's'} - fee ${formatMaybeBtcValue(summary.feeSats)}${
-                    summary.warnings.length ? ` - ${summary.warnings.length} warning${summary.warnings.length === 1 ? '' : 's'}` : ''
-                  }`,
+              return [
+                uiRow(
+                  `#${index + 1} ${actionLabel(entryContext, 'Transaction')}`,
+                  detailValue(
+                    formatMaybeBtcValue(maybeAddSats(summary.externalOutputSats, summary.feeSats)),
+                    `${summary.signedInputIndexes.length} input${summary.signedInputIndexes.length === 1 ? '' : 's'} - fee ${formatMaybeBtcValue(summary.feeSats)}${
+                      summary.warnings.length ? ` - ${summary.warnings.length} warning${summary.warnings.length === 1 ? '' : 's'}` : ''
+                    }`,
+                  ),
+                  summary.warnings.length ? 'warning' : undefined,
                 ),
-                summary.warnings.length ? 'warning' : undefined,
-              );
+                ...batchEntryRecipientRows(summary),
+              ];
             }),
-            ...(params.entries.length > visibleEntries.length ? [uiMuted(`+ ${params.entries.length - visibleEntries.length} more transactions`)] : []),
+            ...(hiddenEntries.length
+              ? [uiMuted(`+ ${hiddenEntries.length} more transaction${hiddenEntries.length === 1 ? '' : 's'} not itemized; hidden external total ${formatSats(hiddenExternalTotal, network)}`)]
+              : []),
           ],
           true,
         ),
         uiDivider(),
-        uiMuted('Approve only if every transaction matches the Ducat app flow.'),
+        uiMuted('Approve only if every transaction and recipient matches the Ducat app flow.'),
       ]),
     },
   });

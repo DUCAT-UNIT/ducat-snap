@@ -21,7 +21,7 @@ function usage() {
     '    "signInputs": { "tb1...": [0] },',
     '    "context": {},',
     '    "capturedFrom": {',
-    '      "frontendOrigin": "http://localhost:3002",',
+    '      "frontendOrigin": "https://app.ducatprotocol.com",',
     '      "clientSdkVersion": "...",',
     '      "validatorUrl": "https://...",',
     '      "frontendCommit": "40-hex",',
