@@ -80,21 +80,13 @@ NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wallet-snap"
 NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.5"
 ```
 
-Allowed local development origins:
-
-- `http://localhost:3000`
-- `http://localhost:3001`
-- `http://localhost:3002`
-- `http://localhost:3003`
-
-Allowed HTTPS Ducat origins in the current manifest:
+Allowed HTTPS Ducat origins in the published mainnet manifest:
 
 - `https://app.ducatprotocol.com`
 - `https://dev.app.ducatprotocol.com`
 - `https://staging.app.ducatprotocol.com`
-- `https://dev-git-feat-metamask-snap-connector-ducat.vercel.app`
 
-Localhost origins are present for local Snap QA. The submission verifier derives the release origin set from `submission/metamask-directory.json` and rejects localhost, non-HTTPS, wildcard, duplicate, or unknown release origins.
+The published manifest authorizes only stable, org-controlled HTTPS Ducat origins. Local development (`http://localhost`) and ephemeral, re-registerable preview deployments (`*.vercel.app`) are deliberately excluded so a local process or a taken-over preview subdomain can never drive mainnet signing; use a separate, unpublished dev manifest for local Snap QA. The release verifier rejects localhost, non-HTTPS, wildcard, duplicate, or unknown origins in the shipped manifest.
 
 ## JSON-RPC API
 
