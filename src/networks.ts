@@ -5,13 +5,13 @@ import type { DucatNetwork } from './types';
 
 export const DUCAT_APP_URL = 'https://app.ducatprotocol.com';
 
+// Only stable, org-controlled HTTPS Ducat origins are trusted to drive mainnet signing. Local
+// dev (http://localhost) and ephemeral, re-registerable preview deployments (*.vercel.app) are
+// deliberately excluded from the published mainnet build: a local process or a taken-over preview
+// subdomain must never be an authorized signing origin. Use a separate, unpublished dev manifest
+// for local development.
 export const DUCAT_ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
   'https://app.ducatprotocol.com',
-  'https://dev-git-feat-metamask-snap-connector-ducat.vercel.app',
   'https://dev.app.ducatprotocol.com',
   'https://staging.app.ducatprotocol.com',
 ] as const;

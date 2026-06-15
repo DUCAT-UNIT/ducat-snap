@@ -9,7 +9,7 @@ import { ALLOWED_ORIGINS, handleRpcRequest } from '../rpc';
 import packageJson from '../../package.json';
 import manifest from '../../snap.manifest.json';
 
-const ORIGIN = 'http://localhost:3000';
+const ORIGIN = 'https://app.ducatprotocol.com';
 
 type SnapRequestArgs = {
   method: string;
@@ -828,7 +828,7 @@ describe('RPC router', () => {
 
     try {
       await expect(
-        handleRpcRequest('http://localhost:3002', {
+        handleRpcRequest('https://dev.app.ducatprotocol.com', {
           method: 'ducat_sendTransfer',
           params: { network: 'signet', address: recipient, amountSats: 10_000, feeRate: 1 },
         }),
@@ -841,7 +841,7 @@ describe('RPC router', () => {
       expect(updates).toContainEqual(
         expect.objectContaining({
           lastNetwork: 'signet',
-          lastOrigin: 'http://localhost:3002',
+          lastOrigin: 'https://dev.app.ducatprotocol.com',
         }),
       );
       expect(updates).not.toContainEqual(expect.objectContaining({ recentActions: expect.arrayContaining([expect.objectContaining({ actionType: 'transfer' })]) }));
@@ -872,7 +872,7 @@ describe('RPC router', () => {
 
     try {
       await expect(
-        handleRpcRequest('http://localhost:3002', {
+        handleRpcRequest('https://dev.app.ducatprotocol.com', {
           method: 'ducat_sendTransfer',
           params: { network: 'signet', address: recipient, amountSats: 10_000, feeRate: 1 },
         }),
@@ -918,7 +918,7 @@ describe('RPC router', () => {
           actionType: 'borrow',
           title: 'Borrow UNIT',
           network: 'signet',
-          origin: 'http://localhost:3002',
+          origin: 'https://dev.app.ducatprotocol.com',
           timestamp: Date.now() - 60_000,
           status: 'broadcast',
           txid: 'a'.repeat(64),
@@ -931,7 +931,7 @@ describe('RPC router', () => {
         },
       ],
       lastNetwork: 'signet',
-      lastOrigin: 'http://localhost:3002',
+      lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const href = String(url);
@@ -978,7 +978,7 @@ describe('RPC router', () => {
     globalThis.fetch = fetchMock as typeof fetch;
 
     try {
-      await handleRpcRequest('http://localhost:3002', {
+      await handleRpcRequest('https://dev.app.ducatprotocol.com', {
         method: 'ducat_getAccounts',
         params: { network: 'signet' },
       });
@@ -996,7 +996,7 @@ describe('RPC router', () => {
       expect(rendered).not.toContain('Accounts');
       expect(rendered).not.toContain('Open Ducat app');
       expect(rendered).not.toContain('Ducat actions');
-      expect(rendered).not.toContain('http://localhost:3002/?action=deposit');
+      expect(rendered).not.toContain('https://dev.app.ducatprotocol.com/?action=deposit');
       expect(rendered).not.toContain('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     } finally {
       globalThis.fetch = originalFetch;
@@ -1007,7 +1007,7 @@ describe('RPC router', () => {
     setSnapMock(true, {
       recentActions: [],
       lastNetwork: 'signet',
-      lastOrigin: 'http://localhost:3002',
+      lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const href = String(url);

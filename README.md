@@ -9,10 +9,10 @@ The Ducat web app remains the user action surface. Users create, deposit, borrow
 - Package candidate: `@ducat-unit/wallet-snap@0.1.5`
 - Snap ID: `npm:@ducat-unit/wallet-snap`
 - Proposed Snap name: `Ducat`
-- Audit candidate tag: `audit-candidate-0.1.5-20260615-guardian-allowlist`
-- Audit candidate commit: tag target for `audit-candidate-0.1.5-20260615-guardian-allowlist`
+- Audit candidate tag: `audit-candidate-0.1.5-20260615-https-origins`
+- Audit candidate commit: tag target for `audit-candidate-0.1.5-20260615-https-origins`
 - GitHub verification: `Verify Ducat Snap`
-- Manifest source shasum: `zl9V64deyOgljY3WlY4xU2YDbG8K6NQChPorHBNq59w=`
+- Manifest source shasum: `0lNJAaEdLVNF1Y57h2WPLbHScSPRn3G3+MFHZxaQjP8=`
 - Package candidate digest evidence: `RELEASE_EVIDENCE.md`
 
 Launch scope:
@@ -80,21 +80,13 @@ NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wallet-snap"
 NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.5"
 ```
 
-Allowed local development origins:
-
-- `http://localhost:3000`
-- `http://localhost:3001`
-- `http://localhost:3002`
-- `http://localhost:3003`
-
-Allowed HTTPS Ducat origins in the current manifest:
+Allowed HTTPS Ducat origins in the published mainnet manifest:
 
 - `https://app.ducatprotocol.com`
 - `https://dev.app.ducatprotocol.com`
 - `https://staging.app.ducatprotocol.com`
-- `https://dev-git-feat-metamask-snap-connector-ducat.vercel.app`
 
-Localhost origins are present for local Snap QA. The submission verifier derives the release origin set from `submission/metamask-directory.json` and rejects localhost, non-HTTPS, wildcard, duplicate, or unknown release origins.
+The published manifest authorizes only stable, org-controlled HTTPS Ducat origins. Local development (`http://localhost`) and ephemeral, re-registerable preview deployments (`*.vercel.app`) are deliberately excluded so a local process or a taken-over preview subdomain can never drive mainnet signing; use a separate, unpublished dev manifest for local Snap QA. The release verifier rejects localhost, non-HTTPS, wildcard, duplicate, or unknown origins in the shipped manifest.
 
 ## JSON-RPC API
 

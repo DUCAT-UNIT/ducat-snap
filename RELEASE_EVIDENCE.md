@@ -7,8 +7,8 @@ This document records the source, package, verification, and remaining external-
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Candidate tag: `audit-candidate-0.1.5-20260615-guardian-allowlist`
-- Candidate commit: tag target for `audit-candidate-0.1.5-20260615-guardian-allowlist`
+- Candidate tag: `audit-candidate-0.1.5-20260615-https-origins`
+- Candidate commit: tag target for `audit-candidate-0.1.5-20260615-https-origins`
 - Package name: `@ducat-unit/wallet-snap`
 - Version: `0.1.5`
 - Snap ID: `npm:@ducat-unit/wallet-snap`
@@ -21,11 +21,11 @@ This document records the source, package, verification, and remaining external-
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
 - Candidate version: `0.1.5`
 - Target npm dist-tag: `latest`
-- npm package shasum: `21c33861eb86a8375501c9d4a1bca1c20645a013`
-- npm package integrity: `sha512-RWvullaodq9MVm04W40fv8P+6F4JHLWm1IZLfXshNEg5D2K+BIeT+sTb3h6bajXTlD3SvX/EEAfcLBm9vWUmfw==`
-- Snap manifest source shasum: `zl9V64deyOgljY3WlY4xU2YDbG8K6NQChPorHBNq59w=`
-- Dry-run package size: `1327644`
-- Dry-run unpacked size: `2262577`
+- npm package shasum: `b641b1d168896d7c6ff7ab97d5d8799368bd0f45`
+- npm package integrity: `sha512-/sFemi4yqcr4/FouUuyBT3BiAui1hLojJQZEH17QnBb3x3nLKFYfQeNnQ4jT/xvu4oQ4UNdPVHJKsVGYr06tow==`
+- Snap manifest source shasum: `0lNJAaEdLVNF1Y57h2WPLbHScSPRn3G3+MFHZxaQjP8=`
+- Dry-run package size: `1327818`
+- Dry-run unpacked size: `2262705`
 - Dry-run file count: `15`
 
 Packaged files:
@@ -161,7 +161,7 @@ The frontend version range should accept `0.1.5` before using this candidate out
 
 ## Remaining External Gates
 
-- Send `audit-candidate-0.1.5-20260615-guardian-allowlist` to the external Snap auditor.
+- Send `audit-candidate-0.1.5-20260615-https-origins` to the external Snap auditor.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
 - Merge audit fixes, if any, and tag the fixed source commit.
 - Replace pending external fields in `submission/metamask-directory.json` and `submission/ALLOWLIST_SUBMISSION.md`.
