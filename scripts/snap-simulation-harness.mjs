@@ -11,7 +11,9 @@ import { installSnap } from '@metamask/snaps-simulation';
 const require = createRequire(import.meta.url);
 const { address: btcAddress, networks, Psbt } = require('bitcoinjs-lib');
 
-const DEFAULT_ORIGIN = 'http://localhost:3000';
+// Must be an origin the Snap authorizes (see DUCAT_ALLOWED_ORIGINS). The published allowlist is
+// HTTPS Ducat-only; override with DUCAT_HARNESS_ORIGIN for a local dev manifest if needed.
+const DEFAULT_ORIGIN = 'https://app.ducatprotocol.com';
 const DEFAULT_NETWORK = 'mutinynet';
 const DEFAULT_SRP = 'test test test test test test test test test test test ball';
 const MIME_TYPES = {
