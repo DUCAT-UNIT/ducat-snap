@@ -24,8 +24,8 @@ Use this shape:
 ```json
 {
   "network": "mutinynet",
-  "snapCandidateTag": "audit-candidate-0.1.5-20260615-guardian-allowlist",
-  "snapCommit": "tag target for audit-candidate-0.1.5-20260615-guardian-allowlist",
+  "snapCandidateTag": "audit-candidate-0.1.5-20260615-https-origins",
+  "snapCommit": "tag target for audit-candidate-0.1.5-20260615-https-origins",
   "frontendCommit": "40-character-frontend-git-sha",
   "packageShasum": "published-npm-package-shasum",
   "packageIntegrity": "published-npm-package-integrity",
