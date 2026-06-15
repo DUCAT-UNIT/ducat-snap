@@ -1,4 +1,4 @@
-import { networks as btcNetworks, opcodes, payments, Psbt, script as btcScript } from 'bitcoinjs-lib';
+import { networks as btcNetworks, opcodes, payments, Psbt, script as btcScript, Transaction } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
 import { deriveAccountSetFromBaseNodes } from '../accounts';
@@ -847,6 +847,128 @@ describe('PSBT signing', () => {
 
     expect(prepared.summary.outputs[0].vaultData).toBeUndefined();
     expect(prepared.summary.warnings).toEqual(['A Ducat-looking OP_RETURN output was present but could not be decoded as vault return data.']);
+  });
+
+  it('rejects a sats input whose nonWitnessUtxo value disagrees with the displayed witnessUtxo value', () => {
+    const keySet = makeKeySet();
+    const prevTx = new Transaction();
+    prevTx.version = 2;
+    prevTx.addInput(Buffer.alloc(32, 9), 0);
+    prevTx.addOutput(keySet.satsOutputScript, 100_000_000); // REAL value: 1 BTC at vout 0
+
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+    psbt.addInput({
+      hash: prevTx.getId(),
+      index: 0,
+      nonWitnessUtxo: prevTx.toBuffer(),
+      witnessUtxo: { script: keySet.satsOutputScript, value: 10_000 }, // LYING value the dialog would show
+    });
+    psbt.addOutput({ address: keySet.record.sats.address, value: 9_500 });
+
+    try {
+      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+      throw new Error('Expected preparePsbtForSigning to fail.');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'PSBT_INPUT_VALUE_MISMATCH',
+        details: expect.objectContaining({
+          inputIndex: 0,
+          witnessUtxoValueSats: 10_000,
+          nonWitnessUtxoValueSats: 100_000_000,
+        }),
+      });
+    }
+  });
+
+  it('accepts a sats input whose nonWitnessUtxo value matches the displayed witnessUtxo value', () => {
+    const keySet = makeKeySet();
+    const prevTx = new Transaction();
+    prevTx.version = 2;
+    prevTx.addInput(Buffer.alloc(32, 9), 0);
+    prevTx.addOutput(keySet.satsOutputScript, 100_000);
+
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+    psbt.addInput({
+      hash: prevTx.getId(),
+      index: 0,
+      nonWitnessUtxo: prevTx.toBuffer(),
+      witnessUtxo: { script: keySet.satsOutputScript, value: 100_000 },
+    });
+    psbt.addOutput({ address: keySet.record.sats.address, value: 99_000 });
+
+    const signInputs = { [keySet.record.sats.address]: [0] };
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
+    const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
+
+    expect(signed.data.inputs[0].partialSig).toHaveLength(1);
+  });
+
+  it('rejects inputs requesting a non-default sighash type before signing', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '61'.repeat(32),
+      index: 0,
+      sighashType: Transaction.SIGHASH_NONE,
+      witnessUtxo: {
+        script: keySet.satsOutputScript,
+        value: 100_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 99_000,
+    });
+
+    try {
+      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+      throw new Error('Expected preparePsbtForSigning to fail.');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'PSBT_SIGHASH_NOT_ALLOWED',
+        details: expect.objectContaining({
+          inputIndex: 0,
+          requestedSighashType: Transaction.SIGHASH_NONE,
+        }),
+      });
+    }
+  });
+
+  it('surfaces the cosign guard pubkey on committed cosign script-path inputs', () => {
+    const keySet = makeKeySet();
+    const scriptPath = makeCosignScriptPathPayment(keySet.vaultInternalPubkey);
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '62'.repeat(32),
+      index: 0,
+      tapLeafScript: [
+        {
+          controlBlock: scriptPath.controlBlock,
+          leafVersion: 0xc0,
+          script: scriptPath.redeemScript,
+        },
+      ],
+      witnessUtxo: {
+        script: scriptPath.output,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] });
+
+    expect(prepared.summary.signedInputs[0]).toMatchObject({
+      role: 'vault',
+      verification: 'committed-ducat-cosign-leaf',
+      cosignGuardPubkey: GUARD_TAPROOT_KEY.toString('hex'),
+      // No guardian allowlist is configured, so the cosigner is surfaced but not marked verified.
+      cosignGuardianKnown: false,
+    });
   });
 
 });

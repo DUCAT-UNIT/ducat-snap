@@ -1,4 +1,4 @@
-import { address as btcAddress, crypto, opcodes, Psbt, script as btcScript } from 'bitcoinjs-lib';
+import { address as btcAddress, crypto, opcodes, Psbt, script as btcScript, Transaction } from 'bitcoinjs-lib';
 import { rootHashFromPath, tapleafHash, tweakKey } from 'bitcoinjs-lib/src/payments/bip341';
 import { Buffer } from 'buffer';
 
@@ -6,7 +6,7 @@ import { type AccountKeySet, type AccountPublicSet, getNodeForRole, getOutputScr
 import type { DucatKeyNode } from './bip32';
 import { matchCosignLeafHex } from './cosign-leaf';
 import { ducatError } from './errors';
-import { bitcoinNetwork } from './networks';
+import { bitcoinNetwork, guardianAllowlistEnforced, isKnownGuardianPubkey } from './networks';
 import type {
   DucatAddressRole,
   DucatNetwork,
@@ -20,6 +20,11 @@ import type {
 
 const TAPLEAF_VERSION_MASK = 0xfe;
 const MAX_PSBT_BASE64_LENGTH = 350_000;
+// The Snap only ever produces signatures that commit to every input and output. We pin the
+// allowed sighash types explicitly instead of relying on bitcoinjs-lib's default arguments so a
+// PSBT carrying SIGHASH_NONE/SINGLE/ANYONECANPAY is rejected before the confirmation dialog.
+const ALLOWED_ECDSA_SIGHASH_TYPES = [Transaction.SIGHASH_ALL];
+const ALLOWED_TAPROOT_SIGHASH_TYPES = [Transaction.SIGHASH_DEFAULT, Transaction.SIGHASH_ALL];
 const MAX_PSBT_INPUTS = 80;
 const MAX_PSBT_OUTPUTS = 120;
 const DUCAT_VAULT_RETURN_VERSION = 1;
@@ -154,6 +159,8 @@ type TaprootScriptPathOwnership = {
   ok: boolean;
   reason: string;
   leafHash?: Buffer;
+  guardPubkey?: string;
+  guardianKnown?: boolean;
 };
 
 function checkOwnedTaprootScriptPathInput(
@@ -196,10 +203,23 @@ function checkOwnedTaprootScriptPathInput(
   );
 
   if (ownedCommittedLeaf) {
+    const guardPubkey = matchCosignLeafHex(Buffer.from(ownedCommittedLeaf.script).toString('hex'))?.guard;
+
+    if (guardPubkey && !isKnownGuardianPubkey(keySet.network, guardPubkey)) {
+      return {
+        ok: false,
+        reason: `cosign guard key ${guardPubkey} is not an approved Ducat guardian`,
+        guardPubkey,
+        guardianKnown: false,
+      };
+    }
+
     return {
       ok: true,
       reason: 'committed Ducat cosign leaf',
       leafHash: tapLeafHashForSigning(ownedCommittedLeaf),
+      guardPubkey,
+      guardianKnown: guardPubkey ? guardianAllowlistEnforced(keySet.network) : undefined,
     };
   }
 
@@ -213,6 +233,84 @@ function checkOwnedTaprootScriptPathInput(
   }
 
   return { ok: false, reason: 'no Ducat cosign leaf commits the derived vault pubkey to the prevout output' };
+}
+
+/**
+ * Reconcile a signed input's witnessUtxo against any nonWitnessUtxo the request also supplied.
+ *
+ * The Snap validates and displays everything from witnessUtxo, but bitcoinjs-lib computes the
+ * segwit sighash from nonWitnessUtxo whenever it is present. If the two disagree, the user would
+ * approve one value while signing over a different (real) value. We require them to match exactly,
+ * so the value committed by the signature is always the value shown in the confirmation dialog.
+ *
+ * @param psbt - The parsed PSBT.
+ * @param index - The input index being validated.
+ * @param witnessUtxo - The input's witnessUtxo (already known to be present).
+ */
+function assertWitnessUtxoMatchesNonWitnessUtxo(
+  psbt: Psbt,
+  index: number,
+  witnessUtxo: NonNullable<Psbt['data']['inputs'][number]['witnessUtxo']>,
+): void {
+  const input = psbt.data.inputs[index];
+
+  if (!input.nonWitnessUtxo) {
+    return;
+  }
+
+  const prevoutIndex = psbt.txInputs[index]?.index;
+
+  if (prevoutIndex === undefined) {
+    throw ducatError('PSBT_INPUT_VALUE_MISMATCH', 'This PSBT input references previous-output data the Ducat Snap cannot verify and will not sign.', {
+      inputIndex: index,
+    });
+  }
+
+  let prevout: { value: number; script: Buffer };
+
+  try {
+    const prevoutTx = Transaction.fromBuffer(Buffer.from(input.nonWitnessUtxo));
+    prevout = prevoutTx.outs[prevoutIndex];
+  } catch (error) {
+    throw ducatError('PSBT_INPUT_VALUE_MISMATCH', 'This PSBT input includes malformed previous-transaction data and cannot be signed safely.', {
+      inputIndex: index,
+      diagnostic: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  if (!prevout || prevout.value !== witnessUtxo.value || !sameScript(Buffer.from(prevout.script), Buffer.from(witnessUtxo.script))) {
+    throw ducatError('PSBT_INPUT_VALUE_MISMATCH', 'This PSBT input value disagrees with its previous transaction and cannot be signed safely.', {
+      inputIndex: index,
+      witnessUtxoValueSats: witnessUtxo.value,
+      nonWitnessUtxoValueSats: prevout?.value,
+    });
+  }
+}
+
+/**
+ * Reject any input whose requested sighash type is not one the Snap is willing to produce.
+ *
+ * The confirmation dialog represents a transaction that commits to all inputs and outputs. A
+ * SIGHASH_NONE/SINGLE/ANYONECANPAY input would let other parties alter the transaction after the
+ * user approves it, so we refuse such inputs before showing the dialog.
+ *
+ * @param input - The PSBT input being validated.
+ * @param index - The input index.
+ * @param role - The Ducat account role signing this input.
+ */
+function assertAllowedSighashType(input: Psbt['data']['inputs'][number], index: number, role: DucatAddressRole): void {
+  if (input.sighashType === undefined) {
+    return;
+  }
+
+  const allowed = role === 'sats' ? ALLOWED_ECDSA_SIGHASH_TYPES : ALLOWED_TAPROOT_SIGHASH_TYPES;
+
+  if (!allowed.includes(input.sighashType)) {
+    throw ducatError('PSBT_SIGHASH_NOT_ALLOWED', 'This PSBT input requests a signature type the Ducat Snap will not produce.', {
+      inputIndex: index,
+      requestedSighashType: input.sighashType,
+    });
+  }
 }
 
 function validateSignedInput(psbt: Psbt, index: number, address: string, keySet: AccountPublicSet): PsbtInputSummary {
@@ -229,6 +327,9 @@ function validateSignedInput(psbt: Psbt, index: number, address: string, keySet:
     throw ducatError('MISSING_WITNESS_UTXO', 'This PSBT is missing required input value data and cannot be signed safely.', { inputIndex: index });
   }
 
+  assertWitnessUtxoMatchesNonWitnessUtxo(psbt, index, witnessUtxo);
+  assertAllowedSighashType(input, index, role);
+
   const expectedScript = getOutputScriptForRole(keySet, role);
   const inputScript = Buffer.from(witnessUtxo.script);
   const actualAddress = parseOutputAddress(inputScript, keySet.network);
@@ -244,6 +345,8 @@ function validateSignedInput(psbt: Psbt, index: number, address: string, keySet:
         role,
         valueSats: witnessUtxo.value,
         verification: 'committed-ducat-cosign-leaf',
+        cosignGuardPubkey: scriptPathOwnership.guardPubkey,
+        cosignGuardianKnown: scriptPathOwnership.guardianKnown,
       };
     }
 
@@ -711,7 +814,7 @@ export function signPreparedPsbt(psbt: Psbt, keySet: AccountKeySet, signInputs: 
       const node = getNodeForRole(keySet, role);
 
       if (role === 'sats') {
-        psbt.signInput(index, toSigner(node));
+        psbt.signInput(index, toSigner(node), ALLOWED_ECDSA_SIGHASH_TYPES);
       } else {
         const input = psbt.data.inputs[index];
         const inputScript = input.witnessUtxo ? Buffer.from(input.witnessUtxo.script) : null;
@@ -732,7 +835,7 @@ export function signPreparedPsbt(psbt: Psbt, keySet: AccountKeySet, signInputs: 
             psbt.updateInput(index, { tapInternalKey: expectedInternalPubkey });
           }
 
-          psbt.signTaprootInput(index, taprootSigner(node));
+          psbt.signTaprootInput(index, taprootSigner(node), undefined, ALLOWED_TAPROOT_SIGHASH_TYPES);
         } else {
           if (!inputScript) {
             throw ducatError('MISSING_WITNESS_UTXO', 'This PSBT is missing required input value data and cannot be signed safely.', { inputIndex: index });
@@ -747,7 +850,7 @@ export function signPreparedPsbt(psbt: Psbt, keySet: AccountKeySet, signInputs: 
             });
           }
 
-          psbt.signTaprootInput(index, toSigner(keySet.vaultNode), scriptPathOwnership.leafHash);
+          psbt.signTaprootInput(index, toSigner(keySet.vaultNode), scriptPathOwnership.leafHash, ALLOWED_TAPROOT_SIGHASH_TYPES);
         }
       }
     }

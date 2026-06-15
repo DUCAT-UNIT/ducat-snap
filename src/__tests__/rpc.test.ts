@@ -427,6 +427,54 @@ describe('RPC router', () => {
     expect(rendered).toContain('vault-alpha');
   });
 
+  it('escapes markdown syntax in app metadata so it cannot inject links into the dialog', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signMessage',
+      params: {
+        network: 'signet',
+        address: keySet.record.sats.address,
+        message: 'Authorize Ducat session',
+        context: {
+          metadata: {
+            status: '[Verified](https://attacker.example)',
+          },
+        },
+      },
+    });
+
+    const rendered = dialogValues(request).join('\n');
+
+    expect(rendered).toContain('Ducat app context');
+    // The literal characters survive, but escaped so MetaMask renders them as text, not a link.
+    expect(rendered).toContain('\\[Verified\\]\\(https://attacker.example\\)');
+    expect(rendered).not.toContain('[Verified](https://attacker.example)');
+  });
+
+  it('rejects context labels longer than the supported length before requesting entropy', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signMessage',
+      params: {
+        network: 'signet',
+        address: keySet.record.sats.address,
+        message: 'Authorize Ducat session',
+        context: {
+          title: 'x'.repeat(5_000),
+        },
+      },
+    });
+
+    const rendered = dialogValues(request).join('\n');
+
+    // The oversized title is rejected by validation, so it never reaches the dialog title.
+    expect(rendered).not.toContain('x'.repeat(5_000));
+  });
+
   it('ignores structured app metadata instead of stringifying it into confirmations', async () => {
     const request = setSnapMock();
     const keySet = testKeySet();
@@ -529,18 +577,17 @@ describe('RPC router', () => {
     const rendered = dialogValues(request).join('\n');
 
     expect(rendered).toContain('Deposit BTC');
-    expect(rendered).toContain('Vault update');
-    expect(rendered).toContain('Adds BTC collateral to your existing vault.');
-    expect(rendered).toContain('0.00100000 BTC');
-    expect(rendered).toContain('Updated vault state');
-    expect(rendered).toContain('Collateral');
-    expect(rendered).toContain('UNIT debt');
-    expect(rendered).toContain('Health factor');
-    expect(rendered).toContain('Liquidation threshold');
+    // With no decodable Ducat OP_RETURN, app-supplied vault numbers must NOT be rendered as
+    // an authoritative vault-state panel (they cannot be verified from the PSBT).
+    expect(rendered).not.toContain('Updated vault state');
+    expect(rendered).not.toContain('Adds BTC collateral to your existing vault.');
+    expect(rendered).not.toContain('Health factor');
+    expect(rendered).not.toContain('Liquidation threshold');
     expect(rendered).not.toContain('You are signing');
     expect(rendered).not.toContain('Effect');
     expect(rendered).not.toContain('Amount');
     expect(rendered).not.toContain('Vault status comes from the Ducat app.');
+    // The trustworthy, PSBT-derived parts still render.
     expect(rendered).toContain('Approval summary');
     expect(rendered).toContain('Check collateral, change, and fee.');
     expect(rendered).toContain('You pay');
