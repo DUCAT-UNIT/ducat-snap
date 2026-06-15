@@ -8,8 +8,16 @@ import type { DucatAddressRole, DucatNetwork, WalletAccountRecord } from './type
 
 initEccLib(ecc);
 
-export const SATS_BASE_PATH = ['m', "84'", "1'"];
-export const TAPROOT_BASE_PATH = ['m', "86'", "1'"];
+export const SATS_BASE_PATHS: Record<DucatNetwork, string[]> = {
+  mainnet: ['m', "84'", "0'"],
+  signet: ['m', "84'", "1'"],
+  mutinynet: ['m', "84'", "1'"],
+};
+export const TAPROOT_BASE_PATHS: Record<DucatNetwork, string[]> = {
+  mainnet: ['m', "86'", "0'"],
+  signet: ['m', "86'", "1'"],
+  mutinynet: ['m', "86'", "1'"],
+};
 
 type SnapBip32Entropy = {
   privateKey?: string;
@@ -196,8 +204,8 @@ async function getBip32BaseNode(path: string[]): Promise<DucatKeyNode> {
 
 export async function getAccountKeySet(networkInput: unknown): Promise<AccountKeySet> {
   const network = normalizeNetwork(networkInput);
-  const satsBaseNode = await getBip32BaseNode(SATS_BASE_PATH);
-  const taprootBaseNode = await getBip32BaseNode(TAPROOT_BASE_PATH);
+  const satsBaseNode = await getBip32BaseNode(SATS_BASE_PATHS[network]);
+  const taprootBaseNode = await getBip32BaseNode(TAPROOT_BASE_PATHS[network]);
 
   return deriveAccountSetFromBaseNodes(network, satsBaseNode, taprootBaseNode);
 }

@@ -23,6 +23,10 @@ type SendTransferParams = {
 const DUST_LIMIT_SATS = 546;
 const MAX_FEE_RATE_SATS_PER_VB = 1_000;
 const MAX_TRANSFER_INPUTS = 80;
+// Absolute fee guard so a manipulated/inflated UTXO value from the (unauthenticated) esplora
+// endpoint cannot translate into an absurd miner fee. The fee may not exceed the amount being
+// sent or this ceiling, whichever is larger.
+const MAX_ABSOLUTE_FEE_SATS = 1_000_000;
 const TXID_PATTERN = /^[0-9a-f]{64}$/iu;
 
 async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 12_000): Promise<Response> {
@@ -204,7 +208,7 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
   try {
     btcAddress.toOutputScript(recipient, bitcoinNetwork(network));
   } catch {
-    throw ducatError('INVALID_RECIPIENT', 'The recipient address is not valid for this Ducat testnet network.', {
+    throw ducatError('INVALID_RECIPIENT', 'The recipient address is not valid for this Ducat Bitcoin network.', {
       network,
       recipient,
     });
@@ -216,6 +220,15 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
   const feeRate = requestedFeeRate ?? (await getFeeRate(endpoint));
   const utxos = parseEsploraUtxos(await fetchJson<unknown>(`${endpoint}/address/${keySet.record.sats.address}/utxo`));
   const { selected, feeSats, changeSats } = selectUtxos(utxos, amountSats, feeRate);
+
+  if (feeSats > Math.max(amountSats, MAX_ABSOLUTE_FEE_SATS)) {
+    throw ducatError('INVALID_PARAMS', 'The computed Bitcoin miner fee for this transfer is unexpectedly large and was rejected for safety.', {
+      feeSats,
+      amountSats,
+      maxAbsoluteFeeSats: MAX_ABSOLUTE_FEE_SATS,
+    });
+  }
+
   const inputValueSats = selected.reduce((total, utxo) => total + utxo.value, 0);
   const psbt = new Psbt({ network: bitcoinNetwork(network) });
 
@@ -290,7 +303,7 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
     amountSats,
     summary: `${amountSats} sats to ${recipient}`,
   });
-  await notifyAction({ title: 'Send BTC', status: 'completed', detail: 'Broadcast to Bitcoin testnet' });
+  await notifyAction({ title: 'Send BTC', status: 'completed', detail: 'Broadcast to Bitcoin network' });
 
   return { txid };
 }

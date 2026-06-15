@@ -20,12 +20,12 @@ export const onInstall: OnInstallHandler = async () => {
       content: uiBox([
         uiHeading('Ducat installed', 'lg'),
         uiSection([
-          uiRow('Networks', 'Signet / Mutinynet'),
-          uiRow('Accounts', 'Bitcoin testnet accounts from MetaMask SRP'),
+          uiRow('Networks', 'Mainnet / Signet / Mutinynet'),
+          uiRow('Accounts', 'Bitcoin accounts from MetaMask SRP'),
           uiRow('Keys', 'Stay inside MetaMask'),
           uiRow('Approvals', 'Required for every message, PSBT, batch, and transfer'),
         ]),
-        uiBanner('Mainnet disabled', 'info', 'Mainnet remains disabled until audit and allowlist approval.'),
+        uiBanner('Mainnet enabled', 'warning', 'Mainnet requests use distinct Bitcoin mainnet derivation paths and require the same MetaMask confirmations.'),
         uiMuted('Use the Ducat web app for create, deposit, borrow, repay, withdraw, swap, and liquidation flows.'),
       ]),
     },

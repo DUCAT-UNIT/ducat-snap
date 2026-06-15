@@ -12,6 +12,7 @@ import { preparePsbtForSigning, signPreparedPsbt } from './psbt';
 import { appendRecentAction, clearRecentActions, rememberDucatSession } from './state';
 import { sendTransfer } from './transfer';
 import type { DucatActionContext, DucatNetwork, SignInputs } from './types';
+import packageJson from '../package.json';
 
 type JsonRpcRequest = {
   method: string;
@@ -77,6 +78,7 @@ const MAX_MESSAGE_LENGTH = 800;
 const MAX_METADATA_ENTRIES = 16;
 const MAX_METADATA_KEY_LENGTH = 64;
 const MAX_METADATA_VALUE_LENGTH = 200;
+const MAX_CONTEXT_LABEL_LENGTH = 200;
 
 export const ALLOWED_ORIGINS = new Set<string>(DUCAT_ALLOWED_ORIGINS);
 
@@ -113,6 +115,10 @@ function isVaultContext(value: unknown): value is NonNullable<DucatActionContext
   );
 }
 
+function isOptionalLabel(value: unknown): value is string | undefined {
+  return value === undefined || (typeof value === 'string' && value.length <= MAX_CONTEXT_LABEL_LENGTH);
+}
+
 function isMetadataValue(value: unknown): value is string | number | boolean | null | undefined {
   if (value === undefined || value === null || typeof value === 'boolean') {
     return true;
@@ -146,9 +152,9 @@ function isActionContext(value: unknown): value is DucatActionContext {
   const context = value as DucatActionContext;
 
   return (
-    (context.actionType === undefined || typeof context.actionType === 'string') &&
-    (context.title === undefined || typeof context.title === 'string') &&
-    (context.flow === undefined || typeof context.flow === 'string') &&
+    isOptionalLabel(context.actionType) &&
+    isOptionalLabel(context.title) &&
+    isOptionalLabel(context.flow) &&
     (context.metadata === undefined || isMetadataContext(context.metadata)) &&
     (context.vault === undefined || isVaultContext(context.vault))
   );
@@ -346,8 +352,8 @@ function assertSingleNetwork(summaries: { network: DucatNetwork }[]): void {
 function capabilities(): CapabilitiesResponse {
   return {
     snap: '@ducat-unit/wallet-snap',
-    version: '0.1.0',
-    networks: ['signet', 'mutinynet'],
+    version: packageJson.version,
+    networks: ['mainnet', 'signet', 'mutinynet'],
     methods: [
       'ducat_clearRecentActions',
       'ducat_getAccounts',
@@ -364,7 +370,7 @@ function capabilities(): CapabilitiesResponse {
       batchSigning: true,
       simpleBtcTransfer: true,
       snapHome: true,
-      mainnet: false,
+      mainnet: true,
     },
   };
 }

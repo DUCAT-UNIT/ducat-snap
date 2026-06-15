@@ -2,7 +2,7 @@
   "snap": {
     "packageName": "@ducat-unit/wallet-snap",
     "proposedName": "Ducat",
-    "version": "0.1.1",
+    "version": "0.1.5",
     "snapId": "npm:@ducat-unit/wallet-snap",
     "repositoryUrl": "https://github.com/DUCAT-UNIT/ducat-snap",
     "npmUrl": "https://www.npmjs.com/package/@ducat-unit/wallet-snap",
@@ -11,11 +11,14 @@
   },
   "launchScope": {
     "networks": [
+      "mainnet",
       "signet",
       "mutinynet"
     ],
-    "mainnetEnabled": false,
+    "mainnetEnabled": true,
     "derivationPaths": [
+      "m/84'/0'",
+      "m/86'/0'",
       "m/84'/1'",
       "m/86'/1'"
     ],
@@ -44,19 +47,19 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.1-20260614-distinct-cosign-keys/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.5-20260615-mainnet-support/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.1-20260614-distinct-cosign-keys/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.5-20260615-mainnet-support/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.1-20260614-distinct-cosign-keys",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.1-20260614-distinct-cosign-keys",
-    "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/pull/3",
+    "candidateTag": "audit-candidate-0.1.5-20260615-mainnet-support",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.5-20260615-mainnet-support",
+    "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/actions/workflows/verify.yml",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
     "fixedCommit": "PENDING_AUDIT_FIX_COMMIT",
@@ -73,9 +76,9 @@
       "npm ci",
       "npm run verify:release"
     ],
-    "packageShasum": "00d0b313b7ebdc614b5bc1749b84d9863f7c1578",
-    "packageIntegrity": "sha512-1pU63q8U5+rcXBfu+qcIOLDL17LTSknWyGEKeFZJ1iewD4eRCMs3WxJ1/NHFZISbh726XhuEquhnx6wrmf5wjw==",
-    "manifestSourceShasum": "/G8Rmg/O7yA6VlB4Dx5tQ2pZse2B9SWuW0/9nniyJVc=",
+    "packageShasum": "090ae302751aa451b85bbf41d020fb200e9a8004",
+    "packageIntegrity": "sha512-jKuqHcd2IwwuDPwZafUb6ot61SDnVPg05oN2MS9FBFbV9jLrciBtIeEBX6mgCj2LmAjctnqROFiV88lN0nTXwg==",
+    "manifestSourceShasum": "pMt/qmJuhxHHwLbNFdsPrZYjMbsBpK8EerupB8+vdTw=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
   }

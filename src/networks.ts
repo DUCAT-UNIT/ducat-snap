@@ -16,17 +16,49 @@ export const DUCAT_ALLOWED_ORIGINS = [
   'https://staging.app.ducatprotocol.com',
 ] as const;
 
+export const DUCAT_SUPPORTED_NETWORKS = ['mainnet', 'signet', 'mutinynet'] as const satisfies readonly DucatNetwork[];
+
+/**
+ * Known Ducat guardian (cosigner) x-only public keys, lowercase hex (64 chars), per network.
+ *
+ * When a network's list is non-empty, the Snap only signs a vault cosign (2-of-2) script-path
+ * input whose guard key is in this list. When empty, the guard is not pinned: the Snap still
+ * signs but surfaces the cosigner key in the confirmation dialog so the user can verify it.
+ * Populate these with the production guardian keys to enforce the cosigner identity.
+ */
+export const DUCAT_GUARDIAN_PUBKEYS: Record<DucatNetwork, readonly string[]> = {
+  mainnet: [],
+  signet: [],
+  mutinynet: [],
+};
+
+export function isKnownGuardianPubkey(network: DucatNetwork, guardPubkeyHex: string): boolean {
+  const guardians = DUCAT_GUARDIAN_PUBKEYS[network];
+
+  return guardians.length === 0 || guardians.includes(guardPubkeyHex.toLowerCase());
+}
+
+export function guardianAllowlistEnforced(network: DucatNetwork): boolean {
+  return DUCAT_GUARDIAN_PUBKEYS[network].length > 0;
+}
+
 const ESPLORA_ENDPOINTS: Record<DucatNetwork, string> = {
+  mainnet: 'https://mempool.space/api',
   signet: 'https://mempool.space/signet/api',
   mutinynet: 'https://mutinynet.com/api',
 };
 
 const VALIDATOR_ENDPOINTS: Record<DucatNetwork, string[]> = {
+  mainnet: ['https://validator-mainnet.prod.ducatprotocol.com'],
   signet: ['https://validator-testnet4.dev.ducatprotocol.com'],
   mutinynet: ['https://validator-mutinynet.dev.ducatprotocol.com'],
 };
 
 export function normalizeNetwork(network: unknown): DucatNetwork {
+  if (network === 'main' || network === 'mainnet' || network === 'alpha-mainnet') {
+    return 'mainnet';
+  }
+
   if (network === 'signet') {
     return 'signet';
   }
@@ -35,13 +67,13 @@ export function normalizeNetwork(network: unknown): DucatNetwork {
     return 'mutinynet';
   }
 
-  throw ducatError('INVALID_NETWORK', 'Ducat Snap v1 supports signet and mutinynet only.', {
+  throw ducatError('INVALID_NETWORK', 'Ducat Snap supports mainnet, signet, and mutinynet only.', {
     requestedNetwork: network,
   });
 }
 
-export function bitcoinNetwork(_: DucatNetwork): Network {
-  return networks.testnet;
+export function bitcoinNetwork(network: DucatNetwork): Network {
+  return network === 'mainnet' ? networks.bitcoin : networks.testnet;
 }
 
 export function esploraUrl(network: DucatNetwork): string {

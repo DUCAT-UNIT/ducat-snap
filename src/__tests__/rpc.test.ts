@@ -6,6 +6,7 @@ import { DucatKeyNode } from '../bip32';
 import { renderHomePage } from '../home';
 import { bitcoinNetwork, validatorUrls } from '../networks';
 import { ALLOWED_ORIGINS, handleRpcRequest } from '../rpc';
+import packageJson from '../../package.json';
 import manifest from '../../snap.manifest.json';
 
 const ORIGIN = 'http://localhost:3000';
@@ -228,6 +229,7 @@ function collectDialogText(value: unknown): string[] {
 
 describe('RPC router', () => {
   it('uses the dev validator for Snap home data', () => {
+    expect(validatorUrls('mainnet')).toEqual(['https://validator-mainnet.prod.ducatprotocol.com']);
     expect(validatorUrls('signet')).toEqual(['https://validator-testnet4.dev.ducatprotocol.com']);
     expect(validatorUrls('mutinynet')).toEqual(['https://validator-mutinynet.dev.ducatprotocol.com']);
   });
@@ -248,10 +250,11 @@ describe('RPC router', () => {
     expect(result).toEqual(
       expect.objectContaining({
         snap: '@ducat-unit/wallet-snap',
-        networks: ['signet', 'mutinynet'],
+        version: packageJson.version,
+        networks: ['mainnet', 'signet', 'mutinynet'],
         methods: expect.arrayContaining(['ducat_clearRecentActions']),
         features: expect.objectContaining({
-          mainnet: false,
+          mainnet: true,
           psbtSigning: true,
         }),
       }),
@@ -302,15 +305,37 @@ describe('RPC router', () => {
     expect((accounts as ReturnType<typeof testKeySet>['record']).runes.pubkey).not.toBe((accounts as ReturnType<typeof testKeySet>['record']).vault.pubkey);
   });
 
+  it('returns mainnet account records from mainnet entropy paths', async () => {
+    const request = setSnapMock();
+
+    const accounts = await handleRpcRequest(ORIGIN, {
+      method: 'ducat_getAccounts',
+      params: { network: 'mainnet' },
+    });
+    const entropyPaths = request.mock.calls.filter(([arg]) => arg.method === 'snap_getBip32Entropy').map(([arg]) => arg.params?.path);
+
+    expect(accounts).toEqual(
+      expect.objectContaining({
+        sats: expect.objectContaining({ address: expect.stringMatching(/^bc1q/) }),
+        runes: expect.objectContaining({ address: expect.stringMatching(/^bc1p/) }),
+        vault: expect.objectContaining({ address: expect.stringMatching(/^bc1p/) }),
+      }),
+    );
+    expect(entropyPaths).toEqual([
+      ['m', "84'", "0'"],
+      ['m', "86'", "0'"],
+    ]);
+  });
+
   it('rejects unsupported networks before requesting entropy', async () => {
     const request = setSnapMock();
 
     await expect(
       handleRpcRequest(ORIGIN, {
         method: 'ducat_getAccounts',
-        params: { network: 'mainnet' },
+        params: { network: 'regtest' },
       }),
-    ).rejects.toThrow('supports signet and mutinynet only');
+    ).rejects.toThrow('supports mainnet, signet, and mutinynet only');
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
@@ -400,6 +425,54 @@ describe('RPC router', () => {
     expect(rendered).toContain('false');
     expect(rendered).toContain('Vault Id');
     expect(rendered).toContain('vault-alpha');
+  });
+
+  it('escapes markdown syntax in app metadata so it cannot inject links into the dialog', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signMessage',
+      params: {
+        network: 'signet',
+        address: keySet.record.sats.address,
+        message: 'Authorize Ducat session',
+        context: {
+          metadata: {
+            status: '[Verified](https://attacker.example)',
+          },
+        },
+      },
+    });
+
+    const rendered = dialogValues(request).join('\n');
+
+    expect(rendered).toContain('Ducat app context');
+    // The literal characters survive, but escaped so MetaMask renders them as text, not a link.
+    expect(rendered).toContain('\\[Verified\\]\\(https://attacker.example\\)');
+    expect(rendered).not.toContain('[Verified](https://attacker.example)');
+  });
+
+  it('rejects context labels longer than the supported length before requesting entropy', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signMessage',
+      params: {
+        network: 'signet',
+        address: keySet.record.sats.address,
+        message: 'Authorize Ducat session',
+        context: {
+          title: 'x'.repeat(5_000),
+        },
+      },
+    });
+
+    const rendered = dialogValues(request).join('\n');
+
+    // The oversized title is rejected by validation, so it never reaches the dialog title.
+    expect(rendered).not.toContain('x'.repeat(5_000));
   });
 
   it('ignores structured app metadata instead of stringifying it into confirmations', async () => {
@@ -504,18 +577,17 @@ describe('RPC router', () => {
     const rendered = dialogValues(request).join('\n');
 
     expect(rendered).toContain('Deposit BTC');
-    expect(rendered).toContain('Vault update');
-    expect(rendered).toContain('Adds BTC collateral to your existing vault.');
-    expect(rendered).toContain('0.00100000 BTC');
-    expect(rendered).toContain('Updated vault state');
-    expect(rendered).toContain('Collateral');
-    expect(rendered).toContain('UNIT debt');
-    expect(rendered).toContain('Health factor');
-    expect(rendered).toContain('Liquidation threshold');
+    // With no decodable Ducat OP_RETURN, app-supplied vault numbers must NOT be rendered as
+    // an authoritative vault-state panel (they cannot be verified from the PSBT).
+    expect(rendered).not.toContain('Updated vault state');
+    expect(rendered).not.toContain('Adds BTC collateral to your existing vault.');
+    expect(rendered).not.toContain('Health factor');
+    expect(rendered).not.toContain('Liquidation threshold');
     expect(rendered).not.toContain('You are signing');
     expect(rendered).not.toContain('Effect');
     expect(rendered).not.toContain('Amount');
     expect(rendered).not.toContain('Vault status comes from the Ducat app.');
+    // The trustworthy, PSBT-derived parts still render.
     expect(rendered).toContain('Approval summary');
     expect(rendered).toContain('Check collateral, change, and fee.');
     expect(rendered).toContain('You pay');
@@ -880,18 +952,21 @@ describe('RPC router', () => {
 
       if (href.includes('validator-testnet4.dev.ducatprotocol.com/api/vault/pubkey/')) {
         return new Response(
-          JSON.stringify([
-            {
-              root_txid: 'vault-1',
-              thold_price: 40_000,
-              unit_balance: 100_000,
-              unit_price: 100_000,
-              vault_action: 'active',
-              vault_balance: 50_000_000,
-              vault_config: { label: 'Alpha vault' },
-              vault_ratio: 6.233342137488894,
-            },
-          ]),
+          JSON.stringify({
+            data: [],
+            items: [
+              {
+                root_txid: 'vault-1',
+                thold_price: 40_000,
+                unit_balance: 100_000,
+                unit_price: 100_000,
+                vault_action: 'active',
+                vault_balance: 50_000_000,
+                vault_config: { label: 'Alpha vault' },
+                vault_ratio: 6.233342137488894,
+              },
+            ],
+          }),
           { status: 200 },
         );
       }

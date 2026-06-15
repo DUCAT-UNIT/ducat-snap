@@ -1,11 +1,12 @@
 {
   "name": "@ducat-unit/wallet-snap",
-  "version": "0.1.1",
+  "version": "0.1.5",
   "description": "Ducat Bitcoin account and signing Snap for MetaMask.",
   "keywords": [
     "ducat",
     "metamask-snap",
     "bitcoin",
+    "mainnet",
     "signet",
     "mutinynet",
     "psbt"
@@ -51,7 +52,8 @@
     "audit:prod": "npm audit --omit=dev",
     "fixture:capture": "node scripts/capture-submission-fixture.mjs",
     "harness:accounts": "node scripts/snap-simulation-harness.mjs accounts",
-    "verify:harness": "npm run harness:accounts",
+    "harness:smoke-signing": "node scripts/snap-simulation-harness.mjs smoke-signing",
+    "verify:harness": "npm run harness:accounts && npm run harness:smoke-signing",
     "snapper": "npx --yes @sayfer_io/snapper --path . --output snapper-report.json",
     "verify:metadata": "node scripts/verify-release-metadata.js",
     "verify:release-manifest": "node scripts/verify-release-manifest.js",

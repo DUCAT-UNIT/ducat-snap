@@ -265,7 +265,10 @@ function assertRealPsbtFixture(action) {
   const fixture = readJson(relativePath);
 
   assert(fixture.action === action, `${relativePath} action must be ${action}.`);
-  assert(fixture.network === 'signet' || fixture.network === 'mutinynet', `${relativePath} network must be signet or mutinynet.`);
+  assert(
+    fixture.network === 'mainnet' || fixture.network === 'signet' || fixture.network === 'mutinynet',
+    `${relativePath} network must be mainnet, signet, or mutinynet.`,
+  );
   assertWalletAccountRecord(relativePath, fixture.accounts);
   assertString(`${relativePath} psbt`, fixture.psbt);
   assert(fixture.psbt.startsWith('cHNidP'), `${relativePath} psbt must be a base64 PSBT.`);
@@ -350,7 +353,10 @@ function assertAuditCommitBinding() {
 function assertE2eEvidence() {
   const evidence = readJson('submission/e2e/evidence.json');
 
-  assert(evidence.network === 'signet' || evidence.network === 'mutinynet', 'submission/e2e/evidence.json network must be signet or mutinynet.');
+  assert(
+    evidence.network === 'mainnet' || evidence.network === 'signet' || evidence.network === 'mutinynet',
+    'submission/e2e/evidence.json network must be mainnet, signet, or mutinynet.',
+  );
   assertString('submission/e2e/evidence.json snapCandidateTag', evidence.snapCandidateTag);
   assert(evidence.snapCandidateTag === directory.audit.candidateTag, `submission/e2e/evidence.json snapCandidateTag must match ${directory.audit.candidateTag}.`);
   assertGitCommitHash('submission/e2e/evidence.json snapCommit', evidence.snapCommit);

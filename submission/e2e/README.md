@@ -1,6 +1,6 @@
 # Final E2E Evidence
 
-Create `evidence.json` in this directory after recording the final signet/mutinynet E2E pass against the audited Snap candidate.
+Create `evidence.json` in this directory after recording the final mainnet/signet/mutinynet E2E pass against the audited Snap candidate.
 
 Required scenario names:
 
@@ -24,12 +24,12 @@ Use this shape:
 ```json
 {
   "network": "mutinynet",
-  "snapCandidateTag": "audit-candidate-0.1.1-YYYYMMDD-final",
-  "snapCommit": "40-character-snap-git-sha",
+  "snapCandidateTag": "audit-candidate-0.1.5-20260615-mainnet-support",
+  "snapCommit": "tag target for audit-candidate-0.1.5-20260615-mainnet-support",
   "frontendCommit": "40-character-frontend-git-sha",
   "packageShasum": "published-npm-package-shasum",
   "packageIntegrity": "published-npm-package-integrity",
-  "manifestSourceShasum": "snap-manifest-source-shasum",
+  "manifestSourceShasum": "pMt/qmJuhxHHwLbNFdsPrZYjMbsBpK8EerupB8+vdTw=",
   "demoVideoUrl": "https://...",
   "scenarios": [
     {

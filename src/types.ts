@@ -1,4 +1,4 @@
-export type DucatNetwork = 'signet' | 'mutinynet';
+export type DucatNetwork = 'mainnet' | 'signet' | 'mutinynet';
 
 export type DucatAddressRole = 'sats' | 'runes' | 'vault';
 
@@ -84,6 +84,10 @@ export type PsbtInputSummary = {
   role: DucatAddressRole;
   valueSats: number | null;
   verification: PsbtInputVerification;
+  /** For committed cosign-leaf inputs: the guard (cosigner) x-only pubkey, lowercase hex. */
+  cosignGuardPubkey?: string;
+  /** Whether the guard key is in the configured Ducat guardian allowlist (undefined when no allowlist is configured). */
+  cosignGuardianKnown?: boolean;
 };
 
 export type PsbtSummary = {

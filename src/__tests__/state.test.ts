@@ -44,7 +44,7 @@ describe('Snap state', () => {
     }));
     setStateMock({
       recentActions: [
-        { id: 'bad-network', actionType: 'deposit', network: 'mainnet', origin: 'http://localhost:3002', timestamp: 999 },
+        { id: 'bad-network', actionType: 'deposit', network: 'regtest', origin: 'http://localhost:3002', timestamp: 999 },
         { id: 'bad-details', actionType: 'deposit', network: 'signet', origin: 'http://localhost:3002', timestamp: 999, details: [] },
         ...validActions,
       ],
@@ -127,5 +127,27 @@ describe('Snap state', () => {
       lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
   });
-});
 
+  it('preserves mainnet recent action and session metadata', async () => {
+    setStateMock({
+      recentActions: [
+        {
+          id: 'mainnet-action',
+          actionType: 'deposit',
+          network: 'mainnet',
+          origin: 'https://app.ducatprotocol.com',
+          timestamp: 1_000,
+          status: 'signed',
+        },
+      ],
+      lastNetwork: 'mainnet',
+      lastOrigin: 'https://app.ducatprotocol.com',
+    });
+
+    const state = await getState();
+
+    expect(state.recentActions).toHaveLength(1);
+    expect(state.recentActions[0]?.network).toBe('mainnet');
+    expect(state.lastNetwork).toBe('mainnet');
+  });
+});

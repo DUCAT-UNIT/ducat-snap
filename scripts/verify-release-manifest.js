@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { readFileSync } = require('node:fs');
+const { readFileSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -54,5 +54,16 @@ const releaseManifestOrigins = releaseManifest.initialPermissions['endowment:rpc
 
 assert(releaseManifestOrigins.every((origin) => !isLocalOrigin(origin)), 'Generated release manifest still contains a localhost origin.');
 assert(releaseManifestOrigins.every((origin) => new URL(origin).protocol === 'https:'), 'Generated release manifest contains a non-HTTPS origin.');
+assert(
+  releaseManifestOrigins.every((origin) => !new URL(origin).hostname.endsWith('.vercel.app')),
+  'Generated release manifest must not contain a Vercel preview origin.',
+);
 
-console.log(`Release manifest origin check passed for ${releaseManifestOrigins.length} HTTPS origin(s).`);
+if (process.argv.includes('--write')) {
+  const outputPath = path.join(root, 'snap.manifest.release.json');
+
+  writeFileSync(outputPath, `${JSON.stringify(releaseManifest, null, 2)}\n`);
+  console.log(`Wrote stripped release manifest with ${releaseManifestOrigins.length} HTTPS origin(s) to ${path.relative(root, outputPath)}.`);
+} else {
+  console.log(`Release manifest origin check passed for ${releaseManifestOrigins.length} HTTPS origin(s).`);
+}
