@@ -40,8 +40,8 @@ Mainnet is enabled in this audit candidate and is included in the external secur
 
 - Audit required: yes
 - Reason: the Snap uses `snap_getBip32Entropy`
-- Audit candidate tag: `audit-candidate-0.1.5-20260615-mainnet-support`
-- Audit candidate commit: tag target for `audit-candidate-0.1.5-20260615-mainnet-support`
+- Audit candidate tag: `audit-candidate-0.1.5-20260615-guardian-allowlist`
+- Audit candidate commit: tag target for `audit-candidate-0.1.5-20260615-guardian-allowlist`
 - Approved auditor: `PENDING_APPROVED_AUDITOR`
 - Audited commit or tag: `PENDING_AUDIT_COMMIT`
 - Fixed commit or tag: `PENDING_AUDIT_FIX_COMMIT`
@@ -56,9 +56,9 @@ Mainnet is enabled in this audit candidate and is included in the external secur
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
 - GitHub verification: https://github.com/DUCAT-UNIT/ducat-snap/actions/workflows/verify.yml
-- npm package shasum: `090ae302751aa451b85bbf41d020fb200e9a8004`
-- npm package integrity: `sha512-jKuqHcd2IwwuDPwZafUb6ot61SDnVPg05oN2MS9FBFbV9jLrciBtIeEBX6mgCj2LmAjctnqROFiV88lN0nTXwg==`
-- Snap manifest source shasum: `pMt/qmJuhxHHwLbNFdsPrZYjMbsBpK8EerupB8+vdTw=`
+- npm package shasum: `21c33861eb86a8375501c9d4a1bca1c20645a013`
+- npm package integrity: `sha512-RWvullaodq9MVm04W40fv8P+6F4JHLWm1IZLfXshNEg5D2K+BIeT+sTb3h6bajXTlD3SvX/EEAfcLBm9vWUmfw==`
+- Snap manifest source shasum: `zl9V64deyOgljY3WlY4xU2YDbG8K6NQChPorHBNq59w=`
 
 ## Permissions Summary
 
@@ -77,9 +77,9 @@ Mainnet is enabled in this audit candidate and is included in the external secur
 - Escalation contact for MetaMask: `PENDING_ESCALATION_CONTACT`
 - Response-time expectation: `PENDING_RESPONSE_TIME`
 - Support source: `SUPPORT.md`
-- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.5-20260615-mainnet-support/SECURITY.md
+- Security contact or process: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.5-20260615-guardian-allowlist/SECURITY.md
 - Security source: `SECURITY.md`
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.5-20260615-mainnet-support/PRIVACY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.5-20260615-guardian-allowlist/PRIVACY.md
 - Privacy source: `PRIVACY.md`
 
 ## Images And Demo

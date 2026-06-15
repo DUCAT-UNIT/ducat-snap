@@ -6,8 +6,8 @@ Use `ALLOWLIST_SUBMISSION.md` as the working copy for the MetaMask form fields. 
 
 Current audit candidate:
 
-- Tag: `audit-candidate-0.1.5-20260615-mainnet-support`
-- Commit: tag target for `audit-candidate-0.1.5-20260615-mainnet-support`
+- Tag: `audit-candidate-0.1.5-20260615-guardian-allowlist`
+- Commit: tag target for `audit-candidate-0.1.5-20260615-guardian-allowlist`
 - Package: `@ducat-unit/wallet-snap@0.1.5`
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
 - GitHub verification: https://github.com/DUCAT-UNIT/ducat-snap/actions/workflows/verify.yml

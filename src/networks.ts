@@ -27,9 +27,9 @@ export const DUCAT_SUPPORTED_NETWORKS = ['mainnet', 'signet', 'mutinynet'] as co
  * Populate these with the production guardian keys to enforce the cosigner identity.
  */
 export const DUCAT_GUARDIAN_PUBKEYS: Record<DucatNetwork, readonly string[]> = {
-  mainnet: [],
-  signet: [],
-  mutinynet: [],
+  mainnet: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],
+  signet: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],
+  mutinynet: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],
 };
 
 export function isKnownGuardianPubkey(network: DucatNetwork, guardPubkeyHex: string): boolean {
