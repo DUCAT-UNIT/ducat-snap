@@ -30,8 +30,24 @@ function normalizeLabelKey(value: string): string {
   return value.trim().toLowerCase().replace(/_/gu, '-').replace(/ /gu, '-');
 }
 
+/**
+ * Strip Unicode format/control/bidi characters from an app-supplied label.
+ *
+ * Confirmation headers (Card titles, Row labels) are rendered as plain text, so injected markdown
+ * cannot create clickable links. But invisible bidi-override (U+202A-U+202E, U+2066-U+2069),
+ * zero-width, and other format/control characters survive titleCaseFallback's ASCII-only cleanup
+ * and let a dapp visually reorder or disguise the headline action name over a spend. We remove
+ * them so the displayed label is exactly the legible characters the Snap intends to show.
+ *
+ * @param value - The untrusted app-supplied label text.
+ * @returns The label with Unicode format/control/bidi characters removed.
+ */
+function stripUnsafeLabelChars(value: string): string {
+  return value.replace(/[\p{Cf}\p{Cc}]/gu, '');
+}
+
 function titleCaseFallback(value: string): string {
-  return value
+  return stripUnsafeLabelChars(value)
     .trim()
     .replace(/([a-z0-9])([A-Z])/gu, '$1 $2')
     .replace(/_/gu, ' ')

@@ -496,6 +496,19 @@ export async function confirmPsbt(params: {
   context?: DucatActionContext;
 }): Promise<void> {
   const { summary, context, origin } = params;
+
+  // Hard-stop instead of rendering "Unavailable": if the total miner fee cannot be computed
+  // (any input omitted its value data), the user cannot see the net BTC leaving the wallet. We
+  // refuse before showing the dialog rather than letting an approval proceed with a hidden fee
+  // and total. The Ducat app must supply value data (witnessUtxo) for every input it asks us to
+  // sign over, including non-signed inputs that contribute to the fee.
+  if (summary.feeSats === null) {
+    throw ducatError('PSBT_FEE_UNAVAILABLE', 'This PSBT does not include enough value data to compute the Bitcoin miner fee, so the Ducat Snap cannot show the total you would pay and will not sign it.', {
+      inputCount: summary.inputCount,
+      inputValueSats: summary.inputValueSats,
+    });
+  }
+
   const displayContext = contextFromDecodedVault(summary, context);
   const signedInputs = summary.signedInputIndexes.map((index) => `#${index}`).join(', ');
   const action = actionLabel(displayContext, 'Ducat transaction');
@@ -637,6 +650,17 @@ export async function confirmBatch(params: {
   context?: DucatActionContext;
 }): Promise<void> {
   const summaries = params.entries.map((entry) => entry.summary);
+
+  // Same hard-stop as confirmPsbt: refuse the whole batch if any transaction's miner fee cannot
+  // be computed, so the user is never asked to approve a batch whose total outflow is hidden.
+  const unavailableFeeEntry = summaries.findIndex((summary) => summary.feeSats === null);
+
+  if (unavailableFeeEntry !== -1) {
+    throw ducatError('PSBT_FEE_UNAVAILABLE', 'A transaction in this Ducat batch does not include enough value data to compute its Bitcoin miner fee, so the Snap cannot show the total you would pay and will not sign the batch.', {
+      entryIndex: unavailableFeeEntry,
+    });
+  }
+
   const decodedBatchSummary = summaries.find((summary) => summary.vaultUpdates.length > 0);
   const displayContext = decodedBatchSummary ? contextFromDecodedVault(decodedBatchSummary, params.context) : (params.context ?? {});
   const feeTotal = sumNullable(summaries.map((summary) => summary.feeSats));
