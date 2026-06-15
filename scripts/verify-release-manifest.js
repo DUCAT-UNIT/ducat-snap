@@ -34,25 +34,37 @@ function assertHttpsDucatOrigin(origin) {
 
 const manifest = readJson('snap.manifest.json');
 const directory = readJson('submission/metamask-directory.json');
-const devOrigins = manifest.initialPermissions?.['endowment:rpc']?.allowedOrigins;
+// shippedOrigins is the allowlist that is actually published and enforced by MetaMask. We validate
+// THIS array on disk (not an in-memory copy), so a localhost/preview origin cannot survive into the
+// released manifest while the gate reports green.
+const shippedOrigins = manifest.initialPermissions?.['endowment:rpc']?.allowedOrigins;
 const releaseOrigins = directory.launchScope?.releaseFrontendOrigins;
 
-assert(Array.isArray(devOrigins), 'snap.manifest.json endowment:rpc.allowedOrigins must be an array.');
+assert(Array.isArray(shippedOrigins), 'snap.manifest.json endowment:rpc.allowedOrigins must be an array.');
 assert(Array.isArray(releaseOrigins) && releaseOrigins.length > 0, 'submission/metamask-directory.json must define launchScope.releaseFrontendOrigins.');
 assert(new Set(releaseOrigins).size === releaseOrigins.length, 'Release frontend origins must be unique.');
+assert(new Set(shippedOrigins).size === shippedOrigins.length, 'Shipped manifest origins must be unique.');
 
 for (const origin of releaseOrigins) {
   assertHttpsDucatOrigin(origin);
-  assert(devOrigins.includes(origin), `Release frontend origin is not present in the development manifest: ${origin}`);
 }
 
-const releaseManifest = JSON.parse(JSON.stringify(manifest));
+// Enforce the on-disk shipped manifest directly: every origin MetaMask will trust for signing must
+// be an HTTPS Ducat origin (no localhost, no wildcard/preview), and the shipped set must equal the
+// declared release set exactly — no extra dev origins smuggled in, none of the release set missing.
+for (const origin of shippedOrigins) {
+  assertHttpsDucatOrigin(origin);
+}
 
-releaseManifest.initialPermissions['endowment:rpc'].allowedOrigins = releaseOrigins;
+const shippedSet = new Set(shippedOrigins);
+const releaseSet = new Set(releaseOrigins);
 
-const releaseManifestOrigins = releaseManifest.initialPermissions['endowment:rpc'].allowedOrigins;
+assert(
+  shippedSet.size === releaseSet.size && [...releaseSet].every((origin) => shippedSet.has(origin)),
+  `Shipped manifest allowedOrigins must equal the release frontend origins exactly.\n  shipped:  ${[...shippedSet].sort().join(', ')}\n  release:  ${[...releaseSet].sort().join(', ')}`,
+);
 
-assert(releaseManifestOrigins.every((origin) => !isLocalOrigin(origin)), 'Generated release manifest still contains a localhost origin.');
-assert(releaseManifestOrigins.every((origin) => new URL(origin).protocol === 'https:'), 'Generated release manifest contains a non-HTTPS origin.');
+assert(shippedOrigins.every((origin) => !isLocalOrigin(origin)), 'Shipped manifest still contains a localhost origin.');
+assert(shippedOrigins.every((origin) => new URL(origin).protocol === 'https:'), 'Shipped manifest contains a non-HTTPS origin.');
 
-console.log(`Release manifest origin check passed for ${releaseManifestOrigins.length} HTTPS origin(s).`);
+console.log(`Release manifest origin check passed: shipped manifest contains exactly ${shippedOrigins.length} HTTPS Ducat origin(s).`);

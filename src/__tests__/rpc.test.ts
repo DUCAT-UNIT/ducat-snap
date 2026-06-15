@@ -9,7 +9,7 @@ import { ALLOWED_ORIGINS, handleRpcRequest } from '../rpc';
 import packageJson from '../../package.json';
 import manifest from '../../snap.manifest.json';
 
-const ORIGIN = 'http://localhost:3000';
+const ORIGIN = 'https://app.ducatprotocol.com';
 
 type SnapRequestArgs = {
   method: string;
@@ -427,6 +427,54 @@ describe('RPC router', () => {
     expect(rendered).toContain('vault-alpha');
   });
 
+  it('escapes markdown syntax in app metadata so it cannot inject links into the dialog', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signMessage',
+      params: {
+        network: 'signet',
+        address: keySet.record.sats.address,
+        message: 'Authorize Ducat session',
+        context: {
+          metadata: {
+            status: '[Verified](https://attacker.example)',
+          },
+        },
+      },
+    });
+
+    const rendered = dialogValues(request).join('\n');
+
+    expect(rendered).toContain('Ducat app context');
+    // The literal characters survive, but escaped so MetaMask renders them as text, not a link.
+    expect(rendered).toContain('\\[Verified\\]\\(https://attacker.example\\)');
+    expect(rendered).not.toContain('[Verified](https://attacker.example)');
+  });
+
+  it('rejects context labels longer than the supported length before requesting entropy', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signMessage',
+      params: {
+        network: 'signet',
+        address: keySet.record.sats.address,
+        message: 'Authorize Ducat session',
+        context: {
+          title: 'x'.repeat(5_000),
+        },
+      },
+    });
+
+    const rendered = dialogValues(request).join('\n');
+
+    // The oversized title is rejected by validation, so it never reaches the dialog title.
+    expect(rendered).not.toContain('x'.repeat(5_000));
+  });
+
   it('ignores structured app metadata instead of stringifying it into confirmations', async () => {
     const request = setSnapMock();
     const keySet = testKeySet();
@@ -529,18 +577,17 @@ describe('RPC router', () => {
     const rendered = dialogValues(request).join('\n');
 
     expect(rendered).toContain('Deposit BTC');
-    expect(rendered).toContain('Vault update');
-    expect(rendered).toContain('Adds BTC collateral to your existing vault.');
-    expect(rendered).toContain('0.00100000 BTC');
-    expect(rendered).toContain('Updated vault state');
-    expect(rendered).toContain('Collateral');
-    expect(rendered).toContain('UNIT debt');
-    expect(rendered).toContain('Health factor');
-    expect(rendered).toContain('Liquidation threshold');
+    // With no decodable Ducat OP_RETURN, app-supplied vault numbers must NOT be rendered as
+    // an authoritative vault-state panel (they cannot be verified from the PSBT).
+    expect(rendered).not.toContain('Updated vault state');
+    expect(rendered).not.toContain('Adds BTC collateral to your existing vault.');
+    expect(rendered).not.toContain('Health factor');
+    expect(rendered).not.toContain('Liquidation threshold');
     expect(rendered).not.toContain('You are signing');
     expect(rendered).not.toContain('Effect');
     expect(rendered).not.toContain('Amount');
     expect(rendered).not.toContain('Vault status comes from the Ducat app.');
+    // The trustworthy, PSBT-derived parts still render.
     expect(rendered).toContain('Approval summary');
     expect(rendered).toContain('Check collateral, change, and fee.');
     expect(rendered).toContain('You pay');
@@ -781,7 +828,7 @@ describe('RPC router', () => {
 
     try {
       await expect(
-        handleRpcRequest('http://localhost:3002', {
+        handleRpcRequest('https://dev.app.ducatprotocol.com', {
           method: 'ducat_sendTransfer',
           params: { network: 'signet', address: recipient, amountSats: 10_000, feeRate: 1 },
         }),
@@ -794,7 +841,7 @@ describe('RPC router', () => {
       expect(updates).toContainEqual(
         expect.objectContaining({
           lastNetwork: 'signet',
-          lastOrigin: 'http://localhost:3002',
+          lastOrigin: 'https://dev.app.ducatprotocol.com',
         }),
       );
       expect(updates).not.toContainEqual(expect.objectContaining({ recentActions: expect.arrayContaining([expect.objectContaining({ actionType: 'transfer' })]) }));
@@ -825,7 +872,7 @@ describe('RPC router', () => {
 
     try {
       await expect(
-        handleRpcRequest('http://localhost:3002', {
+        handleRpcRequest('https://dev.app.ducatprotocol.com', {
           method: 'ducat_sendTransfer',
           params: { network: 'signet', address: recipient, amountSats: 10_000, feeRate: 1 },
         }),
@@ -871,7 +918,7 @@ describe('RPC router', () => {
           actionType: 'borrow',
           title: 'Borrow UNIT',
           network: 'signet',
-          origin: 'http://localhost:3002',
+          origin: 'https://dev.app.ducatprotocol.com',
           timestamp: Date.now() - 60_000,
           status: 'broadcast',
           txid: 'a'.repeat(64),
@@ -884,7 +931,7 @@ describe('RPC router', () => {
         },
       ],
       lastNetwork: 'signet',
-      lastOrigin: 'http://localhost:3002',
+      lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const href = String(url);
@@ -931,7 +978,7 @@ describe('RPC router', () => {
     globalThis.fetch = fetchMock as typeof fetch;
 
     try {
-      await handleRpcRequest('http://localhost:3002', {
+      await handleRpcRequest('https://dev.app.ducatprotocol.com', {
         method: 'ducat_getAccounts',
         params: { network: 'signet' },
       });
@@ -949,7 +996,7 @@ describe('RPC router', () => {
       expect(rendered).not.toContain('Accounts');
       expect(rendered).not.toContain('Open Ducat app');
       expect(rendered).not.toContain('Ducat actions');
-      expect(rendered).not.toContain('http://localhost:3002/?action=deposit');
+      expect(rendered).not.toContain('https://dev.app.ducatprotocol.com/?action=deposit');
       expect(rendered).not.toContain('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     } finally {
       globalThis.fetch = originalFetch;
@@ -960,7 +1007,7 @@ describe('RPC router', () => {
     setSnapMock(true, {
       recentActions: [],
       lastNetwork: 'signet',
-      lastOrigin: 'http://localhost:3002',
+      lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const href = String(url);

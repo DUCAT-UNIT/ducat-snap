@@ -145,6 +145,20 @@ export function formatMetadataKey(key: string): string {
   return titleCaseFallback(key);
 }
 
+/**
+ * Neutralize MetaMask markdown syntax in app-supplied strings so they render as literal text.
+ *
+ * MetaMask's Text component interprets its string children as markdown, which would let an app
+ * inject clickable links or emphasis (e.g. a fake "Verified" link) into the confirmation dialog.
+ * We escape the characters markdown uses for links, emphasis, and code so values display verbatim.
+ *
+ * @param value - The untrusted app-supplied string.
+ * @returns The same string with markdown control characters escaped.
+ */
+export function sanitizeMarkdown(value: string): string {
+  return value.replace(/[\\`*_~[\]()<>|]/gu, (char) => `\\${char}`);
+}
+
 export function compactMetadataLines(context?: DucatActionContext): string[] {
   if (!context?.metadata) {
     return [];
@@ -152,6 +166,6 @@ export function compactMetadataLines(context?: DucatActionContext): string[] {
 
   return Object.entries(context.metadata)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
-    .map(([key, value]) => `**${formatMetadataKey(key)}:** ${String(value).slice(0, 140)}`)
+    .map(([key, value]) => `**${formatMetadataKey(key)}:** ${sanitizeMarkdown(String(value).slice(0, 140))}`)
     .slice(0, 8);
 }
