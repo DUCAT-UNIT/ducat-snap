@@ -3,11 +3,14 @@ import { Buffer } from 'buffer';
 
 import { deriveAccountSetFromBaseNodes } from '../accounts';
 import { DucatKeyNode } from '../bip32';
-import { bitcoinNetwork } from '../networks';
+import { bitcoinNetwork, DUCAT_GUARDIAN_PUBKEYS } from '../networks';
 import { preparePsbtForSigning, signPreparedPsbt } from '../psbt';
 
 const UNSPENDABLE_TAPROOT_KEY = Buffer.from('50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0', 'hex');
-const GUARD_TAPROOT_KEY = Buffer.alloc(32, 8);
+// The approved Ducat guardian key (matches DUCAT_GUARDIAN_PUBKEYS in networks.ts).
+const GUARD_TAPROOT_KEY = Buffer.from(DUCAT_GUARDIAN_PUBKEYS.signet[0], 'hex');
+// A guard key that is NOT on the guardian allowlist, used to assert enforcement.
+const UNAPPROVED_GUARD_TAPROOT_KEY = Buffer.alloc(32, 8);
 
 function makeKeySet() {
   return deriveAccountSetFromBaseNodes(
@@ -24,6 +27,11 @@ function makeScriptPathPayment(xOnlyPubkey: Buffer) {
 
 function makeCosignScriptPathPayment(vaultXOnlyPubkey: Buffer) {
   const redeemScript = btcScript.compile([vaultXOnlyPubkey, opcodes.OP_CHECKSIGVERIFY, GUARD_TAPROOT_KEY, opcodes.OP_CHECKSIG]);
+  return makeTaprootScriptPathPayment(redeemScript);
+}
+
+function makeUnapprovedGuardCosignScriptPathPayment(vaultXOnlyPubkey: Buffer) {
+  const redeemScript = btcScript.compile([vaultXOnlyPubkey, opcodes.OP_CHECKSIGVERIFY, UNAPPROVED_GUARD_TAPROOT_KEY, opcodes.OP_CHECKSIG]);
   return makeTaprootScriptPathPayment(redeemScript);
 }
 
@@ -966,9 +974,47 @@ describe('PSBT signing', () => {
       role: 'vault',
       verification: 'committed-ducat-cosign-leaf',
       cosignGuardPubkey: GUARD_TAPROOT_KEY.toString('hex'),
-      // No guardian allowlist is configured, so the cosigner is surfaced but not marked verified.
-      cosignGuardianKnown: false,
+      // The guard key is on the configured guardian allowlist, so it is marked verified.
+      cosignGuardianKnown: true,
     });
+  });
+
+  it('rejects committed cosign leaves whose guard key is not an approved Ducat guardian', () => {
+    const keySet = makeKeySet();
+    const scriptPath = makeUnapprovedGuardCosignScriptPathPayment(keySet.vaultInternalPubkey);
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '63'.repeat(32),
+      index: 0,
+      tapLeafScript: [
+        {
+          controlBlock: scriptPath.controlBlock,
+          leafVersion: 0xc0,
+          script: scriptPath.redeemScript,
+        },
+      ],
+      witnessUtxo: {
+        script: scriptPath.output,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    try {
+      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] });
+      throw new Error('Expected preparePsbtForSigning to fail.');
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'PSBT_INPUT_ACCOUNT_MISMATCH',
+        details: expect.objectContaining({
+          taprootScriptPathCheck: expect.stringContaining('not an approved Ducat guardian'),
+        }),
+      });
+    }
   });
 
 });

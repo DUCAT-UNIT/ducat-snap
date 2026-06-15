@@ -3,7 +3,7 @@
 ## Completed For `0.1.5`
 
 - [x] Public repository contains the audit-candidate source tag.
-- [x] Audit candidate tag exists after the final handoff commit: `audit-candidate-0.1.5-20260615-mainnet-support`.
+- [x] Audit candidate tag exists after the final handoff commit: `audit-candidate-0.1.5-20260615-guardian-allowlist`.
 - [ ] `.github/workflows/verify.yml` succeeds on the current audit candidate.
 - [x] `npm run verify:release` succeeds locally.
 - [x] `npm run pack:dry-run` output reviewed.

@@ -9,10 +9,10 @@ The Ducat web app remains the user action surface. Users create, deposit, borrow
 - Package candidate: `@ducat-unit/wallet-snap@0.1.5`
 - Snap ID: `npm:@ducat-unit/wallet-snap`
 - Proposed Snap name: `Ducat`
-- Audit candidate tag: `audit-candidate-0.1.5-20260615-mainnet-support`
-- Audit candidate commit: tag target for `audit-candidate-0.1.5-20260615-mainnet-support`
+- Audit candidate tag: `audit-candidate-0.1.5-20260615-guardian-allowlist`
+- Audit candidate commit: tag target for `audit-candidate-0.1.5-20260615-guardian-allowlist`
 - GitHub verification: `Verify Ducat Snap`
-- Manifest source shasum: `pMt/qmJuhxHHwLbNFdsPrZYjMbsBpK8EerupB8+vdTw=`
+- Manifest source shasum: `zl9V64deyOgljY3WlY4xU2YDbG8K6NQChPorHBNq59w=`
 - Package candidate digest evidence: `RELEASE_EVIDENCE.md`
 
 Launch scope:
