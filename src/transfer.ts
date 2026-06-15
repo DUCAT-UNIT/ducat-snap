@@ -204,7 +204,7 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
   try {
     btcAddress.toOutputScript(recipient, bitcoinNetwork(network));
   } catch {
-    throw ducatError('INVALID_RECIPIENT', 'The recipient address is not valid for this Ducat testnet network.', {
+    throw ducatError('INVALID_RECIPIENT', 'The recipient address is not valid for this Ducat Bitcoin network.', {
       network,
       recipient,
     });
@@ -290,7 +290,7 @@ export async function sendTransfer(origin: string, params: SendTransferParams): 
     amountSats,
     summary: `${amountSats} sats to ${recipient}`,
   });
-  await notifyAction({ title: 'Send BTC', status: 'completed', detail: 'Broadcast to Bitcoin testnet' });
+  await notifyAction({ title: 'Send BTC', status: 'completed', detail: 'Broadcast to Bitcoin network' });
 
   return { txid };
 }

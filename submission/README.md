@@ -6,11 +6,11 @@ Use `ALLOWLIST_SUBMISSION.md` as the working copy for the MetaMask form fields. 
 
 Current audit candidate:
 
-- Tag: `audit-candidate-0.1.4-20260614-docs-cleanup`
-- Commit: `0536d4d765e3fbf437b39288842528df837bc254`
-- Package: `@ducat-unit/wallet-snap@0.1.4`
+- Tag: `audit-candidate-0.1.5-20260615-mainnet-support`
+- Commit: tag target for `audit-candidate-0.1.5-20260615-mainnet-support`
+- Package: `@ducat-unit/wallet-snap@0.1.5`
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
-- GitHub verification: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27488207792
+- GitHub verification: https://github.com/DUCAT-UNIT/ducat-snap/actions/workflows/verify.yml
 
 ## Before Submission
 

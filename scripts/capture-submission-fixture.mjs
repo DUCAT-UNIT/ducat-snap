@@ -48,8 +48,8 @@ function assertDraft(draft) {
     throw new Error(`Fixture action must be one of: ${[...REQUIRED_ACTIONS].join(', ')}`);
   }
 
-  if (draft.network !== 'signet' && draft.network !== 'mutinynet') {
-    throw new Error('Fixture network must be signet or mutinynet.');
+  if (draft.network !== 'mainnet' && draft.network !== 'signet' && draft.network !== 'mutinynet') {
+    throw new Error('Fixture network must be mainnet, signet, or mutinynet.');
   }
 
   if (typeof draft.psbt !== 'string' || !draft.psbt.startsWith('cHNidP')) {

@@ -57,6 +57,10 @@ export function roleLabel(role: DucatAddressRole | null | undefined): string {
 }
 
 export function networkLabel(network: DucatNetwork): string {
+  if (network === 'mainnet') {
+    return 'Bitcoin mainnet';
+  }
+
   return network === 'mutinynet' ? 'Mutinynet / Signet testnet' : 'Signet testnet';
 }
 

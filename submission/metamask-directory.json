@@ -2,7 +2,7 @@
   "snap": {
     "packageName": "@ducat-unit/wallet-snap",
     "proposedName": "Ducat",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "snapId": "npm:@ducat-unit/wallet-snap",
     "repositoryUrl": "https://github.com/DUCAT-UNIT/ducat-snap",
     "npmUrl": "https://www.npmjs.com/package/@ducat-unit/wallet-snap",
@@ -11,11 +11,14 @@
   },
   "launchScope": {
     "networks": [
+      "mainnet",
       "signet",
       "mutinynet"
     ],
-    "mainnetEnabled": false,
+    "mainnetEnabled": true,
     "derivationPaths": [
+      "m/84'/0'",
+      "m/86'/0'",
       "m/84'/1'",
       "m/86'/1'"
     ],
@@ -44,18 +47,18 @@
     "url": "https://github.com/DUCAT-UNIT"
   },
   "policies": {
-    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.4-20260614-docs-cleanup/PRIVACY.md",
+    "privacyPolicyUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.5-20260615-mainnet-support/PRIVACY.md",
     "privacyPolicySource": "PRIVACY.md",
     "supportUrl": "https://github.com/DUCAT-UNIT/ducat-snap/issues",
     "supportSource": "SUPPORT.md",
-    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.4-20260614-docs-cleanup/SECURITY.md",
+    "securityProcessUrl": "https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.5-20260615-mainnet-support/SECURITY.md",
     "securitySource": "SECURITY.md"
   },
   "audit": {
     "required": true,
     "reason": "The Snap derives Bitcoin keys using snap_getBip32Entropy.",
-    "candidateTag": "audit-candidate-0.1.4-20260614-docs-cleanup",
-    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.4-20260614-docs-cleanup",
+    "candidateTag": "audit-candidate-0.1.5-20260615-mainnet-support",
+    "candidateCommitSource": "git rev-list -n 1 audit-candidate-0.1.5-20260615-mainnet-support",
     "candidateVerificationSource": "https://github.com/DUCAT-UNIT/ducat-snap/actions/workflows/verify.yml",
     "scopeSource": "AUDIT_SCOPE.md",
     "auditedCommit": "PENDING_AUDIT_COMMIT",
@@ -73,9 +76,9 @@
       "npm ci",
       "npm run verify:release"
     ],
-    "packageShasum": "16f0bdf810f515393e801d4ff57be40745fee051",
-    "packageIntegrity": "sha512-yZyfOoodgTJDhmIh2O72CxbHscEfvRCEklE8zPZqG89VqeNSiC8/ADOQUUHFgjmA5MSAM2Ebypqz7yRzROFeaw==",
-    "manifestSourceShasum": "sy23b6nyxx0qLVjtlJLztj4FDCCfv1Q353VYSZsVOsE=",
+    "packageShasum": "f3bab06ca658e171c2798c5d1b8565856a0ccb15",
+    "packageIntegrity": "sha512-oPCtkvL7INWgF8fMHhsx6VRu50xSJ2dLgnQVGlzB/S+C3olbnuDMKokbAil/g+YiaYDeUIAklKejk64W1KbjPA==",
+    "manifestSourceShasum": "hFYJEUoX/p0URVav/fsuKNlAP04o99xuwXlmYyZo7d4=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
   }

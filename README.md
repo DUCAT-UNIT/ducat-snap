@@ -1,28 +1,31 @@
 # Ducat MetaMask Snap
 
-`@ducat-unit/wallet-snap` is the Ducat Bitcoin account and signing Snap for MetaMask. It derives deterministic signet and mutinynet Bitcoin accounts from the user's MetaMask Secret Recovery Phrase, keeps private keys inside MetaMask, and exposes a narrow Ducat JSON-RPC API to approved Ducat frontend origins.
+`@ducat-unit/wallet-snap` is the Ducat Bitcoin account and signing Snap for MetaMask. It derives deterministic mainnet, signet, and mutinynet Bitcoin accounts from the user's MetaMask Secret Recovery Phrase, keeps private keys inside MetaMask, and exposes a narrow Ducat JSON-RPC API to approved Ducat frontend origins.
 
 The Ducat web app remains the user action surface. Users create, deposit, borrow, repay, withdraw, swap, liquidate, and repossess in the web app; the Snap handles account discovery, MetaMask confirmations, message signing, PSBT signing, batch signing, transfer signing, recent action state, notifications, and Snap Home.
 
 ## Release Candidate Status
 
-- Package candidate: `@ducat-unit/wallet-snap@0.1.4`
+- Package candidate: `@ducat-unit/wallet-snap@0.1.5`
 - Snap ID: `npm:@ducat-unit/wallet-snap`
 - Proposed Snap name: `Ducat`
-- Audit candidate tag: `audit-candidate-0.1.4-20260614-docs-cleanup`
-- Audit candidate commit: tag target for `audit-candidate-0.1.4-20260614-docs-cleanup`
+- Audit candidate tag: `audit-candidate-0.1.5-20260615-mainnet-support`
+- Audit candidate commit: tag target for `audit-candidate-0.1.5-20260615-mainnet-support`
 - GitHub verification: `Verify Ducat Snap`
-- Manifest source shasum: `sy23b6nyxx0qLVjtlJLztj4FDCCfv1Q353VYSZsVOsE=`
+- Manifest source shasum: `hFYJEUoX/p0URVav/fsuKNlAP04o99xuwXlmYyZo7d4=`
 - Package candidate digest evidence: `RELEASE_EVIDENCE.md`
 
 Launch scope:
 
-- Networks: `signet` and `mutinynet`
-- Mainnet: intentionally disabled
+- Networks: `mainnet`, `signet`, and `mutinynet`
+- Mainnet: enabled in this audit candidate
 - Derivation paths:
-  - sats: `m/84'/1'/0'/0/0`, P2WPKH `tb1q...`, compressed 33-byte public key
-  - runes: `m/86'/1'/0'/0/0`, P2TR `tb1p...`, x-only 32-byte internal public key
-  - vault: `m/86'/1'/0'/0/1`, P2TR `tb1p...`, x-only 32-byte internal public key
+  - sats mainnet: `m/84'/0'/0'/0/0`, P2WPKH `bc1q...`, compressed 33-byte public key
+  - runes mainnet: `m/86'/0'/0'/0/0`, P2TR `bc1p...`, x-only 32-byte internal public key
+  - vault mainnet: `m/86'/0'/0'/0/1`, P2TR `bc1p...`, x-only 32-byte internal public key
+  - sats testnet: `m/84'/1'/0'/0/0`, P2WPKH `tb1q...`, compressed 33-byte public key
+  - runes testnet: `m/86'/1'/0'/0/0`, P2TR `tb1p...`, x-only 32-byte internal public key
+  - vault testnet: `m/86'/1'/0'/0/1`, P2TR `tb1p...`, x-only 32-byte internal public key
 
 ## Install
 
@@ -74,7 +77,7 @@ For the published Snap:
 
 ```bash
 NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wallet-snap"
-NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.4"
+NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.5"
 ```
 
 Allowed local development origins:
@@ -119,8 +122,8 @@ Errors returned to the frontend include a stable `code`, user-facing `message`, 
 ## Security Model
 
 - Private keys, child private keys, WIFs, and raw entropy never leave the Snap.
-- The Snap only requests testnet BIP32 entropy paths in v0.1.4.
-- Mainnet network requests are rejected.
+- The Snap requests Bitcoin mainnet and testnet BIP32 entropy paths: `m/84'/0'`, `m/86'/0'`, `m/84'/1'`, and `m/86'/1'`.
+- Mainnet requests use Bitcoin mainnet addresses, transaction parsing, and broadcast endpoints; signet and mutinynet requests use Bitcoin testnet parameters.
 - Unauthorized origins cannot invoke the Snap RPC API.
 - Only explicit `signInputs` indexes are signed.
 - Signing is restricted to derived Ducat Snap accounts.

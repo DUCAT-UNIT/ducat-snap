@@ -1,4 +1,4 @@
-export type DucatNetwork = 'signet' | 'mutinynet';
+export type DucatNetwork = 'mainnet' | 'signet' | 'mutinynet';
 
 export type DucatAddressRole = 'sats' | 'runes' | 'vault';
 

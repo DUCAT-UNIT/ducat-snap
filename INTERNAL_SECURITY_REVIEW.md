@@ -1,13 +1,13 @@
 # Internal Security Review
 
-Date: 2026-06-13
+Date: 2026-06-15
 
-This is an internal pre-audit review for `@ducat-unit/wallet-snap@0.1.4`. It is not a substitute for the required third-party audit for `snap_getBip32Entropy`, but it documents the audit approach, reviewed attack surface, findings, and remediations before external handoff.
+This is an internal pre-audit review for `@ducat-unit/wallet-snap@0.1.5`. It is not a substitute for the required third-party audit for `snap_getBip32Entropy`, but it documents the audit approach, reviewed attack surface, findings, and remediations before external handoff.
 
 ## Scope
 
 - Snap RPC entrypoint and origin authorization.
-- Testnet network gating and endpoint selection.
+- Mainnet/testnet network gating, coin-type separation, and endpoint selection.
 - BIP32 entropy handling and fixed account derivation.
 - BIP322 message signing.
 - PSBT parsing, summarization, confirmation, and signing.
@@ -24,6 +24,7 @@ This is an internal pre-audit review for `@ducat-unit/wallet-snap@0.1.4`. It is 
 - A large request attempts to exhaust Snap execution time or memory.
 - App-supplied context misrepresents a transaction while parsed PSBT facts differ.
 - Release metadata drifts from the built bundle or npm package.
+- Mainnet requests accidentally use testnet derivation paths, addresses, endpoints, or validator data.
 
 ## Review Method
 
@@ -133,12 +134,25 @@ Remediation:
 - Added direct matcher coverage for duplicate-key leaves.
 - Added PSBT-level coverage for a committed duplicate-key Taproot leaf to ensure it is rejected before signing and never appears as a committed Ducat cosign approval.
 
+### F-009: Mainnet Support Required Explicit Coin-Type Separation
+
+Severity: Medium
+
+Mainnet support expands the Snap from testnet-only Bitcoin key paths and endpoints to both Bitcoin coin types. Without explicit normalization and tests, a mainnet request could accidentally derive testnet addresses, or a testnet request could accidentally hit mainnet endpoints.
+
+Remediation:
+
+- Added `mainnet` to the supported Ducat networks.
+- Mainnet account derivation uses `m/84'/0'` and `m/86'/0'`; signet and mutinynet continue to use `m/84'/1'` and `m/86'/1'`.
+- Mainnet transaction parsing uses `bitcoinjs-lib` mainnet parameters and mainnet transfer broadcasts use `https://mempool.space/api`.
+- Added RPC and derivation tests for mainnet account records and metadata verifier checks for all four BIP32 base paths.
+
 ## Residual Risk
 
 - The Snap still depends on third-party APIs for balances, vault summaries, fee estimates, and transfer broadcast. Transfer signing does not trust those APIs for private keys, but availability and data quality remain external dependencies.
 - Direct `ducat_sendTransfer` broadcasts after confirmation. This is intentional, but should receive extra external-audit attention because it combines signing and network submission.
 - Snapper currently reports low-risk lint-policy findings only. These should be reviewed by the external auditor, but they are not treated as blockers because they are not key-export, origin-bypass, signing-policy, or network-scope findings.
-- Mainnet remains disabled and should require a separate delta audit.
+- Mainnet signing and direct transfer broadcast are now in scope for the external audit. Mainnet production distribution should wait for auditor sign-off and MetaMask allowlisting.
 
 ## External Audit Handoff Notes
 
@@ -148,6 +162,6 @@ Auditors should prioritize:
 - Taproot script-path verification and PSBT signing policy.
 - Whether BIP322 signing can be abused as a generic signing oracle.
 - Confirmation UI correctness versus parsed PSBT facts.
-- Origin allowlist and network-scope restrictions.
+- Origin allowlist, network-scope restrictions, and mainnet/testnet coin-type separation.
 - Direct transfer fee policy, UTXO validation, and broadcast failure handling.
 - Batch-signing all-or-nothing behavior.

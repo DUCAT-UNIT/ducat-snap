@@ -229,6 +229,7 @@ function collectDialogText(value: unknown): string[] {
 
 describe('RPC router', () => {
   it('uses the dev validator for Snap home data', () => {
+    expect(validatorUrls('mainnet')).toEqual(['https://validator-mainnet.prod.ducatprotocol.com']);
     expect(validatorUrls('signet')).toEqual(['https://validator-testnet4.dev.ducatprotocol.com']);
     expect(validatorUrls('mutinynet')).toEqual(['https://validator-mutinynet.dev.ducatprotocol.com']);
   });
@@ -250,10 +251,10 @@ describe('RPC router', () => {
       expect.objectContaining({
         snap: '@ducat-unit/wallet-snap',
         version: packageJson.version,
-        networks: ['signet', 'mutinynet'],
+        networks: ['mainnet', 'signet', 'mutinynet'],
         methods: expect.arrayContaining(['ducat_clearRecentActions']),
         features: expect.objectContaining({
-          mainnet: false,
+          mainnet: true,
           psbtSigning: true,
         }),
       }),
@@ -304,15 +305,37 @@ describe('RPC router', () => {
     expect((accounts as ReturnType<typeof testKeySet>['record']).runes.pubkey).not.toBe((accounts as ReturnType<typeof testKeySet>['record']).vault.pubkey);
   });
 
+  it('returns mainnet account records from mainnet entropy paths', async () => {
+    const request = setSnapMock();
+
+    const accounts = await handleRpcRequest(ORIGIN, {
+      method: 'ducat_getAccounts',
+      params: { network: 'mainnet' },
+    });
+    const entropyPaths = request.mock.calls.filter(([arg]) => arg.method === 'snap_getBip32Entropy').map(([arg]) => arg.params?.path);
+
+    expect(accounts).toEqual(
+      expect.objectContaining({
+        sats: expect.objectContaining({ address: expect.stringMatching(/^bc1q/) }),
+        runes: expect.objectContaining({ address: expect.stringMatching(/^bc1p/) }),
+        vault: expect.objectContaining({ address: expect.stringMatching(/^bc1p/) }),
+      }),
+    );
+    expect(entropyPaths).toEqual([
+      ['m', "84'", "0'"],
+      ['m', "86'", "0'"],
+    ]);
+  });
+
   it('rejects unsupported networks before requesting entropy', async () => {
     const request = setSnapMock();
 
     await expect(
       handleRpcRequest(ORIGIN, {
         method: 'ducat_getAccounts',
-        params: { network: 'mainnet' },
+        params: { network: 'regtest' },
       }),
-    ).rejects.toThrow('supports signet and mutinynet only');
+    ).rejects.toThrow('supports mainnet, signet, and mutinynet only');
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });

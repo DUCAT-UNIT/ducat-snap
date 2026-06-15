@@ -1,31 +1,31 @@
 # Ducat Snap Release Evidence
 
-Date: 2026-06-14
+Date: 2026-06-15
 
-This document records the source, package, verification, and remaining external-gate status for `@ducat-unit/wallet-snap@0.1.4`.
+This document records the source, package, verification, and remaining external-gate status for `@ducat-unit/wallet-snap@0.1.5`.
 
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Candidate tag: `audit-candidate-0.1.4-20260614-docs-cleanup`
-- Candidate commit: `0536d4d765e3fbf437b39288842528df837bc254`
+- Candidate tag: `audit-candidate-0.1.5-20260615-mainnet-support`
+- Candidate commit: tag target for `audit-candidate-0.1.5-20260615-mainnet-support`
 - Package name: `@ducat-unit/wallet-snap`
-- Version: `0.1.4`
+- Version: `0.1.5`
 - Snap ID: `npm:@ducat-unit/wallet-snap`
 - Proposed Snap name: `Ducat`
-- Launch networks: signet and mutinynet
-- Mainnet: intentionally disabled
+- Launch networks: mainnet, signet, and mutinynet
+- Mainnet: enabled in this audit candidate
 
 ## Package Candidate
 
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
-- Candidate version: `0.1.4`
+- Candidate version: `0.1.5`
 - Target npm dist-tag: `latest`
-- npm package shasum: `16f0bdf810f515393e801d4ff57be40745fee051`
-- npm package integrity: `sha512-yZyfOoodgTJDhmIh2O72CxbHscEfvRCEklE8zPZqG89VqeNSiC8/ADOQUUHFgjmA5MSAM2Ebypqz7yRzROFeaw==`
-- Snap manifest source shasum: `sy23b6nyxx0qLVjtlJLztj4FDCCfv1Q353VYSZsVOsE=`
-- Dry-run package size: `1326302`
-- Dry-run unpacked size: `2257454`
+- npm package shasum: `f3bab06ca658e171c2798c5d1b8565856a0ccb15`
+- npm package integrity: `sha512-oPCtkvL7INWgF8fMHhsx6VRu50xSJ2dLgnQVGlzB/S+C3olbnuDMKokbAil/g+YiaYDeUIAklKejk64W1KbjPA==`
+- Snap manifest source shasum: `hFYJEUoX/p0URVav/fsuKNlAP04o99xuwXlmYyZo7d4=`
+- Dry-run package size: `1326620`
+- Dry-run unpacked size: `2259282`
 - Dry-run file count: `15`
 
 Packaged files:
@@ -49,10 +49,10 @@ Packaged files:
 ## Automated Verification
 
 - Local release command: `npm run verify:release`
-- Local release result: passed for the candidate commit
+- Local release result: passed before final metadata refresh; rerun after tagging the handoff commit
 - GitHub workflow: `Verify Ducat Snap`
-- GitHub Actions run: https://github.com/DUCAT-UNIT/ducat-snap/actions/runs/27488207792
-- GitHub Actions result: success
+- GitHub Actions run: https://github.com/DUCAT-UNIT/ducat-snap/actions/workflows/verify.yml
+- GitHub Actions result: pending for the new audit candidate until pushed
 - Release workflow file: `.github/workflows/verify.yml`
 - Release workflow command: `npm run verify:release`
 
@@ -72,17 +72,18 @@ Packaged files:
 ## Test Evidence
 
 - Jest suites: 8 passed
-- Jest tests: 73 passed
+- Jest tests: 80 passed
 - MetaMask simulation harness account smoke: passed
 - MetaMask simulation harness deterministic P2WPKH signing smoke: passed
 
 Covered areas include:
 
-- Deterministic signet/mutinynet account derivation
+- Deterministic mainnet/signet/mutinynet account derivation
 - Public account ownership reconstruction for fixture replay without private keys
 - `ducat_getAccounts`
 - `ducat_getCapabilities`
 - Capabilities version synchronized with `package.json`
+- Capabilities and release metadata expose mainnet support
 - Derived-address-only message signing
 - Copyable message confirmation rendering for arbitrary signing content
 - Compact action-specific PSBT confirmation rendering
@@ -113,6 +114,7 @@ Covered areas include:
 - Confirmed recent-action clearing
 - Snap Home state rendering
 - Network-specific Snap Home validator endpoint selection
+- Mainnet account records use Bitcoin mainnet coin-type paths and `bc1` addresses
 - Malformed Snap Home balance and vault-data handling
 - Transfer UTXO selection, dust-change fee display, and insufficient funds rejection
 - Malformed transfer broadcast txid rejection and failed-action recording
@@ -131,7 +133,7 @@ Covered areas include:
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
 - Snapper result: completed with 206 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
-- Release stance: findings are documented and not treated as a v0.1.4 blocker pending third-party audit review
+- Release stance: findings are documented and not treated as a v0.1.5 blocker pending third-party audit review
 
 ## Release Guards
 
@@ -145,10 +147,10 @@ Covered areas include:
 - Frontend PR: https://github.com/DUCAT-UNIT/frontend/pull/675
 - Connector branch: `feat/metamask-snap-connector`
 - Snap package reference: `npm:@ducat-unit/wallet-snap`
-- Default Snap version range: `^0.1.4`
+- Default Snap version range: `^0.1.5`
 - Required production cutover: keep `NEXT_PUBLIC_DUCAT_SNAP_ID=npm:@ducat-unit/wallet-snap` and use an allowlisted release range after MetaMask approval
 
-The frontend version range accepts `0.1.4`. No frontend blocker is known for the Snap package update.
+The frontend version range should accept `0.1.5` before using this candidate outside local testing.
 
 ## Known Pre-Audit Notes
 
@@ -159,7 +161,7 @@ The frontend version range accepts `0.1.4`. No frontend blocker is known for the
 
 ## Remaining External Gates
 
-- Send `audit-candidate-0.1.4-20260614-docs-cleanup` to the external Snap auditor.
+- Send `audit-candidate-0.1.5-20260615-mainnet-support` to the external Snap auditor.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
 - Merge audit fixes, if any, and tag the fixed source commit.
 - Replace pending external fields in `submission/metamask-directory.json` and `submission/ALLOWLIST_SUBMISSION.md`.

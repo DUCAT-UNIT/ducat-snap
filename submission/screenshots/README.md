@@ -2,7 +2,7 @@
 
 Capture these screenshots from the audited Snap build and place final PNG files in this directory before MetaMask submission.
 
-Use the same Snap package, manifest shasum, frontend environment, and testnet network referenced in `../ALLOWLIST_SUBMISSION.md`.
+Use the same Snap package, manifest shasum, frontend environment, and selected audited network referenced in `../ALLOWLIST_SUBMISSION.md`.
 
 ## Required Screenshots
 
@@ -17,9 +17,9 @@ Use the same Snap package, manifest shasum, frontend environment, and testnet ne
 
 ## Capture Notes
 
-- Use signet or mutinynet only.
+- Use mainnet, signet, or mutinynet according to the final audited launch scope.
 - Save PNG captures at 360x360 pixels or larger. The submission gate rejects malformed PNGs and captures below that size.
-- Do not include mainnet screens.
+- Do not mix networks in one screenshot set unless each screen clearly shows the selected network.
 - Do not show private keys, seed phrases, browser profiles, or unrelated tabs.
 - Prefer a clean browser profile with only MetaMask/Flask and the Ducat frontend visible.
 - Re-capture all screenshots if the audited commit, package shasum, manifest shasum, or frontend Snap ID changes.

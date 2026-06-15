@@ -215,9 +215,9 @@ assertEqual(manifest.source.location.npm.registry, 'https://registry.npmjs.org/'
 assertEqual(directory.verification.manifestSourceShasum, manifestShasum, 'submission manifest shasum');
 assertEqual(directory.verification.packageShasum, pack.shasum, 'submission package shasum');
 assertEqual(directory.verification.packageIntegrity, pack.integrity, 'submission package integrity');
-assertEqual(directory.launchScope.mainnetEnabled, false, 'submission mainnet flag');
-assertJsonEqual([...directory.launchScope.networks].sort(), ['mutinynet', 'signet'], 'submission networks');
-assertJsonEqual([...directory.launchScope.derivationPaths].sort(), ["m/84'/1'", "m/86'/1'"], 'submission derivation paths');
+assertEqual(directory.launchScope.mainnetEnabled, true, 'submission mainnet flag');
+assertJsonEqual([...directory.launchScope.networks].sort(), ['mainnet', 'mutinynet', 'signet'], 'submission networks');
+assertJsonEqual([...directory.launchScope.derivationPaths].sort(), ["m/84'/0'", "m/84'/1'", "m/86'/0'", "m/86'/1'"], 'submission derivation paths');
 assertJsonEqual(Object.keys(manifestPermissions).sort(), expectedManifestPermissions, 'manifest permission keys');
 
 const rpcOrigins = manifestPermissions['endowment:rpc']?.allowedOrigins;
@@ -253,7 +253,7 @@ const bip32Paths = bip32Permissions.map((permission) => permission.path.join('/'
 assertJsonEqual([...bip32Paths].sort(), [...directory.launchScope.derivationPaths].sort(), 'manifest BIP32 derivation paths');
 for (const permission of bip32Permissions) {
   assertEqual(permission.curve, 'secp256k1', `BIP32 curve for ${permission.path.join('/')}`);
-  assert(permission.path[2] === "1'", `BIP32 path ${permission.path.join('/')} must stay on Bitcoin testnet coin type 1'.`);
+  assert(permission.path[2] === "0'" || permission.path[2] === "1'", `BIP32 path ${permission.path.join('/')} must use Bitcoin coin type 0' or 1'.`);
 }
 
 for (const requiredFile of requiredPackageFiles) {

@@ -348,7 +348,7 @@ function capabilities(): CapabilitiesResponse {
   return {
     snap: '@ducat-unit/wallet-snap',
     version: packageJson.version,
-    networks: ['signet', 'mutinynet'],
+    networks: ['mainnet', 'signet', 'mutinynet'],
     methods: [
       'ducat_clearRecentActions',
       'ducat_getAccounts',
@@ -365,7 +365,7 @@ function capabilities(): CapabilitiesResponse {
       batchSigning: true,
       simpleBtcTransfer: true,
       snapHome: true,
-      mainnet: false,
+      mainnet: true,
     },
   };
 }

@@ -131,6 +131,10 @@ function assertHarness(condition, message) {
   }
 }
 
+function bitcoinNetwork(network) {
+  return network === 'mainnet' || network === 'main' || network === 'alpha-mainnet' ? networks.bitcoin : networks.testnet;
+}
+
 export async function openDucatSnapHarness(options = {}) {
   const root = resolve(options.root ?? process.env.DUCAT_SNAP_DIR ?? process.cwd());
   const origin = options.origin ?? process.env.DUCAT_HARNESS_ORIGIN ?? DEFAULT_ORIGIN;
@@ -199,6 +203,7 @@ export async function openDucatSnapHarness(options = {}) {
     getConfirmations: () => [...confirmations],
     getAccounts: () => invoke('ducat_getAccounts', { network }),
     invoke,
+    network,
     origin,
     signBatch: (entries, context, entryNetwork = network) =>
       invoke('ducat_signBatch', { network: entryNetwork, entries, context }, { approveDialog: true }),
@@ -233,12 +238,13 @@ async function runSmokeSigning(harness) {
   assertHarness(typeof satsPubkey === 'string' && /^[0-9a-f]{66}$/iu.test(satsPubkey), 'ducat_getAccounts returned no compressed sats pubkey.');
 
   const inputValueSats = 100_000;
-  const psbt = new Psbt({ network: networks.testnet });
+  const bitcoinJsNetwork = bitcoinNetwork(harness.network);
+  const psbt = new Psbt({ network: bitcoinJsNetwork });
   psbt.addInput({
     hash: Buffer.alloc(32, 7).toString('hex'),
     index: 0,
     witnessUtxo: {
-      script: btcAddress.toOutputScript(satsAddress, networks.testnet),
+      script: btcAddress.toOutputScript(satsAddress, bitcoinJsNetwork),
       value: inputValueSats,
     },
   });
@@ -248,7 +254,7 @@ async function runSmokeSigning(harness) {
   });
 
   const result = await harness.signPsbt(psbt.toBase64(), { [satsAddress]: [0] }, { actionType: 'smoke-signing', title: 'Harness smoke signing' });
-  const signedPsbt = Psbt.fromBase64(result.psbt, { network: networks.testnet });
+  const signedPsbt = Psbt.fromBase64(result.psbt, { network: bitcoinJsNetwork });
   const partialSignatures = signedPsbt.data.inputs[0]?.partialSig ?? [];
 
   assertHarness(partialSignatures.length === 1, `Expected one partial signature on input 0, got ${partialSignatures.length}.`);
@@ -264,6 +270,7 @@ async function runSmokeSigning(harness) {
       {
         address: satsAddress,
         inputIndex: 0,
+        network: harness.network,
         pubkey: satsPubkey,
         signatureBytes: signature.signature.length,
         status: 'signed',

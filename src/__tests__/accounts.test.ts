@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 
-import { accountPublicSetFromRecord, deriveAccountSetFromBaseNodes } from '../accounts';
+import { accountPublicSetFromRecord, deriveAccountSetFromBaseNodes, SATS_BASE_PATHS, TAPROOT_BASE_PATHS } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 
 function testNode(byte: number) {
@@ -29,8 +29,20 @@ describe('Ducat account derivation', () => {
     ]);
   });
 
-  it('rejects mainnet in v1', () => {
-    expect(() => deriveAccountSetFromBaseNodes('mainnet', testNode(1), testNode(2))).toThrow('supports signet and mutinynet only');
+  it('derives the expected mainnet account shape', () => {
+    const keySet = deriveAccountSetFromBaseNodes('mainnet', testNode(1), testNode(2));
+
+    expect(keySet.record.sats.address).toMatch(/^bc1q/);
+    expect(keySet.record.runes.address).toMatch(/^bc1p/);
+    expect(keySet.record.vault.address).toMatch(/^bc1p/);
+    expect(keySet.record.vault.address).not.toBe(keySet.record.runes.address);
+  });
+
+  it('uses Bitcoin mainnet and testnet coin-type base paths', () => {
+    expect(SATS_BASE_PATHS.mainnet).toEqual(['m', "84'", "0'"]);
+    expect(TAPROOT_BASE_PATHS.mainnet).toEqual(['m', "86'", "0'"]);
+    expect(SATS_BASE_PATHS.signet).toEqual(['m', "84'", "1'"]);
+    expect(TAPROOT_BASE_PATHS.mutinynet).toEqual(['m', "86'", "1'"]);
   });
 
   it('reconstructs public account ownership data without private keys', () => {

@@ -16,17 +16,25 @@ export const DUCAT_ALLOWED_ORIGINS = [
   'https://staging.app.ducatprotocol.com',
 ] as const;
 
+export const DUCAT_SUPPORTED_NETWORKS = ['mainnet', 'signet', 'mutinynet'] as const satisfies readonly DucatNetwork[];
+
 const ESPLORA_ENDPOINTS: Record<DucatNetwork, string> = {
+  mainnet: 'https://mempool.space/api',
   signet: 'https://mempool.space/signet/api',
   mutinynet: 'https://mutinynet.com/api',
 };
 
 const VALIDATOR_ENDPOINTS: Record<DucatNetwork, string[]> = {
+  mainnet: ['https://validator-mainnet.prod.ducatprotocol.com'],
   signet: ['https://validator-testnet4.dev.ducatprotocol.com'],
   mutinynet: ['https://validator-mutinynet.dev.ducatprotocol.com'],
 };
 
 export function normalizeNetwork(network: unknown): DucatNetwork {
+  if (network === 'main' || network === 'mainnet' || network === 'alpha-mainnet') {
+    return 'mainnet';
+  }
+
   if (network === 'signet') {
     return 'signet';
   }
@@ -35,13 +43,13 @@ export function normalizeNetwork(network: unknown): DucatNetwork {
     return 'mutinynet';
   }
 
-  throw ducatError('INVALID_NETWORK', 'Ducat Snap v1 supports signet and mutinynet only.', {
+  throw ducatError('INVALID_NETWORK', 'Ducat Snap supports mainnet, signet, and mutinynet only.', {
     requestedNetwork: network,
   });
 }
 
-export function bitcoinNetwork(_: DucatNetwork): Network {
-  return networks.testnet;
+export function bitcoinNetwork(network: DucatNetwork): Network {
+  return network === 'mainnet' ? networks.bitcoin : networks.testnet;
 }
 
 export function esploraUrl(network: DucatNetwork): string {

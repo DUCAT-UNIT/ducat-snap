@@ -6,8 +6,8 @@ Use this script for the MetaMask allowlist/directory submission video. Record ag
 
 1. Build and serve the Snap with `npm run verify` and `npm run serve`.
 2. Configure the Ducat frontend with `NEXT_PUBLIC_DUCAT_SNAP_ID` pointing at the local Snap during pre-submission testing, or `npm:@ducat-unit/wallet-snap` for the npm build.
-3. Use signet or mutinynet only.
-4. Fund the Snap-derived sats account with test BTC.
+3. Use the audited network being demonstrated. For mainnet demos, use small controlled amounts and the audited production validator/frontend configuration.
+4. Fund the Snap-derived sats account with BTC for the selected network.
 
 ## Recording Steps
 
@@ -31,5 +31,5 @@ Use this script for the MetaMask allowlist/directory submission video. Record ag
 - Every irreversible signing action shows a MetaMask confirmation.
 - Confirmations include origin, network, signed input indexes, output summary, and fee when calculable.
 - Private keys are never exported or shown.
-- Mainnet is not available in the V1 manifest or UI.
+- Mainnet, signet, and mutinynet all use the expected network-specific addresses, validator endpoints, and broadcast endpoints.
 - Xverse and UniSat remain available in the wallet list.

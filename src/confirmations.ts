@@ -672,7 +672,7 @@ export async function confirmTransfer(params: {
           title: 'Send BTC',
           value: formatBtcValue(params.amountSats + params.feeSats),
         }),
-        uiBanner('Ready to broadcast', 'warning', 'Approving signs and broadcasts this testnet BTC transfer. Check the recipient before continuing.'),
+        uiBanner('Ready to broadcast', 'warning', 'Approving signs and broadcasts this BTC transfer. Check the recipient before continuing.'),
         uiSection([
           uiHeading('Approval summary'),
           amountCard('You pay', params.amountSats + params.feeSats, 'Recipient value plus Bitcoin miner fee'),

@@ -376,7 +376,7 @@ export async function renderHomePage(networkInput?: unknown): Promise<{ content:
       content: uiBox([
         uiCard({
           description: 'Bitcoin accounts and Ducat signing',
-          extra: 'testnet only',
+          extra: 'mainnet enabled',
           image: DUCAT_MARK_SVG,
           title: 'Ducat Snap',
           value: networkLabel(homeState.network),

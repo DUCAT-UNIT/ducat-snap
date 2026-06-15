@@ -1,11 +1,11 @@
 # Ducat Snap Audit Scope
 
-This file defines the minimum security review scope before MetaMask allowlisting for `@ducat-unit/wallet-snap@0.1.4`.
+This file defines the minimum security review scope before MetaMask allowlisting for `@ducat-unit/wallet-snap@0.1.5`.
 
 ## In Scope
 
 - `snap.manifest.json` permissions and allowed origins.
-- BIP32 entropy use for `m/84'/1'` and `m/86'/1'`.
+- BIP32 entropy use for `m/84'/0'`, `m/86'/0'`, `m/84'/1'`, and `m/86'/1'`.
 - Local BIP32 child derivation in `src/bip32.ts`.
 - Account derivation in `src/accounts.ts`.
 - BIP322-style message signing in `src/message.ts`.
@@ -25,7 +25,7 @@ This file defines the minimum security review scope before MetaMask allowlisting
 - Any signing path that signs an input not explicitly listed in `signInputs`.
 - Any signing path that signs inputs for addresses not derived by the Snap.
 - Any irreversible operation that can proceed without a MetaMask confirmation.
-- Any mainnet key path, address, broadcast endpoint, or signing support in V1.
+- Any mainnet request that uses a testnet key path, testnet address, or testnet broadcast endpoint, and any testnet request that uses a mainnet key path, mainnet address, or mainnet broadcast endpoint.
 - Any unauthorized origin able to invoke Snap RPC methods.
 - Any malformed PSBT, wrong-network PSBT, unknown address, or unknown input index that is accepted.
 - Any package dependency that violates MetaMask Snap SES constraints or creates avoidable key-management risk.

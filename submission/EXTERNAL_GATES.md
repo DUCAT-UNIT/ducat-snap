@@ -20,12 +20,12 @@ This file separates real external blockers from accidental placeholders. The aud
 | Artifact | Where | Blocked on |
 | --- | --- | --- |
 | Real PSBT fixtures | `submission/fixtures/*.json` | Final audited frontend/client-sdk/validator flows for create, deposit, borrow, repay, withdraw, swap, liquidation, and repossess. |
-| Final E2E evidence | `submission/e2e/evidence.json` | Recorded signet/mutinynet install, update, connect, reload reconnect, action signing, rejection, and disabled/re-enabled flows. |
+| Final E2E evidence | `submission/e2e/evidence.json` | Recorded mainnet/signet/mutinynet install, update, connect, reload reconnect, action signing, rejection, and disabled/re-enabled flows. |
 | Final screenshots | `submission/screenshots/*.png` | Reviewable PNG captures from the audited Snap build and final frontend Snap configuration. |
 
 ## Already Filled
 
 - Builder URL: https://github.com/DUCAT-UNIT
 - Public support URL: https://github.com/DUCAT-UNIT/ducat-snap/issues
-- Security process URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.4-20260614-docs-cleanup/SECURITY.md
-- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.4-20260614-docs-cleanup/PRIVACY.md
+- Security process URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.5-20260615-mainnet-support/SECURITY.md
+- Privacy policy URL: https://github.com/DUCAT-UNIT/ducat-snap/blob/audit-candidate-0.1.5-20260615-mainnet-support/PRIVACY.md
