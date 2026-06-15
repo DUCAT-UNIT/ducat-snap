@@ -21,10 +21,10 @@ This document records the source, package, verification, and remaining external-
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
 - Candidate version: `0.1.5`
 - Target npm dist-tag: `latest`
-- npm package shasum: `1fb5c8b92090e99169e0c64ca146b857ade80619`
-- npm package integrity: `sha512-Hc2dUZn9wRaGylWNqoMFjYy1cb+65n+petmRNUuR1UDa+9o2TBTNghLTKmajlSrFQqCJ3OY1IIUbEhUo+wQRVQ==`
+- npm package shasum: `a1be89a2d50ad229608dad83a9a61a636cef45cb`
+- npm package integrity: `sha512-m9aHIBI/P5KAh3t4A5YQThsCZd4Wcp4mqh2VPWow/vRBi5nhWUv0srqsI7jkstR9Ouy6RZJjkpD9OQETpdlpnw==`
 - Snap manifest source shasum: `0lNJAaEdLVNF1Y57h2WPLbHScSPRn3G3+MFHZxaQjP8=`
-- Dry-run package size: `1327789`
+- Dry-run package size: `1327750`
 - Dry-run unpacked size: `2262659`
 - Dry-run file count: `15`
 
