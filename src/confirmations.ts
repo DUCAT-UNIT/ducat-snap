@@ -423,6 +423,27 @@ function cosignInputsSection(cosignInputs: PsbtSummary['signedInputs']): SnapEle
   return [uiCollapsibleSection(`Vault cosigner (${cosignInputs.length})`, rows, !allGuardiansKnown)];
 }
 
+/**
+ * The confirmation section for BitVM3 unilateral-exit timeout (reclaim) inputs.
+ * Unlike a cosign spend, this is a SINGLE-sig reclaim guarded by a relative
+ * timelock — there is no guardian. The note makes that explicit so the user
+ * understands they are reclaiming a bonded assert output on their own.
+ */
+function timeoutInputsSection(timeoutInputs: PsbtSummary['signedInputs']): SnapElement[] {
+  if (!timeoutInputs.length) {
+    return [];
+  }
+
+  const rows: SnapElement[] = [
+    uiMuted(
+      'This is a BitVM3 unilateral-exit reclaim: you are spending a bonded assert output via its timeout (OP_CSV) leaf. No guardian co-signs — the spend is only valid after the challenge window has passed.',
+    ),
+    uiRow('Spend path', inlineSecurity('Unilateral timeout reclaim', 'success')),
+  ];
+
+  return [uiCollapsibleSection(`Unilateral exit (${timeoutInputs.length})`, rows, false)];
+}
+
 export async function confirmMessage(params: {
   origin: string;
   network: DucatNetwork;
@@ -550,6 +571,8 @@ export async function confirmPsbt(params: {
       : [uiMuted('No inputs requested for signing.')];
   const cosignInputs = summary.signedInputs.filter((input) => input.verification === 'committed-ducat-cosign-leaf');
   const cosignSection = cosignInputsSection(cosignInputs);
+  const timeoutInputs = summary.signedInputs.filter((input) => input.verification === 'committed-bitvm3-timeout-leaf');
+  const timeoutSection = timeoutInputsSection(timeoutInputs);
   let recipientNumber = 0;
   let changeNumber = 0;
   const outputRows =
@@ -611,6 +634,7 @@ export async function confirmPsbt(params: {
           ),
         ]),
         ...cosignSection,
+        ...timeoutSection,
         uiCollapsibleSection(
           `Inspect signed inputs (${summary.signedInputs.length})`,
           [...inputRows, ...(summary.signedInputs.length > visibleSignedInputs.length ? [uiMuted(`+ ${summary.signedInputs.length - visibleSignedInputs.length} more inputs`)] : [])],

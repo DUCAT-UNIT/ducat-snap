@@ -5,6 +5,7 @@ import { Buffer } from 'buffer';
 import { type AccountKeySet, type AccountPublicSet, getNodeForRole, getOutputScriptForRole, getRoleForAddress } from './accounts';
 import type { DucatKeyNode } from './bip32';
 import { matchCosignLeafHex } from './cosign-leaf';
+import { matchTimeoutLeafHex } from './timeout-leaf';
 import { ducatError } from './errors';
 import { bitcoinNetwork, guardianAllowlistEnforced, isKnownGuardianPubkey } from './networks';
 import type {
@@ -161,6 +162,8 @@ type TaprootScriptPathOwnership = {
   leafHash?: Buffer;
   guardPubkey?: string;
   guardianKnown?: boolean;
+  /** Which owned-leaf shape matched: a 2-of-2 cosign leaf or a BitVM3 timeout leaf. */
+  leafKind?: 'cosign' | 'bitvm3-timeout';
 };
 
 function checkOwnedTaprootScriptPathInput(
@@ -184,6 +187,28 @@ function checkOwnedTaprootScriptPathInput(
   }
 
   const vaultPubkeyHex = keySet.vaultInternalPubkey.toString('hex');
+
+  // BitVM3 unilateral-exit TIMEOUT leaf: `<Δ> OP_CSV OP_DROP <vault_pk> OP_CHECKSIG`.
+  // The assert output is NUMS-keyed (no cosign leaf), so this is checked before the
+  // cosign-specific path. We sign ONLY when the embedded operator key is the derived
+  // vault pubkey AND the leaf is genuinely committed to the spent output key (same
+  // anti-abuse rigor as the cosign branch — never sign a leaf the prevout doesn't
+  // actually commit to).
+  const ownedTimeoutLeaf = input.tapLeafScript.find(
+    (tapLeaf) =>
+      matchTimeoutLeafHex(Buffer.from(tapLeaf.script).toString('hex'))?.operator === vaultPubkeyHex &&
+      tapLeafCommitsToOutputKey(tapLeaf, outputKey),
+  );
+
+  if (ownedTimeoutLeaf) {
+    return {
+      ok: true,
+      reason: 'committed BitVM3 timeout leaf',
+      leafHash: tapLeafHashForSigning(ownedTimeoutLeaf),
+      leafKind: 'bitvm3-timeout',
+    };
+  }
+
   const pubkeyLeafIndex = input.tapLeafScript.findIndex((tapLeaf) =>
     tapLeafContainsPubkey(Buffer.from(tapLeaf.script), keySet.vaultInternalPubkey),
   );
@@ -220,6 +245,7 @@ function checkOwnedTaprootScriptPathInput(
       leafHash: tapLeafHashForSigning(ownedCommittedLeaf),
       guardPubkey,
       guardianKnown: guardPubkey ? guardianAllowlistEnforced(keySet.network) : undefined,
+      leafKind: 'cosign',
     };
   }
 
@@ -344,7 +370,8 @@ function validateSignedInput(psbt: Psbt, index: number, address: string, keySet:
         signingAddress: address,
         role,
         valueSats: witnessUtxo.value,
-        verification: 'committed-ducat-cosign-leaf',
+        verification:
+          scriptPathOwnership.leafKind === 'bitvm3-timeout' ? 'committed-bitvm3-timeout-leaf' : 'committed-ducat-cosign-leaf',
         cosignGuardPubkey: scriptPathOwnership.guardPubkey,
         cosignGuardianKnown: scriptPathOwnership.guardianKnown,
       };

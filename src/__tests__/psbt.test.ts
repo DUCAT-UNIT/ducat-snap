@@ -40,6 +40,48 @@ function makeDuplicateKeyCosignScriptPathPayment(vaultXOnlyPubkey: Buffer) {
   return makeTaprootScriptPathPayment(redeemScript);
 }
 
+// The BitVM3 disprove leaf: `OP_SHA256 <H(L*)> OP_EQUALVERIFY OP_1`.
+function bitvm3DisproveLeaf(labelHash: Buffer): Buffer {
+  return btcScript.compile([opcodes.OP_SHA256, labelHash, opcodes.OP_EQUALVERIFY, opcodes.OP_1]);
+}
+
+// The BitVM3 timeout leaf: `<Δ> OP_CSV OP_DROP <operator_pk> OP_CHECKSIG`.
+function bitvm3TimeoutLeaf(challengeWindow: number, operatorXOnlyPubkey: Buffer): Buffer {
+  return btcScript.compile([
+    btcScript.number.encode(challengeWindow),
+    opcodes.OP_CHECKSEQUENCEVERIFY,
+    opcodes.OP_DROP,
+    operatorXOnlyPubkey,
+    opcodes.OP_CHECKSIG,
+  ]);
+}
+
+// Build the real 2-leaf BitVM3 assert output `[disprove, timeout]` (NUMS-keyed),
+// returning the spend material for the TIMEOUT leaf (the operator reclaim path).
+function makeBitvm3AssertTimeoutPayment(operatorXOnlyPubkey: Buffer, challengeWindow = 144) {
+  const disprove = bitvm3DisproveLeaf(Buffer.alloc(32, 0xab));
+  const timeout = bitvm3TimeoutLeaf(challengeWindow, operatorXOnlyPubkey);
+  const payment = payments.p2tr({
+    internalPubkey: UNSPENDABLE_TAPROOT_KEY,
+    network: bitcoinNetwork('signet'),
+    redeem: {
+      output: timeout,
+      redeemVersion: 0xc0,
+    },
+    scriptTree: [{ output: disprove }, { output: timeout }],
+  });
+
+  if (!payment.output || !payment.witness?.length) {
+    throw new Error('Failed to build BitVM3 assert timeout test payment.');
+  }
+
+  return {
+    output: payment.output,
+    timeoutLeaf: timeout,
+    controlBlock: payment.witness[payment.witness.length - 1],
+  };
+}
+
 function makeTaprootScriptPathPayment(redeemScript: Buffer) {
   const payment = payments.p2tr({
     internalPubkey: UNSPENDABLE_TAPROOT_KEY,
@@ -485,6 +527,113 @@ describe('PSBT signing', () => {
     const signInputs = { [keySet.record.vault.address]: [0] };
 
     expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs)).toThrow('different Ducat Snap account');
+  });
+
+  it('signs a committed BitVM3 timeout (unilateral-exit reclaim) leaf for the derived vault pubkey', () => {
+    const keySet = makeKeySet();
+    const assert = makeBitvm3AssertTimeoutPayment(keySet.vaultInternalPubkey);
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '55'.repeat(32),
+      index: 0,
+      // nSequence must encode the relative timelock for OP_CSV to pass on-chain;
+      // the Snap signs regardless, but we set it to mirror the real reclaim tx.
+      sequence: 144,
+      tapLeafScript: [
+        {
+          controlBlock: assert.controlBlock,
+          leafVersion: 0xc0,
+          script: assert.timeoutLeaf,
+        },
+      ],
+      witnessUtxo: {
+        script: assert.output,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    const signInputs = { [keySet.record.vault.address]: [0] };
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
+    const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
+
+    expect(prepared.summary.warnings).toEqual([]);
+    expect(prepared.summary.signedInputs[0]).toMatchObject({
+      role: 'vault',
+      verification: 'committed-bitvm3-timeout-leaf',
+    });
+    expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
+    expect(signed.data.inputs[0].tapScriptSig?.[0].leafHash).toBeDefined();
+    expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
+  });
+
+  it('rejects a BitVM3 timeout leaf whose operator key is not the derived vault pubkey', () => {
+    const keySet = makeKeySet();
+    // Operator key in the leaf is a foreign key, not this Snap's vault key.
+    const assert = makeBitvm3AssertTimeoutPayment(Buffer.alloc(32, 7));
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '56'.repeat(32),
+      index: 0,
+      sequence: 144,
+      tapLeafScript: [
+        {
+          controlBlock: assert.controlBlock,
+          leafVersion: 0xc0,
+          script: assert.timeoutLeaf,
+        },
+      ],
+      witnessUtxo: {
+        script: assert.output,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] })).toThrow(
+      'different Ducat Snap account',
+    );
+  });
+
+  it('rejects a BitVM3 timeout leaf that is not committed to the prevout output', () => {
+    const keySet = makeKeySet();
+    const assert = makeBitvm3AssertTimeoutPayment(keySet.vaultInternalPubkey);
+    // A different assert output the leaf is NOT committed to.
+    const otherAssert = makeBitvm3AssertTimeoutPayment(Buffer.alloc(32, 9));
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: '57'.repeat(32),
+      index: 0,
+      sequence: 144,
+      tapLeafScript: [
+        {
+          controlBlock: assert.controlBlock,
+          leafVersion: 0xc0,
+          script: assert.timeoutLeaf,
+        },
+      ],
+      witnessUtxo: {
+        script: otherAssert.output,
+        value: 10_000,
+      },
+    });
+    psbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] })).toThrow(
+      'different Ducat Snap account',
+    );
   });
 
   it('rejects duplicate previous outputs before signing', () => {

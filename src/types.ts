@@ -75,7 +75,8 @@ export type PsbtOutputSummary = {
 
 export type PsbtInputVerification =
   | 'matched-account-output'
-  | 'committed-ducat-cosign-leaf';
+  | 'committed-ducat-cosign-leaf'
+  | 'committed-bitvm3-timeout-leaf';
 
 export type PsbtInputSummary = {
   index: number;
