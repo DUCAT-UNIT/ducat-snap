@@ -12,11 +12,15 @@ export const SATS_BASE_PATHS: Record<DucatNetwork, string[]> = {
   mainnet: ['m', "84'", "0'"],
   signet: ['m', "84'", "1'"],
   mutinynet: ['m', "84'", "1'"],
+  // regtest shares the testnet coin type (1'), matching the local DUCAT stack.
+  regtest: ['m', "84'", "1'"],
 };
 export const TAPROOT_BASE_PATHS: Record<DucatNetwork, string[]> = {
   mainnet: ['m', "86'", "0'"],
   signet: ['m', "86'", "1'"],
   mutinynet: ['m', "86'", "1'"],
+  // regtest shares the testnet coin type (1') so vault keys match signet/mutinynet.
+  regtest: ['m', "86'", "1'"],
 };
 
 type SnapBip32Entropy = {

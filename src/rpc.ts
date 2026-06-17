@@ -371,7 +371,7 @@ function capabilities(): CapabilitiesResponse {
   return {
     snap: '@ducat-unit/wallet-snap',
     version: packageJson.version,
-    networks: ['mainnet', 'signet', 'mutinynet'],
+    networks: ['mainnet', 'signet', 'mutinynet', 'regtest'],
     methods: [
       'ducat_clearRecentActions',
       'ducat_getAccounts',

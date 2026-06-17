@@ -251,7 +251,7 @@ describe('RPC router', () => {
       expect.objectContaining({
         snap: '@ducat-unit/wallet-snap',
         version: packageJson.version,
-        networks: ['mainnet', 'signet', 'mutinynet'],
+        networks: ['mainnet', 'signet', 'mutinynet', 'regtest'],
         methods: expect.arrayContaining(['ducat_clearRecentActions']),
         features: expect.objectContaining({
           mainnet: true,
@@ -333,9 +333,9 @@ describe('RPC router', () => {
     await expect(
       handleRpcRequest(ORIGIN, {
         method: 'ducat_getAccounts',
-        params: { network: 'regtest' },
+        params: { network: 'testnet4' },
       }),
-    ).rejects.toThrow('supports mainnet, signet, and mutinynet only');
+    ).rejects.toThrow('supports mainnet, signet, mutinynet, and regtest only');
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
