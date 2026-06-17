@@ -16,6 +16,11 @@ const config: SnapConfig = {
   // published/audited mainnet manifest.
   environment: {
     DUCAT_SNAP_DEV_UNPROMPTED: process.env.DUCAT_SNAP_DEV_UNPROMPTED ?? 'false',
+    // Comma-separated dev-only dapp origins merged into the snap's origin allowlist.
+    // Pinned to '' for the DEFAULT/published build so it never authorizes localhost;
+    // a dev build sets it explicitly, e.g.:
+    //   DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000 mm-snap build
+    DUCAT_SNAP_DEV_ORIGINS: process.env.DUCAT_SNAP_DEV_ORIGINS ?? '',
   },
 };
 

@@ -244,6 +244,33 @@ describe('RPC router', () => {
     expect([...ALLOWED_ORIGINS].sort()).toEqual([...manifestOrigins].sort());
   });
 
+  it('authorizes no dev origins in the default (published) build', () => {
+    jest.isolateModules(() => {
+      delete process.env.DUCAT_SNAP_DEV_ORIGINS;
+      const { ALLOWED_ORIGINS: published } = require('../rpc');
+      expect([...published].every((origin: string) => origin.startsWith('https://'))).toBe(true);
+      expect(published.has('http://localhost:3000')).toBe(false);
+    });
+  });
+
+  it('merges DUCAT_SNAP_DEV_ORIGINS into the allowlist for a dev build', () => {
+    try {
+      jest.isolateModules(() => {
+        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000, http://localhost:8000';
+        const { ALLOWED_ORIGINS: dev } = require('../rpc');
+        // Dev origins authorized...
+        expect(dev.has('http://localhost:3000')).toBe(true);
+        expect(dev.has('http://localhost:8000')).toBe(true);
+        // ...alongside the HTTPS Ducat origins...
+        expect(dev.has('https://app.ducatprotocol.com')).toBe(true);
+        // ...and unrelated origins still rejected.
+        expect(dev.has('https://evil.example')).toBe(false);
+      });
+    } finally {
+      delete process.env.DUCAT_SNAP_DEV_ORIGINS;
+    }
+  });
+
   it('returns Snap capabilities', async () => {
     const result = await handleRpcRequest(ORIGIN, { method: 'ducat_getCapabilities' });
 

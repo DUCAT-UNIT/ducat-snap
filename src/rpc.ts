@@ -6,7 +6,7 @@ import { actionLabel } from './display';
 import { ducatError } from './errors';
 import { getHomeState } from './home';
 import { signBip322SimpleMessage } from './message';
-import { DUCAT_ALLOWED_ORIGINS, normalizeNetwork } from './networks';
+import { DUCAT_ALLOWED_ORIGINS, DUCAT_DEV_ALLOWED_ORIGINS, normalizeNetwork } from './networks';
 import { notifyAction, notifyActionFailure } from './notifications';
 import { preparePsbtForSigning, signPreparedPsbt } from './psbt';
 import { appendRecentAction, clearRecentActions, rememberDucatSession } from './state';
@@ -80,7 +80,9 @@ const MAX_METADATA_KEY_LENGTH = 64;
 const MAX_METADATA_VALUE_LENGTH = 200;
 const MAX_CONTEXT_LABEL_LENGTH = 200;
 
-export const ALLOWED_ORIGINS = new Set<string>(DUCAT_ALLOWED_ORIGINS);
+// Published build: only the HTTPS Ducat origins (DUCAT_DEV_ALLOWED_ORIGINS is
+// empty unless a dev build injected DUCAT_SNAP_DEV_ORIGINS at build time).
+export const ALLOWED_ORIGINS = new Set<string>([...DUCAT_ALLOWED_ORIGINS, ...DUCAT_DEV_ALLOWED_ORIGINS]);
 
 // Build-time gate for the dev-only unprompted signing path. mm-snap/webpack replaces
 // `process.env.DUCAT_SNAP_DEV_UNPROMPTED` with a string literal at build time, so when it is
