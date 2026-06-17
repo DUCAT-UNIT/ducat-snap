@@ -1,10 +1,21 @@
+import * as ecc from '@bitcoin-js/tiny-secp256k1-asmjs';
 import { networks as btcNetworks, opcodes, payments, Psbt, script as btcScript, Transaction } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
+
+// Validator that proves a signature verifies against the sighash bitcoinjs-lib recomputes from the
+// FULL input set. bitcoinjs passes a 32-byte x-only pubkey for taproot inputs and a 33-byte
+// compressed pubkey for ECDSA inputs, so the pubkey length is the reliable discriminator (a raw
+// ECDSA signature is also 64 bytes, so signature length is NOT). validateSignaturesOf* recomputes
+// the sighash over every prevout, so a `true` result is positive proof that the signature commits
+// to all inputs' prevouts — not merely that signing did not throw.
+const sigValidator = (pubkey: Buffer, msghash: Buffer, signature: Buffer): boolean =>
+  pubkey.length === 32 ? ecc.verifySchnorr(msghash, pubkey, signature) : ecc.verify(msghash, pubkey, signature);
 
 import { deriveAccountSetFromBaseNodes } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 import { bitcoinNetwork, DUCAT_GUARDIAN_PUBKEYS } from '../networks';
 import { preparePsbtForSigning, signPreparedPsbt } from '../psbt';
+import type { DucatVaultActionFlag } from '../types';
 
 const UNSPENDABLE_TAPROOT_KEY = Buffer.from('50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0', 'hex');
 // The approved Ducat guardian key (matches DUCAT_GUARDIAN_PUBKEYS in networks.ts).
@@ -1166,4 +1177,93 @@ describe('PSBT signing', () => {
     }
   });
 
+});
+
+// Parity with the wallet-snap MVP (DUCAT-UNIT/wallet-snap). These tests assert that
+// ducat-snap classifies and signs every scenario wallet-snap can, so nothing is lost by
+// keeping ducat-snap canonical. Verified equivalences this locks in:
+//   1. Vault-action classification uses the SAME BIP-68 metadata sequence + action-code table
+//      (161 open, 163 close, 164 borrow, 165 repay, 166 deposit, 167 withdraw) as wallet-snap's
+//      summary.ts. ducat-snap is a superset (also liquidate / repossess).
+//   2. Multi-input P2TR signing — the repay-burn-PSBT shape (a P2TR key-path asset input alongside
+//      a P2WPKH funds input) — is the exact case wallet-snap had to FIX (15d3062). ducat-snap is
+//      multi-input-safe by construction (bitcoinjs-lib gathers all prevouts for the taproot sighash).
+describe('wallet-snap parity', () => {
+  // wallet-snap VAULT_ACTION_BY_CODE -> ducat-snap DucatVaultReturnData.actionType, by flag.
+  const ACTION_PARITY: Array<{ flag: DucatVaultActionFlag; actionType: string }> = [
+    { flag: 'o', actionType: 'create' }, // 161 open
+    { flag: 'c', actionType: 'close' }, //  163 close
+    { flag: 'b', actionType: 'borrow' }, // 164 borrow
+    { flag: 'r', actionType: 'repay' }, //  165 repay
+    { flag: 'd', actionType: 'deposit' }, // 166 deposit
+    { flag: 'w', actionType: 'withdraw' }, // 167 withdraw
+  ];
+
+  it.each(ACTION_PARITY)('classifies the $actionType vault action from its OP_RETURN return data', ({ flag, actionType }) => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+    const payload = vaultReturnPayload(flag, 50_000, 60_000, 123_456, 45_000);
+
+    psbt.addInput({
+      hash: '66'.repeat(32),
+      index: 0,
+      witnessUtxo: { script: keySet.satsOutputScript, value: 2_000_000 },
+    });
+    psbt.addOutput({ address: keySet.record.vault.address, value: 1_100_000 });
+    psbt.addOutput({ script: btcScript.compile([opcodes.OP_RETURN, opcodes.OP_8, payload]), value: 0 });
+    psbt.addOutput({ address: keySet.record.sats.address, value: 899_000 });
+
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+
+    expect(prepared.summary.vaultUpdates).toHaveLength(1);
+    expect(prepared.summary.vaultUpdates[0]).toMatchObject({ actionFlag: flag, actionType });
+  });
+
+  it('signs a multi-input PSBT: a P2TR vault key-path input alongside a P2WPKH funds input (repay-burn shape)', () => {
+    const keySet = makeKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    // Input 0: P2WPKH funds (sats) input.
+    psbt.addInput({
+      hash: '00'.repeat(32),
+      index: 0,
+      witnessUtxo: { script: keySet.satsOutputScript, value: 1_000_000 },
+    });
+    // Input 1: P2TR key-path vault input — the asset/UNIT input that, alongside input 0,
+    // broke wallet-snap's @scure signer with single-element prevout arrays.
+    psbt.addInput({
+      hash: '11'.repeat(32),
+      index: 0,
+      witnessUtxo: { script: keySet.vaultOutputScript, value: 500_000 },
+      tapInternalKey: keySet.vaultInternalPubkey,
+    });
+    psbt.addOutput({ address: keySet.record.sats.address, value: 1_400_000 });
+
+    const signInputs = {
+      [keySet.record.sats.address]: [0],
+      [keySet.record.vault.address]: [1],
+    };
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
+    const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
+
+    expect(signed.data.inputs[0].partialSig).toHaveLength(1); // P2WPKH funds
+    expect(signed.data.inputs[1].tapKeySig).toBeDefined(); //    P2TR key-path vault
+
+    // POSITIVE PROOF: each signature verifies against the sighash bitcoinjs-lib recomputes from the
+    // FULL input set (validateSignaturesOf* gathers every prevout's script+value). This proves the
+    // sighash commits to ALL inputs' prevouts — not merely that signing/finalizing did not throw.
+    expect(signed.validateSignaturesOfInput(0, sigValidator)).toBe(true);
+    expect(signed.validateSignaturesOfInput(1, sigValidator)).toBe(true);
+
+    // NEGATIVE CONTROL: tamper with input 0's prevout VALUE, then re-validate input 1's taproot
+    // signature. A BIP-341 key-path sighash commits to every input's amount, so a signature made
+    // over the original amounts must FAIL once any prevout value is altered. If the taproot sighash
+    // only covered its own input (the wallet-snap single-prevout bug), this would still pass.
+    const tampered = Psbt.fromBase64(signed.toBase64(), { network: bitcoinNetwork('signet') });
+    tampered.data.inputs[0].witnessUtxo!.value = 999_999;
+    expect(tampered.validateSignaturesOfInput(1, sigValidator)).toBe(false);
+
+    // The untouched, correctly-signed PSBT still finalizes cleanly.
+    expect(() => signed.finalizeAllInputs()).not.toThrow();
+  });
 });

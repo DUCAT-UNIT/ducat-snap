@@ -18,6 +18,7 @@ export type DucatSnapErrorCode =
   | 'PSBT_INPUT_INDEX_INVALID'
   | 'PSBT_TOO_LARGE'
   | 'UNMANAGED_ADDRESS'
+  | 'UNPROMPTED_MAINNET_FORBIDDEN'
   | 'USER_REJECTED';
 
 export class DucatSnapError extends Error {

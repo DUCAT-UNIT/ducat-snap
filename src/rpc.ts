@@ -82,6 +82,15 @@ const MAX_CONTEXT_LABEL_LENGTH = 200;
 
 export const ALLOWED_ORIGINS = new Set<string>(DUCAT_ALLOWED_ORIGINS);
 
+// Build-time gate for the dev-only unprompted signing path. mm-snap/webpack replaces
+// `process.env.DUCAT_SNAP_DEV_UNPROMPTED` with a string literal at build time, so when it is
+// not 'true' this resolves to a `false` constant and every branch guarded by it (the
+// `ducat_signPsbtUnprompted` method handler) is dead-code-eliminated from the bundle. The
+// published/audited mainnet build never sets this var: the unprompted path does not exist there.
+// Only a separate, unpublished dev build (snap.config injects DUCAT_SNAP_DEV_UNPROMPTED=true)
+// enables it, and even then mainnet is hard-refused at the call site.
+export const DEV_UNPROMPTED_ENABLED = process.env.DUCAT_SNAP_DEV_UNPROMPTED === 'true';
+
 function assertAllowedOrigin(origin: string): void {
   if (!ALLOWED_ORIGINS.has(origin)) {
     throw ducatError('ORIGIN_NOT_AUTHORIZED', 'This site is not authorized to use the Ducat Snap.', { origin });
@@ -272,7 +281,13 @@ async function signMessage(origin: string, rawParams: unknown): Promise<SignMess
   };
 }
 
-async function signPsbt(origin: string, rawParams: unknown): Promise<SignPsbtResponse> {
+// `confirm` controls only whether the human confirmation dialog is shown. Every other
+// safety check (origin allowlist, network normalization, input-ownership policy, sighash
+// allowlists, cosign-leaf validation) runs identically regardless. The default — and the
+// ONLY value reachable in the published build — is `true`. The unprompted path
+// (`confirm: false`) is exclusively driven by the dev-only RPC method below, which is
+// dead-code-eliminated from production (see DEV_UNPROMPTED_ENABLED).
+async function signPsbt(origin: string, rawParams: unknown, confirm = true): Promise<SignPsbtResponse> {
   const params = paramsObject(rawParams) as SignPsbtParams;
   const network = normalizeNetwork(params.network);
 
@@ -290,7 +305,10 @@ async function signPsbt(origin: string, rawParams: unknown): Promise<SignPsbtRes
 
   await rememberDucatSession(network, origin);
   await notifyAction({ title, status: 'pending', detail: 'Transaction approval requested' });
-  await confirmPsbt({ origin, summary: prepared.summary, context });
+
+  if (confirm) {
+    await confirmPsbt({ origin, summary: prepared.summary, context });
+  }
 
   const psbt = signPreparedPsbt(prepared.psbt, keySet, signInputs);
 
@@ -456,6 +474,28 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest):
 
     case 'ducat_signPsbt':
       return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat transaction'), async () => signPsbt(origin, request.params));
+
+    // Dev/test only: sign WITHOUT the confirmation dialog, for programmatic consumers
+    // (e.g. the protocol SDK / e2e harnesses). Triple-gated:
+    //   1. DEV_UNPROMPTED_ENABLED is a build-time `false` in the published build, so this
+    //      whole branch is dead-code-eliminated — the method does not exist in production.
+    //   2. Even if reached, a disabled build reports it as an unknown method (no information leak).
+    //   3. Even in a dev build, mainnet is hard-refused; only signet/mutinynet may skip the prompt.
+    // All other safety checks (origin allowlist, input-ownership policy, sighash allowlists,
+    // cosign-leaf validation) still run — only the human confirmation is skipped.
+    case 'ducat_signPsbtUnprompted': {
+      if (!DEV_UNPROMPTED_ENABLED) {
+        throw ducatError('METHOD_NOT_FOUND', 'The Ducat Snap does not support this RPC method.', { method: request.method });
+      }
+
+      if (normalizeNetwork(paramsObject(request.params).network) === 'mainnet') {
+        throw ducatError('UNPROMPTED_MAINNET_FORBIDDEN', 'Unprompted signing is never permitted on mainnet.');
+      }
+
+      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat transaction (unprompted)'), async () =>
+        signPsbt(origin, request.params, false),
+      );
+    }
 
     case 'ducat_signBatch':
       return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat batch'), async () => signBatch(origin, request.params));
