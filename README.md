@@ -6,13 +6,13 @@ The Ducat web app remains the user action surface. Users create, deposit, borrow
 
 ## Release Candidate Status
 
-- Package candidate: `@ducat-unit/wallet-snap@0.1.5`
+- Package candidate: `@ducat-unit/wallet-snap@0.1.9`
 - Snap ID: `npm:@ducat-unit/wallet-snap`
 - Proposed Snap name: `Ducat`
-- Audit candidate tag: `audit-candidate-0.1.5-20260615-audit-confirmation-hardening`
-- Audit candidate commit: tag target for `audit-candidate-0.1.5-20260615-audit-confirmation-hardening`
+- Audit candidate tag: `audit-candidate-0.1.9-20260617-release-0.1.9`
+- Audit candidate commit: tag target for `audit-candidate-0.1.9-20260617-release-0.1.9`
 - GitHub verification: `Verify Ducat Snap`
-- Manifest source shasum: `RE0s+LP6Soq0Xn0R8P+DA2ChhPOB2pasPp9BsJng5/Y=`
+- Manifest source shasum: `u1SC4s8yatFtFEE1IbLPvx2irYCtR/WOm0PtAx81qUs=`
 - Package candidate digest evidence: `RELEASE_EVIDENCE.md`
 
 Launch scope:
@@ -77,7 +77,7 @@ For the published Snap:
 
 ```bash
 NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wallet-snap"
-NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.5"
+NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.9"
 ```
 
 Allowed HTTPS Ducat origins in the published mainnet manifest:

@@ -1,9 +1,9 @@
 # Ducat Snap Release Checklist
 
-## Completed For `0.1.5`
+## Completed For `0.1.9`
 
 - [x] Public repository contains the audit-candidate source tag.
-- [x] Audit candidate tag exists after the final handoff commit: `audit-candidate-0.1.5-20260615-audit-confirmation-hardening`.
+- [x] Audit candidate tag exists after the final handoff commit: `audit-candidate-0.1.9-20260617-release-0.1.9`.
 - [ ] `.github/workflows/verify.yml` succeeds on the current audit candidate.
 - [x] `npm run verify:release` succeeds locally.
 - [x] `npm run pack:dry-run` output reviewed.
@@ -14,8 +14,8 @@
 - [x] Legacy Taproot script-path compatibility behavior removed and replaced with committed tapleaf verification.
 - [x] Deterministic MetaMask simulation harness covers account derivation and owned P2WPKH PSBT signing.
 - [x] Mainnet derivation, network parsing, endpoint selection, and release metadata added to the audit candidate.
-- [x] `@ducat-unit/wallet-snap@0.1.5` release metadata prepared for audit handoff.
-- [ ] Frontend PR #675 default Snap version range updated to `^0.1.5`.
+- [x] `@ducat-unit/wallet-snap@0.1.9` release metadata prepared for audit handoff.
+- [ ] Frontend default Snap version range updated to `^0.1.9`.
 
 ## Required Before MetaMask Submission
 

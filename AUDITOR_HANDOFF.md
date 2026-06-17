@@ -2,7 +2,7 @@
 
 Date prepared: 2026-06-15
 
-This document is the external security review handoff for `@ducat-unit/wallet-snap@0.1.5`. It complements `AUDIT_SCOPE.md`, `RELEASE_EVIDENCE.md`, `INTERNAL_SECURITY_REVIEW.md`, `SNAPPER_REVIEW.md`, and `DEPENDENCY_AUDIT.md`.
+This document is the external security review handoff for `@ducat-unit/wallet-snap@0.1.9`. It complements `AUDIT_SCOPE.md`, `RELEASE_EVIDENCE.md`, `INTERNAL_SECURITY_REVIEW.md`, `SNAPPER_REVIEW.md`, and `DEPENDENCY_AUDIT.md`.
 
 ## Review Objective
 
@@ -11,15 +11,15 @@ Assess whether the Ducat Snap can safely derive mainnet, signet, and mutinynet B
 ## Candidate Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Audit candidate tag: `audit-candidate-0.1.5-20260615-audit-confirmation-hardening`
-- Audit candidate commit: tag target for `audit-candidate-0.1.5-20260615-audit-confirmation-hardening`
+- Audit candidate tag: `audit-candidate-0.1.9-20260617-release-0.1.9`
+- Audit candidate commit: tag target for `audit-candidate-0.1.9-20260617-release-0.1.9`
 - GitHub Actions verification: https://github.com/DUCAT-UNIT/ducat-snap/actions/workflows/verify.yml
 - npm package name: `@ducat-unit/wallet-snap`
-- npm package version: `0.1.5`
+- npm package version: `0.1.9`
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
-- Package dry-run shasum: `0c9ad26be21554cf9dbcc2d2b4fd1f2e66db271f`
-- Package dry-run integrity: `sha512-A/mxdALQQxrreSrMq3t6/vIOlCCAGsnvSVwL3kshXvQ2A/s0s9j3Ry4yKiRSvTEZt1OIryD0m/4kkEE5uJD8Hw==`
-- Snap manifest source shasum: `RE0s+LP6Soq0Xn0R8P+DA2ChhPOB2pasPp9BsJng5/Y=`
+- Package dry-run shasum: `29c47c65fa35948ec62ecbfcd6cb96df9c44801e`
+- Package dry-run integrity: `sha512-GaQ15+dQosZayYYMFBGxWi05jIABe01qN6ArJmPU2W/PRNl7ZlISvUVwn6Qyrdrh1wBLvHxzDfybEehE42vqAw==`
+- Snap manifest source shasum: `u1SC4s8yatFtFEE1IbLPvx2irYCtR/WOm0PtAx81qUs=`
 - Proposed Snap name: `Ducat`
 - Intended launch scope: mainnet, signet, and mutinynet
 - Mainnet support: enabled in this audit candidate and in scope for external review

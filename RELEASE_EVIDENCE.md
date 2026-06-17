@@ -2,15 +2,15 @@
 
 Date: 2026-06-15
 
-This document records the source, package, verification, and remaining external-gate status for `@ducat-unit/wallet-snap@0.1.5`.
+This document records the source, package, verification, and remaining external-gate status for `@ducat-unit/wallet-snap@0.1.9`.
 
 ## Source
 
 - Public repository: https://github.com/DUCAT-UNIT/ducat-snap
-- Candidate tag: `audit-candidate-0.1.5-20260615-audit-confirmation-hardening`
-- Candidate commit: tag target for `audit-candidate-0.1.5-20260615-audit-confirmation-hardening`
+- Candidate tag: `audit-candidate-0.1.9-20260617-release-0.1.9`
+- Candidate commit: tag target for `audit-candidate-0.1.9-20260617-release-0.1.9`
 - Package name: `@ducat-unit/wallet-snap`
-- Version: `0.1.5`
+- Version: `0.1.9`
 - Snap ID: `npm:@ducat-unit/wallet-snap`
 - Proposed Snap name: `Ducat`
 - Launch networks: mainnet, signet, and mutinynet
@@ -19,13 +19,13 @@ This document records the source, package, verification, and remaining external-
 ## Package Candidate
 
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
-- Candidate version: `0.1.5`
+- Candidate version: `0.1.9`
 - Target npm dist-tag: `latest`
-- npm package shasum: `0c9ad26be21554cf9dbcc2d2b4fd1f2e66db271f`
-- npm package integrity: `sha512-A/mxdALQQxrreSrMq3t6/vIOlCCAGsnvSVwL3kshXvQ2A/s0s9j3Ry4yKiRSvTEZt1OIryD0m/4kkEE5uJD8Hw==`
-- Snap manifest source shasum: `RE0s+LP6Soq0Xn0R8P+DA2ChhPOB2pasPp9BsJng5/Y=`
-- Dry-run package size: `1327949`
-- Dry-run unpacked size: `2263359`
+- npm package shasum: `29c47c65fa35948ec62ecbfcd6cb96df9c44801e`
+- npm package integrity: `sha512-GaQ15+dQosZayYYMFBGxWi05jIABe01qN6ArJmPU2W/PRNl7ZlISvUVwn6Qyrdrh1wBLvHxzDfybEehE42vqAw==`
+- Snap manifest source shasum: `u1SC4s8yatFtFEE1IbLPvx2irYCtR/WOm0PtAx81qUs=`
+- Dry-run package size: `1328743`
+- Dry-run unpacked size: `2265456`
 - Dry-run file count: `15`
 
 Packaged files:
@@ -133,7 +133,7 @@ Covered areas include:
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
 - Snapper result: completed with 206 low-risk ESLinting findings
 - Snapper review: see `SNAPPER_REVIEW.md`
-- Release stance: findings are documented and not treated as a v0.1.5 blocker pending third-party audit review
+- Release stance: findings are documented and not treated as a v0.1.9 blocker pending third-party audit review
 
 ## Release Guards
 
@@ -147,10 +147,10 @@ Covered areas include:
 - Frontend PR: https://github.com/DUCAT-UNIT/frontend/pull/675
 - Connector branch: `feat/metamask-snap-connector`
 - Snap package reference: `npm:@ducat-unit/wallet-snap`
-- Default Snap version range: `^0.1.5`
+- Default Snap version range: `^0.1.9`
 - Required production cutover: keep `NEXT_PUBLIC_DUCAT_SNAP_ID=npm:@ducat-unit/wallet-snap` and use an allowlisted release range after MetaMask approval
 
-The frontend version range should accept `0.1.5` before using this candidate outside local testing.
+The frontend version range should accept `0.1.9` before using this candidate outside local testing.
 
 ## Known Pre-Audit Notes
 
@@ -161,7 +161,7 @@ The frontend version range should accept `0.1.5` before using this candidate out
 
 ## Remaining External Gates
 
-- Send `audit-candidate-0.1.5-20260615-audit-confirmation-hardening` to the external Snap auditor.
+- Send `audit-candidate-0.1.9-20260617-release-0.1.9` to the external Snap auditor.
 - Schedule and complete the third-party audit required for `snap_getBip32Entropy`.
 - Merge audit fixes, if any, and tag the fixed source commit.
 - Replace pending external fields in `submission/metamask-directory.json` and `submission/ALLOWLIST_SUBMISSION.md`.
