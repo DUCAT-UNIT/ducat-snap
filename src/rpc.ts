@@ -2,6 +2,7 @@ import type { Json } from '@metamask/snaps-sdk';
 
 import { getAccountKeySet, getRoleForAddress } from './accounts';
 import { confirmBatch, confirmClearRecentActions, confirmMessage, confirmPsbt } from './confirmations';
+import { snapDebug } from './debug';
 import { actionLabel } from './display';
 import { ducatError } from './errors';
 import { getHomeState } from './home';
@@ -400,12 +401,20 @@ async function signBatch(origin: string, rawParams: unknown): Promise<SignBatchR
   const network = normalizeNetwork(params.network);
   const context = optionalContext(params.context);
   const entries = parseBatchEntries(params.entries);
+  snapDebug('signBatch: enter', {
+    origin,
+    network,
+    entries: entries.length,
+    signInputs: entries.map((e) => e.signInputs),
+    actionType: context?.actionType,
+  });
 
   const keySet = await getAccountKeySet(network);
   const prepared = entries.map((entry) => ({
     ...entry,
     ...preparePsbtForSigning(entry.psbt, network, keySet, entry.signInputs),
   }));
+  snapDebug('signBatch: psbts prepared', { count: prepared.length });
   assertSingleNetwork(prepared.map((item) => item.summary));
   const decodedActionType = prepared.find((item) => item.summary.vaultUpdates.length > 0)?.summary.vaultUpdates[0]?.actionType;
   const actionContext = decodedActionType ? { ...(context ?? {}), actionType: decodedActionType } : context;
@@ -413,13 +422,16 @@ async function signBatch(origin: string, rawParams: unknown): Promise<SignBatchR
 
   await rememberDucatSession(network, origin);
   await notifyAction({ title, status: 'pending', detail: `${prepared.length} transaction approval requested` });
+  snapDebug('signBatch: requesting confirmation dialog', { title });
   await confirmBatch({
     origin,
     entries: prepared.map((item) => ({ summary: item.summary, context: item.context })),
     context,
   });
+  snapDebug('signBatch: confirmation approved; signing');
 
   const psbts = prepared.map((item) => signPreparedPsbt(item.psbt, keySet, item.signInputs));
+  snapDebug('signBatch: signed', { count: psbts.length });
 
   await appendRecentAction({
     actionType: decodedActionType ?? context?.actionType ?? 'sign-batch',
@@ -438,6 +450,7 @@ async function withFailureNotification<Result>(title: string, action: () => Prom
   try {
     return await action();
   } catch (error) {
+    snapDebug('action FAILED', title, '::', error instanceof Error ? error.message : String(error));
     await notifyActionFailure(title, error);
     throw error;
   }
@@ -450,6 +463,7 @@ function actionTitleFromParams(rawParams: unknown, fallback: string): string {
 }
 
 export async function handleRpcRequest(origin: string, request: JsonRpcRequest): Promise<Json> {
+  snapDebug('rpc <-', request.method, 'from', origin);
   assertAllowedOrigin(origin);
 
   switch (request.method) {

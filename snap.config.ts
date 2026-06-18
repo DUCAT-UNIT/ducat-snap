@@ -16,6 +16,11 @@ const config: SnapConfig = {
   // published/audited mainnet manifest.
   environment: {
     DUCAT_SNAP_DEV_UNPROMPTED: process.env.DUCAT_SNAP_DEV_UNPROMPTED ?? 'false',
+    // Dev-only debug logging (src/debug.ts). Pinned to 'false' for the DEFAULT/
+    // published build so every snapDebug() call dead-code-eliminates; a dev build
+    // enables it explicitly, e.g.:
+    //   DUCAT_SNAP_DEBUG=true mm-snap build
+    DUCAT_SNAP_DEBUG: process.env.DUCAT_SNAP_DEBUG ?? 'false',
     // Comma-separated dev-only dapp origins merged into the snap's origin allowlist.
     // Pinned to '' for the DEFAULT/published build so it never authorizes localhost;
     // a dev build sets it explicitly, e.g.:
