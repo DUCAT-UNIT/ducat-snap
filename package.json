@@ -1,6 +1,6 @@
 {
   "name": "@ducat-unit/wallet-snap",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "description": "Ducat Bitcoin account and signing Snap for MetaMask.",
   "keywords": [
     "ducat",
@@ -29,16 +29,7 @@
     "images/",
     "snap.manifest.json",
     "README.md",
-    "LICENSE",
-    "PRIVACY.md",
-    "SECURITY.md",
-    "SUPPORT.md",
-    "RELEASE_CHECKLIST.md",
-    "LISTING.md",
-    "DEMO_SCRIPT.md",
-    "AUDIT_SCOPE.md",
-    "SNAPPER_REVIEW.md",
-    "DEPENDENCY_AUDIT.md"
+    "LICENSE"
   ],
   "scripts": {
     "build": "mm-snap build",
@@ -50,7 +41,6 @@
     "verify": "npm run type-check && npm test && npm run build && npm run manifest",
     "lint": "npm run type-check && npm test",
     "audit:prod": "npm audit --omit=dev",
-    "fixture:capture": "node scripts/capture-submission-fixture.mjs",
     "harness:accounts": "node scripts/snap-simulation-harness.mjs accounts",
     "harness:smoke-signing": "node scripts/snap-simulation-harness.mjs smoke-signing",
     "harness:session": "node scripts/snap-simulation-harness.mjs session",
@@ -58,11 +48,6 @@
     "harness:bitvm3-reclaim-reject": "node scripts/snap-simulation-harness.mjs bitvm3-reclaim-reject",
     "verify:bitvm3": "npm run harness:bitvm3-reclaim && npm run harness:bitvm3-reclaim-reject",
     "verify:harness": "npm run harness:accounts && npm run harness:smoke-signing && npm run verify:bitvm3",
-    "snapper": "npx --yes @sayfer_io/snapper --path . --output snapper-report.json",
-    "verify:metadata": "node scripts/verify-release-metadata.js",
-    "verify:release-manifest": "node scripts/verify-release-manifest.js",
-    "verify:fixtures": "DUCAT_REQUIRE_SUBMISSION_FIXTURES=1 jest --runTestsByPath src/__tests__/submission-fixtures.test.ts --runInBand",
-    "verify:submission-ready": "node scripts/verify-submission-ready.js",
     "verify:release": "bash scripts/verify-release.sh",
     "pack:dry-run": "npm pack --dry-run",
     "prepublishOnly": "npm run verify:release"

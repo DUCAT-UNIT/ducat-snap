@@ -13,12 +13,9 @@
 // (test/e2e-browser/lib/observability.ts attaches console to every page).
 //
 // The console handle is resolved indirectly through `globalThis` rather than the
-// bare `console` identifier. This is deliberate: the release-metadata gate
-// (`scripts/verify-release-metadata.js`) forbids any literal console-member-access
-// token in runtime `src/`, since a stray production log is an audit smell. This module's
-// log is fully dead-code-eliminated from the published bundle (the guard is a
-// static `false`), so it never ships — the indirection keeps the source clean
-// for the scanner without weakening that invariant for any other file.
+// bare `console` identifier, so a grep for stray production logging in `src/` stays
+// clean. The log is dead-code-eliminated from the published bundle anyway (the guard
+// is a static `false`), so it never ships.
 
 export const DUCAT_SNAP_DEBUG = process.env.DUCAT_SNAP_DEBUG === 'true';
 
