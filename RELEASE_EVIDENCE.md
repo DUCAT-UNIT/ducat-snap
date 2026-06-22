@@ -24,8 +24,8 @@ This document records the source, package, verification, and remaining external-
 - npm package shasum: `41adb25eaad07fee7edbb9f5bad6204f91c7d7db`
 - npm package integrity: `sha512-XtmNz1KBwwe3bfB4qZ4TmRZB+QPmMxRUYEj1u1Uu+gPXaez8J+x9cH591bzKAeyMmbqQWF4zTxbJoCcqFMjl7Q==`
 - Snap manifest source shasum: `vYMD8KsbcxClj28hsAFIWHc6VBkkKjunUebaqqaxp+Y=`
-- Dry-run package size: `1328743`
-- Dry-run unpacked size: `2265456`
+- Dry-run package size: `1328913`
+- Dry-run unpacked size: `2266009`
 - Dry-run file count: `15`
 
 Packaged files:
