@@ -1,7 +1,17 @@
+import { DUCAT_SUPPORTED_NETWORKS } from './networks';
 import type { DucatNetwork, DucatSnapState, RecentAction } from './types';
 
 const MAX_RECENT_ACTIONS = 12;
 const RECENT_ACTION_STATUSES = new Set(['signed', 'broadcast', 'failed']);
+// Networks accepted in persisted state. Derived from DUCAT_SUPPORTED_NETWORKS so
+// `regtest` is accepted only in a dev build (DEV_REGTEST_ENABLED); the published
+// build treats a stored `regtest` value as invalid, matching normalizeNetwork.
+const STORED_NETWORKS = new Set<string>(DUCAT_SUPPORTED_NETWORKS);
+
+function isStoredNetwork(value: unknown): value is DucatNetwork {
+  return typeof value === 'string' && STORED_NETWORKS.has(value);
+}
+
 let fallbackIdCounter = 0;
 
 function emptyState(): DucatSnapState {
@@ -35,7 +45,7 @@ function isRecentAction(value: unknown): value is RecentAction {
     typeof candidate.id === 'string' &&
     typeof candidate.actionType === 'string' &&
     (candidate.title === undefined || typeof candidate.title === 'string') &&
-    (candidate.network === 'mainnet' || candidate.network === 'signet' || candidate.network === 'mutinynet' || candidate.network === 'regtest') &&
+    isStoredNetwork(candidate.network) &&
     typeof candidate.origin === 'string' &&
     Number.isFinite(candidate.timestamp) &&
     (candidate.status === undefined || RECENT_ACTION_STATUSES.has(candidate.status)) &&
@@ -72,13 +82,7 @@ export async function getState(): Promise<DucatSnapState> {
       .filter(isRecentAction)
       .sort((left, right) => right.timestamp - left.timestamp)
       .slice(0, MAX_RECENT_ACTIONS),
-    lastNetwork:
-      storedState.lastNetwork === 'mainnet' ||
-      storedState.lastNetwork === 'signet' ||
-      storedState.lastNetwork === 'mutinynet' ||
-      storedState.lastNetwork === 'regtest'
-        ? storedState.lastNetwork
-        : undefined,
+    lastNetwork: isStoredNetwork(storedState.lastNetwork) ? storedState.lastNetwork : undefined,
     lastOrigin: typeof storedState.lastOrigin === 'string' ? storedState.lastOrigin : undefined,
   };
 }

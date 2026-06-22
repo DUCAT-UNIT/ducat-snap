@@ -7,7 +7,7 @@ import { actionLabel } from './display';
 import { ducatError } from './errors';
 import { getHomeState } from './home';
 import { signBip322SimpleMessage } from './message';
-import { DUCAT_ALLOWED_ORIGINS, DUCAT_DEV_ALLOWED_ORIGINS, normalizeNetwork } from './networks';
+import { DUCAT_ALLOWED_ORIGINS, DUCAT_DEV_ALLOWED_ORIGINS, DUCAT_SUPPORTED_NETWORKS, normalizeNetwork } from './networks';
 import { notifyAction, notifyActionFailure } from './notifications';
 import { preparePsbtForSigning, signPreparedPsbt } from './psbt';
 import { appendRecentAction, clearRecentActions, rememberDucatSession } from './state';
@@ -374,7 +374,7 @@ function capabilities(): CapabilitiesResponse {
   return {
     snap: '@ducat-unit/wallet-snap',
     version: packageJson.version,
-    networks: ['mainnet', 'signet', 'mutinynet', 'regtest'],
+    networks: [...DUCAT_SUPPORTED_NETWORKS],
     methods: [
       'ducat_clearRecentActions',
       'ducat_getAccounts',

@@ -21,11 +21,11 @@ This document records the source, package, verification, and remaining external-
 - npm URL: https://www.npmjs.com/package/@ducat-unit/wallet-snap
 - Candidate version: `0.1.9`
 - Target npm dist-tag: `latest`
-- npm package shasum: `f263af21f954b12f2aeb994cec7f9bf7a1386226`
-- npm package integrity: `sha512-tsFff+zfRK6UMk3sPxUuBKR+L5UqTZV2kel7FgbPfWMhur1ngtBONifNuwb1hY9V13fG6P/H9GPhmq7yKZ+cWQ==`
-- Snap manifest source shasum: `vYMD8KsbcxClj28hsAFIWHc6VBkkKjunUebaqqaxp+Y=`
-- Dry-run package size: `1329067`
-- Dry-run unpacked size: `2266413`
+- npm package shasum: `dac7837f131495042a1473620bf774ef24162cb7`
+- npm package integrity: `sha512-m9Gxz9vU99jrSfqKq4Qvfysbjq/JaaFo+3ESaPRwZLw2UcCSTx1sEDEt1Mrx4cQYvEX8BabruKcez2IO/2BUXQ==`
+- Snap manifest source shasum: `0JTo/wc+J91UCeoxX0cLmuDuTdlEpmcMggIpWGGpWro=`
+- Dry-run package size: `1329206`
+- Dry-run unpacked size: `2266549`
 - Dry-run file count: `15`
 
 Packaged files:
@@ -131,7 +131,7 @@ Covered areas include:
 - Direct `dependencies` and `devDependencies` are pinned to exact versions in `package.json`
 - Transitive dependency versions are locked by `package-lock.json`
 - Snapper command: `npx --yes @sayfer_io/snapper --path . --output snapper-report.json`
-- Snapper result: completed with 238 findings (225 low-risk ESLinting, 9 ExcessiveComments, 4 HardcodedSecrets public-key) — see `SNAPPER_REVIEW.md`
+- Snapper result: completed with 242 findings (227 low-risk ESLinting, 11 ExcessiveComments, 4 HardcodedSecrets public-key) — see `SNAPPER_REVIEW.md`
 - Snapper review: see `SNAPPER_REVIEW.md`
 - Release stance: findings are documented and not treated as a v0.1.9 blocker pending third-party audit review
 
