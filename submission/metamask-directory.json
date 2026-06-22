@@ -71,8 +71,8 @@
       "npm ci",
       "npm run verify:release"
     ],
-    "packageShasum": "c06448f686029c408873d78e645b92a5705ed647",
-    "packageIntegrity": "sha512-k9DNUmu/LFf+THs1pu3+jCzal1MOkCofHgx9bTjOhzublrQ+0XbmMKnF/AX3NMtYCzuqyu1sadqmIoL9EuVu4g==",
+    "packageShasum": "41adb25eaad07fee7edbb9f5bad6204f91c7d7db",
+    "packageIntegrity": "sha512-XtmNz1KBwwe3bfB4qZ4TmRZB+QPmMxRUYEj1u1Uu+gPXaez8J+x9cH591bzKAeyMmbqQWF4zTxbJoCcqFMjl7Q==",
     "manifestSourceShasum": "vYMD8KsbcxClj28hsAFIWHc6VBkkKjunUebaqqaxp+Y=",
     "snapperReport": "snapper-report.json",
     "dependencyAuditSource": "DEPENDENCY_AUDIT.md"
