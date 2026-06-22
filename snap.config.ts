@@ -26,6 +26,13 @@ const config: SnapConfig = {
     // a dev build sets it explicitly, e.g.:
     //   DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000 mm-snap build
     DUCAT_SNAP_DEV_ORIGINS: process.env.DUCAT_SNAP_DEV_ORIGINS ?? '',
+    // Dev-only `regtest` network (src/networks.ts). Pinned to 'false' for the
+    // DEFAULT/published build so the local DUCAT regtest stack — its `http://localhost`
+    // esplora/validator endpoints and its unpinned-guardian network — is statically
+    // dead-code-eliminated and `regtest` is rejected as an unknown network. A dev
+    // build enables it explicitly, e.g.:
+    //   DUCAT_SNAP_DEV_REGTEST=true mm-snap build
+    DUCAT_SNAP_DEV_REGTEST: process.env.DUCAT_SNAP_DEV_REGTEST ?? 'false',
   },
 };
 

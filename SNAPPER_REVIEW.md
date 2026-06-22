@@ -6,9 +6,9 @@ Last local command:
 npx --yes @sayfer_io/snapper --path . --output snapper-report.json
 ```
 
-Local result: 238 findings across the `ESLinting`, `ExcessiveComments`, and `HardcodedSecrets` categories.
+Local result: 242 findings (227 `ESLinting`, 11 `ExcessiveComments`, 4 `HardcodedSecrets`).
 
-The count rose from 235 with the regtest/dev-tooling change: the three additional findings are an `ESLinting` missing-JSDoc `@param` note and `ExcessiveComments` flags on the new `src/debug.ts` comment block — both risk-1/2 style findings, not security findings. `HardcodedSecrets` stays at four (the same public guardian keys; the regtest network deliberately pins no guardian key, so it adds none).
+The count rose from 235 across the regtest/dev-tooling work: the additions are all risk-1/2 style findings — `ESLinting` missing-JSDoc `@param` notes and `ExcessiveComments` flags on the new dev-gate comment blocks (`src/debug.ts`, `src/networks.ts`). `HardcodedSecrets` stays at four (the same public guardian keys). The dev-only `regtest` network is now build-time gated behind `DUCAT_SNAP_DEV_REGTEST` (default off), so the published/audited bundle resolves to the three production networks only — its `http://localhost` esplora/validator endpoints and its unpinned-guardian path are dead-code-eliminated and `regtest` is rejected as an unknown network there.
 
 The four `HardcodedSecrets` findings are Ducat guardian x-only **public** keys hardcoded per network in `src/networks.ts`: the shared guardian key (`ef8e6d84…ca2e`, flagged once per network) and the mutinynet BitVM FROST group key (`23586495…2321`). They are public keys intended to be embedded so the Snap can pin the vault cosigner identity; they are not secrets. The remaining findings are style/comment-density scanner policy, not signing, key-export, origin-authorization, confirmation-bypass, or network-scope findings.
 

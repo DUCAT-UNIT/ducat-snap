@@ -29,7 +29,7 @@ Use this shape:
   "frontendCommit": "40-character-frontend-git-sha",
   "packageShasum": "published-npm-package-shasum",
   "packageIntegrity": "published-npm-package-integrity",
-  "manifestSourceShasum": "vYMD8KsbcxClj28hsAFIWHc6VBkkKjunUebaqqaxp+Y=",
+  "manifestSourceShasum": "0JTo/wc+J91UCeoxX0cLmuDuTdlEpmcMggIpWGGpWro=",
   "demoVideoUrl": "https://...",
   "scenarios": [
     {

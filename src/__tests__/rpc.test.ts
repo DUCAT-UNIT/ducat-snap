@@ -292,7 +292,8 @@ describe('RPC router', () => {
       expect.objectContaining({
         snap: '@ducat-unit/wallet-snap',
         version: packageJson.version,
-        networks: ['mainnet', 'signet', 'mutinynet', 'regtest'],
+        // Published/default build: regtest is gated off (DUCAT_SNAP_DEV_REGTEST unset).
+        networks: ['mainnet', 'signet', 'mutinynet'],
         methods: expect.arrayContaining(['ducat_clearRecentActions']),
         features: expect.objectContaining({
           mainnet: true,
@@ -376,7 +377,22 @@ describe('RPC router', () => {
         method: 'ducat_getAccounts',
         params: { network: 'testnet4' },
       }),
-    ).rejects.toThrow('supports mainnet, signet, mutinynet, and regtest only');
+    ).rejects.toThrow('supports mainnet, signet, and mutinynet only');
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
+  it('rejects the dev-only regtest network in the published build', async () => {
+    const request = setSnapMock();
+
+    // regtest is gated behind DUCAT_SNAP_DEV_REGTEST (unset here), so the published
+    // build treats it like any unknown network: rejected before any entropy/dialog.
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_getAccounts',
+        params: { network: 'regtest' },
+      }),
+    ).rejects.toThrow('supports mainnet, signet, and mutinynet only');
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });

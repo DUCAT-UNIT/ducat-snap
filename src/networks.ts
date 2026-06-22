@@ -28,7 +28,20 @@ export const DUCAT_DEV_ALLOWED_ORIGINS: readonly string[] = (process.env.DUCAT_S
   .map((origin) => origin.trim())
   .filter((origin) => origin.length > 0);
 
-export const DUCAT_SUPPORTED_NETWORKS = ['mainnet', 'signet', 'mutinynet', 'regtest'] as const satisfies readonly DucatNetwork[];
+// Build-time gate for the dev-only `regtest` network. mm-snap/webpack inlines
+// `DUCAT_SNAP_DEV_REGTEST` as a string literal (snap.config.ts defaults it to 'false'),
+// so the published/audited mainnet build resolves this to a static `false`: `regtest`
+// is absent from the supported-network list, `normalizeNetwork('regtest')` is rejected as
+// an unknown network, and the `http://localhost` regtest endpoints below dead-code-
+// eliminate from the bundle. A separate, unpublished dev build enables it explicitly:
+//   DUCAT_SNAP_DEV_REGTEST=true mm-snap build
+export const DEV_REGTEST_ENABLED = process.env.DUCAT_SNAP_DEV_REGTEST === 'true';
+
+const BASE_SUPPORTED_NETWORKS = ['mainnet', 'signet', 'mutinynet'] as const satisfies readonly DucatNetwork[];
+
+export const DUCAT_SUPPORTED_NETWORKS: readonly DucatNetwork[] = DEV_REGTEST_ENABLED
+  ? [...BASE_SUPPORTED_NETWORKS, 'regtest']
+  : BASE_SUPPORTED_NETWORKS;
 
 /**
  * Known Ducat guardian (cosigner) x-only public keys, lowercase hex (64 chars), per network.
@@ -47,37 +60,41 @@ export const DUCAT_GUARDIAN_PUBKEYS: Record<DucatNetwork, readonly string[]> = {
     'ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e',
     '23586495140999e70ca54ee8cf016c3163fc929bc18057b004b502d73c632321',
   ],
-  // Local regtest stack runs an ephemeral guardian, so the guard key is NOT
-  // pinned: the Snap still signs the 2-of-2 cosign leaf but surfaces the
-  // cosigner key in the confirmation dialog for the user to verify.
-  regtest: [],
-};
+  // Dev-only: the local regtest stack runs an ephemeral guardian, so the guard key
+  // is NOT pinned (the Snap still signs the 2-of-2 cosign leaf but surfaces the
+  // cosigner key in the confirmation dialog for the user to verify). Gated behind
+  // DEV_REGTEST_ENABLED so the published build neither exposes an unpinned-guardian
+  // network nor can reach it (normalizeNetwork rejects `regtest` there).
+  ...(DEV_REGTEST_ENABLED ? { regtest: [] } : {}),
+} as Record<DucatNetwork, readonly string[]>;
 
 export function isKnownGuardianPubkey(network: DucatNetwork, guardPubkeyHex: string): boolean {
-  const guardians = DUCAT_GUARDIAN_PUBKEYS[network];
+  const guardians = DUCAT_GUARDIAN_PUBKEYS[network] ?? [];
 
   return guardians.length === 0 || guardians.includes(guardPubkeyHex.toLowerCase());
 }
 
 export function guardianAllowlistEnforced(network: DucatNetwork): boolean {
-  return DUCAT_GUARDIAN_PUBKEYS[network].length > 0;
+  return (DUCAT_GUARDIAN_PUBKEYS[network]?.length ?? 0) > 0;
 }
 
 const ESPLORA_ENDPOINTS: Record<DucatNetwork, string> = {
   mainnet: 'https://mempool.space/api',
   signet: 'https://mempool.space/signet/api',
   mutinynet: 'https://mutinynet.com/api',
-  // Local DUCAT regtest stack: electrs esplora API.
-  regtest: 'http://localhost:3002',
-};
+  // Dev-only: local DUCAT regtest stack electrs esplora API. The `http://localhost`
+  // literal dead-code-eliminates from the published build (DEV_REGTEST_ENABLED is a
+  // static `false` there).
+  ...(DEV_REGTEST_ENABLED ? { regtest: 'http://localhost:3002' } : {}),
+} as Record<DucatNetwork, string>;
 
 const VALIDATOR_ENDPOINTS: Record<DucatNetwork, string[]> = {
   mainnet: ['https://validator-mainnet.prod.ducatprotocol.com'],
   signet: ['https://validator-testnet4.dev.ducatprotocol.com'],
   mutinynet: ['https://validator-mutinynet.dev.ducatprotocol.com'],
-  // Local DUCAT regtest stack: validator API.
-  regtest: ['http://localhost:8083'],
-};
+  // Dev-only: local DUCAT regtest stack validator API. Same DCE gate as above.
+  ...(DEV_REGTEST_ENABLED ? { regtest: ['http://localhost:8083'] } : {}),
+} as Record<DucatNetwork, string[]>;
 
 export function normalizeNetwork(network: unknown): DucatNetwork {
   if (network === 'main' || network === 'mainnet' || network === 'alpha-mainnet') {
@@ -92,13 +109,26 @@ export function normalizeNetwork(network: unknown): DucatNetwork {
     return 'mutinynet';
   }
 
-  if (network === 'regtest') {
+  // `regtest` is dev-only: in the published build DEV_REGTEST_ENABLED is a static
+  // `false`, so this branch dead-code-eliminates and `regtest` falls through to the
+  // INVALID_NETWORK throw — the unpinned-guardian regtest path is unreachable there.
+  if (DEV_REGTEST_ENABLED && network === 'regtest') {
     return 'regtest';
   }
 
-  throw ducatError('INVALID_NETWORK', 'Ducat Snap supports mainnet, signet, mutinynet, and regtest only.', {
+  throw ducatError('INVALID_NETWORK', `Ducat Snap supports ${supportedNetworksSentence()} only.`, {
     requestedNetwork: network,
   });
+}
+
+function supportedNetworksSentence(): string {
+  const names = [...DUCAT_SUPPORTED_NETWORKS];
+
+  if (names.length <= 1) {
+    return names.join('');
+  }
+
+  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
 }
 
 export function bitcoinNetwork(network: DucatNetwork): Network {
