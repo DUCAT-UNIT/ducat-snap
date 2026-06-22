@@ -27,8 +27,9 @@ verification. Every threat-model invariant that moves funds or touches key mater
   and re-passed at every `signInput`/`signTaprootInput`.
 - **Sound cosign/guardian policy** — vault script-path signing requires a structurally-anchored
   true 2-of-2 cosign leaf (client == derived vault key), a full BIP341 leaf→output-key commitment
-  with parity check, a non-empty per-network guardian allowlist re-checked at sign time, and the
-  verified leaf is the leaf signed.
+  with parity check, a per-network guardian allowlist re-checked at sign time (non-empty and
+  enforced for every production network; see the regtest note below), and the verified leaf is the
+  leaf signed.
 - **Locked origin allowlist** — exact-string match of three HTTPS `ducatprotocol.com` origins,
   enforced first on every RPC and mirrored in the manifest; `localhost`/`*.vercel.app` excluded; no
   attacker-controlled fetch host.
@@ -79,6 +80,35 @@ next hardening steps:
 - **Unreconciled non-signed-input values feeding the displayed fee** (Info) — self-defeating
   griefing (yields an invalid tx), not theft; consider surfacing an "unverified co-signer value"
   indicator.
+
+## Network scope note — `regtest` (intentional, by design)
+
+`regtest` is a supported network for the local DUCAT development stack. Its security posture
+differs from the production networks (mainnet/signet/mutinynet) in **one deliberate way**, called
+out here so it reads as intended rather than as a missed control:
+
+- **Guardian allowlist is intentionally empty on regtest** (`DUCAT_GUARDIAN_PUBKEYS.regtest = []`).
+  The local stack runs an ephemeral guardian whose key is not knowable in advance, so the Snap does
+  **not** pin a guardian key for regtest. `isKnownGuardianPubkey('regtest', …)` therefore accepts
+  any guard key on the cosign leaf.
+- **This is not blind-signing.** The cosign leaf is still fully structurally validated (true 2-of-2,
+  client == derived vault key, leaf→output-key commitment, leaf-signed-is-leaf-verified). The only
+  relaxation is the *known-key* check, and the confirmation dialog surfaces the cosigner as
+  **"Not verified as a Ducat guardian" (warning)** for explicit user verification
+  (`src/confirmations.ts`).
+- **No effect on production networks.** mainnet/signet/mutinynet allowlists remain pinned and
+  `guardianAllowlistEnforced()` is `true` for them; the regtest relaxation is scoped to the
+  `regtest` value only.
+- **Endpoints are localhost** (esplora `http://localhost:3002`, validator `http://localhost:8083`)
+  and regtest coins carry no value, bounding real-world impact to a local developer's own stack.
+
+The `regtest` network ships in the published bundle (it is a runtime network value, not a build-time
+dev gate), so it is in audit scope. The *other* dev affordances added alongside it —
+`DUCAT_SNAP_DEBUG` logging and `DUCAT_SNAP_DEV_ORIGINS` (localhost origin allowlisting) — are
+build-time gated, default-off, and dead-code-eliminated from the published/audited build (same
+pattern as `DUCAT_SNAP_DEV_UNPROMPTED`); the committed `snap.manifest.json` stays HTTPS-Ducat-only
+and a verify-gate test (`src/__tests__/rpc.test.ts`) fails the release if a dev-patched manifest is
+ever committed.
 - **Unbounded response-body reads from hardcoded esplora/validator endpoints** (Info) — only
   reachable by compromising that semi-trusted infra, outside the dapp-parameter threat model.
 - **`snap_manageState` does not explicitly pin `encrypted: true`** (Info) — relies on the SDK

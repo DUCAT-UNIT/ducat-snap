@@ -244,6 +244,20 @@ describe('RPC router', () => {
     expect([...ALLOWED_ORIGINS].sort()).toEqual([...manifestOrigins].sort());
   });
 
+  // Release/audit gate: the COMMITTED manifest is the file the MetaMask audit
+  // submission is anchored to, and `apply-dev-origins.mjs` patches it in place
+  // for dev builds (with a "DO NOT COMMIT" warning). This fails the verify gate
+  // if a dev-patched manifest — e.g. an `http://localhost` origin — is ever
+  // committed, so the invariant is enforced by CI, not by reviewer discipline.
+  it('committed manifest authorizes only HTTPS Ducat origins (no dev origins leak)', () => {
+    const manifestOrigins: string[] = manifest.initialPermissions['endowment:rpc'].allowedOrigins;
+
+    for (const origin of manifestOrigins) {
+      expect(origin.startsWith('https://')).toBe(true);
+      expect(new URL(origin).hostname.endsWith('.ducatprotocol.com')).toBe(true);
+    }
+  });
+
   it('authorizes no dev origins in the default (published) build', () => {
     jest.isolateModules(() => {
       delete process.env.DUCAT_SNAP_DEV_ORIGINS;
