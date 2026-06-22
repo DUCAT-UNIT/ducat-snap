@@ -56,8 +56,8 @@ Mainnet is enabled in this audit candidate and is included in the external secur
 - Snapper review source: `SNAPPER_REVIEW.md`
 - Verification command: `npm ci && npm run verify:release`
 - GitHub verification: https://github.com/DUCAT-UNIT/ducat-snap/actions/workflows/verify.yml
-- npm package shasum: `41adb25eaad07fee7edbb9f5bad6204f91c7d7db`
-- npm package integrity: `sha512-XtmNz1KBwwe3bfB4qZ4TmRZB+QPmMxRUYEj1u1Uu+gPXaez8J+x9cH591bzKAeyMmbqQWF4zTxbJoCcqFMjl7Q==`
+- npm package shasum: `f263af21f954b12f2aeb994cec7f9bf7a1386226`
+- npm package integrity: `sha512-tsFff+zfRK6UMk3sPxUuBKR+L5UqTZV2kel7FgbPfWMhur1ngtBONifNuwb1hY9V13fG6P/H9GPhmq7yKZ+cWQ==`
 - Snap manifest source shasum: `vYMD8KsbcxClj28hsAFIWHc6VBkkKjunUebaqqaxp+Y=`
 
 ## Permissions Summary
