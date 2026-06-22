@@ -1,165 +1,78 @@
-# Ducat MetaMask Snap
+# Ducat Snap
 
-`@ducat-unit/wallet-snap` is the Ducat Bitcoin account and signing Snap for MetaMask. It derives deterministic mainnet, signet, and mutinynet Bitcoin accounts from the user's MetaMask Secret Recovery Phrase, keeps private keys inside MetaMask, and exposes a narrow Ducat JSON-RPC API to approved Ducat frontend origins.
+A MetaMask snap for Bitcoin accounts and signing in the [Ducat](https://ducatprotocol.com) protocol.
 
-The Ducat web app remains the user action surface. Users create, deposit, borrow, repay, withdraw, swap, liquidate, and repossess in the web app; the Snap handles account discovery, MetaMask confirmations, message signing, PSBT signing, batch signing, transfer signing, recent action state, notifications, and Snap Home.
+It derives Bitcoin accounts from the user's MetaMask Secret Recovery Phrase, keeps the keys
+inside MetaMask, and exposes a small JSON-RPC API to the Ducat web app for message signing,
+PSBT signing, and simple transfers. The web app drives everything the user does — borrow,
+repay, withdraw, and so on — and the snap handles account discovery and the MetaMask
+confirmation prompts.
 
-## Release Candidate Status
+> Mainnet, signet, and mutinynet are supported. Local development against regtest needs a
+> dev build (see below).
 
-- Package candidate: `@ducat-unit/wallet-snap@0.1.9`
-- Snap ID: `npm:@ducat-unit/wallet-snap`
-- Proposed Snap name: `Ducat`
-- Audit candidate tag: `audit-candidate-0.1.9-20260617-release-0.1.9`
-- Audit candidate commit: tag target for `audit-candidate-0.1.9-20260617-release-0.1.9`
-- GitHub verification: `Verify Ducat Snap`
-- Manifest source shasum: `0JTo/wc+J91UCeoxX0cLmuDuTdlEpmcMggIpWGGpWro=`
-- Package candidate digest evidence: `RELEASE_EVIDENCE.md`
+## What are snaps?
 
-Launch scope:
+Snaps let developers extend MetaMask with capabilities it doesn't ship by default — like
+support for non-EVM chains. They run in an isolated environment with a limited set of
+permissions. See the [MetaMask Snaps docs](https://docs.metamask.io/snaps/) for more.
 
-- Networks: `mainnet`, `signet`, and `mutinynet`
-- Mainnet: enabled in this audit candidate
-- Derivation paths:
-  - sats mainnet: `m/84'/0'/0'/0/0`, P2WPKH `bc1q...`, compressed 33-byte public key
-  - runes mainnet: `m/86'/0'/0'/0/0`, P2TR `bc1p...`, x-only 32-byte internal public key
-  - vault mainnet: `m/86'/0'/0'/0/1`, P2TR `bc1p...`, x-only 32-byte internal public key
-  - sats testnet: `m/84'/1'/0'/0/0`, P2WPKH `tb1q...`, compressed 33-byte public key
-  - runes testnet: `m/86'/1'/0'/0/0`, P2TR `tb1p...`, x-only 32-byte internal public key
-  - vault testnet: `m/86'/1'/0'/0/1`, P2TR `tb1p...`, x-only 32-byte internal public key
+## RPC methods
 
-## Install
+```
+ducat_getAccounts({ network })
+ducat_getCapabilities()
+ducat_getHomeState({ network })
+ducat_signMessage({ network, address, message })
+ducat_signPsbt({ network, psbt, signInputs, context })
+ducat_signBatch({ network, entries, context })
+ducat_sendTransfer({ network, address, amountSats, feeRate })
+ducat_clearRecentActions()
+```
+
+Only the Ducat app origins below are allowed to call these:
+
+```
+https://app.ducatprotocol.com
+https://dev.app.ducatprotocol.com
+https://staging.app.ducatprotocol.com
+```
+
+`localhost` and preview deployments are intentionally not in the published manifest — a local
+process or a hijacked preview subdomain should never be able to drive mainnet signing. For
+local QA, build with the dev origins/regtest flags (`DUCAT_SNAP_DEV_ORIGINS`,
+`DUCAT_SNAP_DEV_REGTEST`); those are stripped from the published build.
+
+## Development
 
 ```bash
 npm ci
+npm run build        # mm-snap build -> dist/bundle.js
+npm run manifest     # regenerate the manifest shasum
+npm run serve        # serve the snap at http://localhost:8080
 ```
 
-Recommended local edit gate:
+Before opening a PR:
 
 ```bash
 npm run type-check
-npm test -- --runInBand
-npm run build
-npm run manifest
-npm run harness:accounts
-npm run harness:smoke-signing
+npm test
+npm run verify:harness   # MetaMask simulation harness (accounts, signing, BitVM3)
 ```
 
-Full release gate:
+Point the frontend at the local build with `NEXT_PUBLIC_DUCAT_SNAP_ID="local:http://localhost:8080"`,
+or at the published package with `NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wallet-snap"`.
 
-```bash
-npm run verify:release
-```
+## Security
 
-`verify:release` runs type checking, Jest, build, manifest regeneration, MetaMask simulation harness checks, production dependency audit, Snapper, release metadata verification, release manifest verification, and `npm pack --dry-run`.
+Keys, child keys, WIFs, and raw entropy never leave the snap. Only derived Ducat accounts are
+signed for, only the explicit `signInputs` indexes are signed, and every signing path requires a
+MetaMask confirmation. Frontend-supplied context is treated as untrusted display metadata — the
+parsed PSBT is the source of truth for what's actually signed. Taproot vault inputs must carry a
+Ducat cosign tapleaf whose control block recomputes to the prevout output key.
 
-## Run Locally
+The third-party security audit (Sayfer) is in [`docs/audit.pdf`](docs/audit.pdf).
 
-Serve the local Snap:
+## License
 
-```bash
-npm run serve
-```
-
-The local Snap is served at:
-
-```text
-http://localhost:8080
-```
-
-For local frontend testing:
-
-```bash
-NEXT_PUBLIC_DUCAT_SNAP_ID="local:http://localhost:8080"
-NEXT_PUBLIC_DUCAT_SNAP_VERSION=""
-```
-
-For the published Snap:
-
-```bash
-NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wallet-snap"
-NEXT_PUBLIC_DUCAT_SNAP_VERSION="^0.1.9"
-```
-
-Allowed HTTPS Ducat origins in the published mainnet manifest:
-
-- `https://app.ducatprotocol.com`
-- `https://dev.app.ducatprotocol.com`
-- `https://staging.app.ducatprotocol.com`
-
-The published manifest authorizes only stable, org-controlled HTTPS Ducat origins. Local development (`http://localhost`) and ephemeral, re-registerable preview deployments (`*.vercel.app`) are deliberately excluded so a local process or a taken-over preview subdomain can never drive mainnet signing; use a separate, unpublished dev manifest for local Snap QA. The release verifier rejects localhost, non-HTTPS, wildcard, duplicate, or unknown origins in the shipped manifest.
-
-## JSON-RPC API
-
-- `ducat_getAccounts({ network })`
-- `ducat_getCapabilities()`
-- `ducat_signMessage({ network, address, message })`
-- `ducat_signPsbt({ network, psbt, signInputs, context })`
-- `ducat_signBatch({ network, entries, context })`
-- `ducat_sendTransfer({ network, address, amountSats, feeRate })`
-- `ducat_getHomeState({ network })`
-- `ducat_clearRecentActions()`
-
-## User Confirmation Surface
-
-MetaMask confirmations are action-specific and structured:
-
-- Message signing shows the Ducat action label, origin, network, account, BIP322 signature type, message length, message fingerprint, and copyable message body.
-- PSBT signing shows the Ducat action label, origin, network, summary rows, signed input details, output details, fee, warnings, and Ducat app metadata.
-- Batch signing shows transaction count, all-or-nothing semantics, total fee, per-transaction summaries, and warning count.
-- Simple BTC transfer shows amount, estimated fee, `You pay`, change, sender, recipient, selected UTXOs, and broadcast endpoint.
-- Snap Home shows last connected network, copyable BTC/UNIT/vault addresses, public balance and vault lookups when available, recent action state, approved HTTPS Ducat app links, and local development routes.
-
-Errors returned to the frontend include a stable `code`, user-facing `message`, and diagnostic `details` for expanded debugging.
-
-## Security Model
-
-- Private keys, child private keys, WIFs, and raw entropy never leave the Snap.
-- The Snap requests Bitcoin mainnet and testnet BIP32 entropy paths: `m/84'/0'`, `m/86'/0'`, `m/84'/1'`, and `m/86'/1'`.
-- Mainnet requests use Bitcoin mainnet addresses, transaction parsing, and broadcast endpoints; signet and mutinynet requests use Bitcoin testnet parameters.
-- Unauthorized origins cannot invoke the Snap RPC API.
-- Only explicit `signInputs` indexes are signed.
-- Signing is restricted to derived Ducat Snap accounts.
-- Message, PSBT, batch, and transfer signing require MetaMask confirmation.
-- Frontend context is treated as untrusted display metadata. Parsed PSBT data is the signing source of truth.
-- Snap state stores recent Ducat action metadata only.
-
-Taproot script-path inputs must include a Ducat cosign tapleaf and control-block data that recomputes to the prevout P2TR output key. The tapleaf must place the derived Ducat vault key in the client slot, and the client and guard pubkeys must be distinct. The Snap rejects uncommitted script-path inputs, client/guard key collapse, and generic leaves even when a leaf contains the derived vault key.
-
-## Audit And Submission Packet
-
-Primary audit documents:
-
-- `AUDITOR_HANDOFF.md`
-- `AUDIT_SCOPE.md`
-- `RELEASE_EVIDENCE.md`
-- `INTERNAL_SECURITY_REVIEW.md`
-- `DEPENDENCY_AUDIT.md`
-- `SNAPPER_REVIEW.md`
-
-Submission documents:
-
-- `submission/README.md`
-- `submission/ALLOWLIST_SUBMISSION.md`
-- `submission/EXTERNAL_GATES.md`
-- `submission/metamask-directory.json`
-- `submission/fixtures/README.md`
-- `submission/e2e/README.md`
-- `submission/screenshots/README.md`
-
-The source, package, metadata, and local verification evidence are ready for external audit handoff. MetaMask directory submission still requires the third-party audit report, final screenshots, demo video, real transaction fixtures, final E2E evidence, and project-owned support/escalation details listed in `submission/EXTERNAL_GATES.md`.
-
-## Useful Commands
-
-```bash
-npm run type-check
-npm test -- --runInBand
-npm run build
-npm run manifest
-npm run verify:harness
-npm run verify:release
-npm run verify:metadata
-npm run verify:release-manifest
-npm run verify:submission-ready
-npm run audit:prod
-npm run pack:dry-run
-```
+See [LICENSE](LICENSE).
