@@ -12,7 +12,7 @@ The Ducat web app remains the user action surface. Users create, deposit, borrow
 - Audit candidate tag: `audit-candidate-0.1.9-20260617-release-0.1.9`
 - Audit candidate commit: tag target for `audit-candidate-0.1.9-20260617-release-0.1.9`
 - GitHub verification: `Verify Ducat Snap`
-- Manifest source shasum: `u1SC4s8yatFtFEE1IbLPvx2irYCtR/WOm0PtAx81qUs=`
+- Manifest source shasum: `vYMD8KsbcxClj28hsAFIWHc6VBkkKjunUebaqqaxp+Y=`
 - Package candidate digest evidence: `RELEASE_EVIDENCE.md`
 
 Launch scope:

@@ -244,6 +244,47 @@ describe('RPC router', () => {
     expect([...ALLOWED_ORIGINS].sort()).toEqual([...manifestOrigins].sort());
   });
 
+  // Release/audit gate: the COMMITTED manifest is the file the MetaMask audit
+  // submission is anchored to, and `apply-dev-origins.mjs` patches it in place
+  // for dev builds (with a "DO NOT COMMIT" warning). This fails the verify gate
+  // if a dev-patched manifest — e.g. an `http://localhost` origin — is ever
+  // committed, so the invariant is enforced by CI, not by reviewer discipline.
+  it('committed manifest authorizes only HTTPS Ducat origins (no dev origins leak)', () => {
+    const manifestOrigins: string[] = manifest.initialPermissions['endowment:rpc'].allowedOrigins;
+
+    for (const origin of manifestOrigins) {
+      expect(origin.startsWith('https://')).toBe(true);
+      expect(new URL(origin).hostname.endsWith('.ducatprotocol.com')).toBe(true);
+    }
+  });
+
+  it('authorizes no dev origins in the default (published) build', () => {
+    jest.isolateModules(() => {
+      delete process.env.DUCAT_SNAP_DEV_ORIGINS;
+      const { ALLOWED_ORIGINS: published } = require('../rpc');
+      expect([...published].every((origin: string) => origin.startsWith('https://'))).toBe(true);
+      expect(published.has('http://localhost:3000')).toBe(false);
+    });
+  });
+
+  it('merges DUCAT_SNAP_DEV_ORIGINS into the allowlist for a dev build', () => {
+    try {
+      jest.isolateModules(() => {
+        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000, http://localhost:8000';
+        const { ALLOWED_ORIGINS: dev } = require('../rpc');
+        // Dev origins authorized...
+        expect(dev.has('http://localhost:3000')).toBe(true);
+        expect(dev.has('http://localhost:8000')).toBe(true);
+        // ...alongside the HTTPS Ducat origins...
+        expect(dev.has('https://app.ducatprotocol.com')).toBe(true);
+        // ...and unrelated origins still rejected.
+        expect(dev.has('https://evil.example')).toBe(false);
+      });
+    } finally {
+      delete process.env.DUCAT_SNAP_DEV_ORIGINS;
+    }
+  });
+
   it('returns Snap capabilities', async () => {
     const result = await handleRpcRequest(ORIGIN, { method: 'ducat_getCapabilities' });
 
@@ -251,7 +292,7 @@ describe('RPC router', () => {
       expect.objectContaining({
         snap: '@ducat-unit/wallet-snap',
         version: packageJson.version,
-        networks: ['mainnet', 'signet', 'mutinynet'],
+        networks: ['mainnet', 'signet', 'mutinynet', 'regtest'],
         methods: expect.arrayContaining(['ducat_clearRecentActions']),
         features: expect.objectContaining({
           mainnet: true,
@@ -333,9 +374,9 @@ describe('RPC router', () => {
     await expect(
       handleRpcRequest(ORIGIN, {
         method: 'ducat_getAccounts',
-        params: { network: 'regtest' },
+        params: { network: 'testnet4' },
       }),
-    ).rejects.toThrow('supports mainnet, signet, and mutinynet only');
+    ).rejects.toThrow('supports mainnet, signet, mutinynet, and regtest only');
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });

@@ -53,6 +53,7 @@
     "fixture:capture": "node scripts/capture-submission-fixture.mjs",
     "harness:accounts": "node scripts/snap-simulation-harness.mjs accounts",
     "harness:smoke-signing": "node scripts/snap-simulation-harness.mjs smoke-signing",
+    "harness:session": "node scripts/snap-simulation-harness.mjs session",
     "harness:bitvm3-reclaim": "node scripts/snap-simulation-harness.mjs bitvm3-reclaim",
     "harness:bitvm3-reclaim-reject": "node scripts/snap-simulation-harness.mjs bitvm3-reclaim-reject",
     "verify:bitvm3": "npm run harness:bitvm3-reclaim && npm run harness:bitvm3-reclaim-reject",

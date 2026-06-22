@@ -16,7 +16,19 @@ export const DUCAT_ALLOWED_ORIGINS = [
   'https://staging.app.ducatprotocol.com',
 ] as const;
 
-export const DUCAT_SUPPORTED_NETWORKS = ['mainnet', 'signet', 'mutinynet'] as const satisfies readonly DucatNetwork[];
+// Dev-only origin allowlist. mm-snap/webpack inlines `DUCAT_SNAP_DEV_ORIGINS` as a
+// string literal at build time (snap.config.ts defaults it to ''), so the
+// published/audited mainnet build resolves this to an EMPTY list and never
+// authorizes a localhost / non-Ducat origin. A separate, unpublished dev build
+// injects local origins, e.g. for the regtest stack's frontend:
+//   DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000 mm-snap build
+// The value is a comma-separated list of full origins (scheme + host + port).
+export const DUCAT_DEV_ALLOWED_ORIGINS: readonly string[] = (process.env.DUCAT_SNAP_DEV_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0);
+
+export const DUCAT_SUPPORTED_NETWORKS = ['mainnet', 'signet', 'mutinynet', 'regtest'] as const satisfies readonly DucatNetwork[];
 
 /**
  * Known Ducat guardian (cosigner) x-only public keys, lowercase hex (64 chars), per network.
@@ -35,6 +47,10 @@ export const DUCAT_GUARDIAN_PUBKEYS: Record<DucatNetwork, readonly string[]> = {
     'ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e',
     '23586495140999e70ca54ee8cf016c3163fc929bc18057b004b502d73c632321',
   ],
+  // Local regtest stack runs an ephemeral guardian, so the guard key is NOT
+  // pinned: the Snap still signs the 2-of-2 cosign leaf but surfaces the
+  // cosigner key in the confirmation dialog for the user to verify.
+  regtest: [],
 };
 
 export function isKnownGuardianPubkey(network: DucatNetwork, guardPubkeyHex: string): boolean {
@@ -51,12 +67,16 @@ const ESPLORA_ENDPOINTS: Record<DucatNetwork, string> = {
   mainnet: 'https://mempool.space/api',
   signet: 'https://mempool.space/signet/api',
   mutinynet: 'https://mutinynet.com/api',
+  // Local DUCAT regtest stack: electrs esplora API.
+  regtest: 'http://localhost:3002',
 };
 
 const VALIDATOR_ENDPOINTS: Record<DucatNetwork, string[]> = {
   mainnet: ['https://validator-mainnet.prod.ducatprotocol.com'],
   signet: ['https://validator-testnet4.dev.ducatprotocol.com'],
   mutinynet: ['https://validator-mutinynet.dev.ducatprotocol.com'],
+  // Local DUCAT regtest stack: validator API.
+  regtest: ['http://localhost:8083'],
 };
 
 export function normalizeNetwork(network: unknown): DucatNetwork {
@@ -72,13 +92,22 @@ export function normalizeNetwork(network: unknown): DucatNetwork {
     return 'mutinynet';
   }
 
-  throw ducatError('INVALID_NETWORK', 'Ducat Snap supports mainnet, signet, and mutinynet only.', {
+  if (network === 'regtest') {
+    return 'regtest';
+  }
+
+  throw ducatError('INVALID_NETWORK', 'Ducat Snap supports mainnet, signet, mutinynet, and regtest only.', {
     requestedNetwork: network,
   });
 }
 
 export function bitcoinNetwork(network: DucatNetwork): Network {
-  return network === 'mainnet' ? networks.bitcoin : networks.testnet;
+  if (network === 'mainnet') {
+    return networks.bitcoin;
+  }
+
+  // regtest uses the `bcrt` HRP; signet/mutinynet share the testnet params.
+  return network === 'regtest' ? networks.regtest : networks.testnet;
 }
 
 export function esploraUrl(network: DucatNetwork): string {

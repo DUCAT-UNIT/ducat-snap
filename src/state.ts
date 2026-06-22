@@ -35,7 +35,7 @@ function isRecentAction(value: unknown): value is RecentAction {
     typeof candidate.id === 'string' &&
     typeof candidate.actionType === 'string' &&
     (candidate.title === undefined || typeof candidate.title === 'string') &&
-    (candidate.network === 'mainnet' || candidate.network === 'signet' || candidate.network === 'mutinynet') &&
+    (candidate.network === 'mainnet' || candidate.network === 'signet' || candidate.network === 'mutinynet' || candidate.network === 'regtest') &&
     typeof candidate.origin === 'string' &&
     Number.isFinite(candidate.timestamp) &&
     (candidate.status === undefined || RECENT_ACTION_STATUSES.has(candidate.status)) &&
@@ -73,7 +73,10 @@ export async function getState(): Promise<DucatSnapState> {
       .sort((left, right) => right.timestamp - left.timestamp)
       .slice(0, MAX_RECENT_ACTIONS),
     lastNetwork:
-      storedState.lastNetwork === 'mainnet' || storedState.lastNetwork === 'signet' || storedState.lastNetwork === 'mutinynet'
+      storedState.lastNetwork === 'mainnet' ||
+      storedState.lastNetwork === 'signet' ||
+      storedState.lastNetwork === 'mutinynet' ||
+      storedState.lastNetwork === 'regtest'
         ? storedState.lastNetwork
         : undefined,
     lastOrigin: typeof storedState.lastOrigin === 'string' ? storedState.lastOrigin : undefined,

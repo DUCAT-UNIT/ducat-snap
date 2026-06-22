@@ -141,7 +141,16 @@ function assertHarness(condition, message) {
 }
 
 function bitcoinNetwork(network) {
-  return network === 'mainnet' || network === 'main' || network === 'alpha-mainnet' ? networks.bitcoin : networks.testnet;
+  if (network === 'mainnet' || network === 'main' || network === 'alpha-mainnet') {
+    return networks.bitcoin;
+  }
+  // regtest uses the `bcrt` HRP — distinct from testnet's `tb`. The snap derives
+  // bcrt addresses on regtest, so the harness must build PSBTs against the
+  // matching bitcoinjs network or toOutputScript rejects the address prefix.
+  if (network === 'regtest') {
+    return networks.regtest;
+  }
+  return networks.testnet;
 }
 
 export async function openDucatSnapHarness(options = {}) {
@@ -229,6 +238,7 @@ function usage() {
     'Usage:',
     '  node scripts/snap-simulation-harness.mjs accounts',
     '  node scripts/snap-simulation-harness.mjs smoke-signing',
+    '  node scripts/snap-simulation-harness.mjs session [iterations]',
     '  node scripts/snap-simulation-harness.mjs bitvm3-reclaim',
     "  node scripts/snap-simulation-harness.mjs sign-psbt '<base64-psbt>' '<signInputs-json>'",
     '',
@@ -289,6 +299,53 @@ async function runSmokeSigning(harness) {
       2,
     ),
   );
+}
+
+// Snap-vs-harness bisection for the intermittent Flask crash.
+//
+// The dapp intermittently dies with "Extension context invalidated" at the
+// open->first-action boundary — a SEQUENCE of sign requests through one wallet
+// session. This drives that exact cadence (one installed snap, N sequential
+// signPsbt calls + interleaved getAccounts reads, every dialog auto-approved)
+// through the REAL SES executor, without MetaMask/MV3/the browser. If the
+// session stays healthy here, the snap is sound and the Flask crash is an
+// MV3/extension-harness problem; if it breaks here too, the snap has a real
+// lifecycle/state bug.
+async function runSession(harness, iterations) {
+  const accounts = await harness.getAccounts();
+  const satsAddress = accounts?.sats?.address;
+  assertHarness(typeof satsAddress === 'string' && satsAddress.length > 0, 'ducat_getAccounts returned no sats address.');
+
+  const bitcoinJsNetwork = bitcoinNetwork(harness.network);
+  const legs = [];
+  for (let i = 0; i < iterations; i++) {
+    // Fresh PSBT per leg (distinct prevout) — mirrors a new action each time.
+    const psbt = new Psbt({ network: bitcoinJsNetwork });
+    psbt.addInput({
+      hash: Buffer.alloc(32, (i % 250) + 1).toString('hex'),
+      index: 0,
+      witnessUtxo: { script: btcAddress.toOutputScript(satsAddress, bitcoinJsNetwork), value: 100_000 },
+    });
+    psbt.addOutput({ address: satsAddress, value: 99_000 });
+
+    const result = await harness.signPsbt(psbt.toBase64(), { [satsAddress]: [0] }, { actionType: `session-leg-${i}`, title: `Session leg ${i}` });
+    const signed = Psbt.fromBase64(result.psbt, { network: bitcoinJsNetwork });
+    const sigs = signed.data.inputs[0]?.partialSig ?? [];
+    assertHarness(sigs.length === 1, `leg ${i}: expected 1 partial signature, got ${sigs.length}.`);
+
+    // Interleave a no-sign read (mirrors the dapp's between-action vault-state
+    // refetch) and prove the executor stays responsive across the session.
+    if (i % 2 === 1) {
+      const reread = await harness.getAccounts();
+      assertHarness(reread?.sats?.address === satsAddress, `leg ${i}: getAccounts drifted mid-session.`);
+    }
+    legs.push({ leg: i, signatureBytes: sigs[0].signature.length, status: 'signed' });
+  }
+
+  const finalAccounts = await harness.getAccounts();
+  assertHarness(finalAccounts?.sats?.address === satsAddress, 'getAccounts unhealthy after the session burst.');
+
+  console.log(JSON.stringify({ network: harness.network, origin: harness.origin, iterations, legs, status: 'session-healthy' }, null, 2));
 }
 
 // Build the BitVM3 disprove leaf: OP_SHA256 <H(L*)> OP_EQUALVERIFY OP_1.
@@ -447,6 +504,13 @@ async function runCli() {
 
     if (command === 'smoke-signing') {
       await runSmokeSigning(harness);
+      return;
+    }
+
+    if (command === 'session') {
+      const parsed = Number(process.argv[3] ?? '6');
+      const iterations = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 6;
+      await runSession(harness, iterations);
       return;
     }
 
