@@ -28,12 +28,12 @@ const ALLOWED_ECDSA_SIGHASH_TYPES = [Transaction.SIGHASH_ALL];
 const ALLOWED_TAPROOT_SIGHASH_TYPES = [Transaction.SIGHASH_DEFAULT, Transaction.SIGHASH_ALL];
 const MAX_PSBT_INPUTS = 80;
 const MAX_PSBT_OUTPUTS = 120;
-// The confirmation dialog itemizes the first VISIBLE_OUTPUT_FOLD non-data outputs
-// (confirmations.ts renders recipientOutputs.slice(0, 8) in transaction order). We reject any
-// PSBT where an external recipient would fall outside that visible slice rather than silently
-// collapsing it into the hidden-output aggregate (SAY-07), so every destination a user signs
-// over is itemized. This must stay in sync with the slice size in confirmations.ts.
-const VISIBLE_OUTPUT_FOLD = 8;
+// The confirmation dialog itemizes the first VISIBLE_OUTPUT_FOLD non-data outputs in transaction
+// order; we reject any PSBT where an external recipient would fall outside that visible slice
+// rather than silently collapsing it into the hidden-output aggregate (SAY-07), so every
+// destination a user signs over is itemized. confirmations.ts imports this constant to size its
+// own output slice, so validation and display can never drift apart.
+export const VISIBLE_OUTPUT_FOLD = 8;
 const DUCAT_VAULT_RETURN_VERSION = 1;
 const DUCAT_VAULT_RETURN_MIN_SIZE = 14;
 const DUCAT_VAULT_RETURN_LOCKED_SIZE = 38;

@@ -20,6 +20,7 @@ import {
   unverifiedActionLabel,
 } from './display';
 import { ducatError } from './errors';
+import { VISIBLE_OUTPUT_FOLD } from './psbt';
 import type {
   DucatActionContext,
   DucatAddressRole,
@@ -543,7 +544,7 @@ export async function confirmPsbt(params: {
   const changeOutputCount = recipientOutputs.filter(({ output }) => output.isMine).length;
   const externalOutputs = recipientOutputs.filter(({ output }) => !output.isMine);
   const primaryExternalOutput = externalOutputs[0]?.output;
-  const visibleOutputs = recipientOutputs.slice(0, 8);
+  const visibleOutputs = recipientOutputs.slice(0, VISIBLE_OUTPUT_FOLD);
   const hiddenOutputs = recipientOutputs.slice(visibleOutputs.length);
   const hiddenExternalSats = hiddenOutputs.filter(({ output }) => !output.isMine).reduce((total, { output }) => total + output.valueSats, 0);
   const dataOutputs = summary.outputs.map((output, index) => ({ index, output })).filter(({ output }) => isDataOutput(output));

@@ -793,7 +793,7 @@ describe('RPC router', () => {
       index: 0,
       witnessUtxo: { script: keySet.satsOutputScript, value: 1_000_000 },
     });
-    // 9 distinct external recipients > MAX_EXTERNAL_RECIPIENTS (8).
+    // 9 distinct external recipients — the 9th sits past the VISIBLE_OUTPUT_FOLD (8).
     for (let index = 0; index < 9; index++) {
       const external = deriveAccountSetFromBaseNodes('signet', testNode(20 + index), testNode(40 + index));
       psbt.addOutput({ address: external.record.sats.address, value: 50_000 });
