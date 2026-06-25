@@ -1101,6 +1101,8 @@ describe('RPC router', () => {
       const rendered = JSON.stringify(home.content);
 
       expect(rendered).toContain('Signet testnet');
+      // The privacy disclosure that balance lookups contact external services (SAY-08).
+      expect(rendered).toContain('Balance lookups contact external services');
       expect(rendered).toContain('Alpha vault');
       expect(rendered).toContain('623.33% collateral');
       expect(rendered).toContain('45,000 sats');

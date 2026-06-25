@@ -315,6 +315,15 @@ function usdLabel(value: number | null): string {
   return value === null ? 'Unknown' : `$${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
+// Human-readable host the BTC balance lookup contacts, for the privacy disclosure (SAY-08).
+function balanceLookupHost(network: DucatNetwork): string {
+  try {
+    return new URL(esploraUrl(network)).host;
+  } catch {
+    return 'the configured esplora service';
+  }
+}
+
 function collateralRatioLabel(value: number | null): string | undefined {
   // The validator returns the collateral ratio as a multiplier (e.g. 6.2333 = 623.33%),
   // so it is always scaled by 100. The previous `value < 20 ? *100 : value` magnitude
@@ -390,6 +399,15 @@ export async function renderHomePage(networkInput?: unknown): Promise<{ content:
           uiRow('BTC', btcBalance(homeState.balances.btcSats)),
           uiRow('UNIT', formatUnit(homeState.balances.unit)),
         ]),
+        // Disclose that loading this page (and the ducat_getHomeState RPC) sends the user's
+        // addresses to third-party balance/validator services (SAY-08). The lookups are
+        // first-party HTTPS and carry no private-key material, but the network contact is
+        // not otherwise visible.
+        uiBanner(
+          'Balance lookups contact external services',
+          'info',
+          `Opening this page sends your BTC address to ${balanceLookupHost(homeState.network)} and your UNIT/vault keys to the Ducat validator to fetch balances. No private keys ever leave the Snap.`,
+        ),
         ...(homeState.balances.btcSats === null || homeState.balances.unit === null
           ? [uiBanner('Balance lookup unavailable', 'warning', 'One or more balance services are unavailable or timed out. Signing still works from PSBT data supplied by the Ducat app.')]
           : []),
