@@ -54,7 +54,9 @@ Only if the native interface exposes the full signing surface Ducat requires. In
 practice, Ducat needs usable public keys for the protocol roles, controlled PSBT input
 selection, Taproot script-path signing, validation of Ducat cosign and timeout leaves,
 batch signing, and Ducat-specific confirmation rendering. If MetaMask native Bitcoin later
-provides equivalent APIs, Ducat can reduce or replace the Snap scope.
+provides equivalent APIs, Ducat can reduce or replace the Snap scope. The current Bitcoin
+Snap and other Bitcoin Snaps available today do not provide this Ducat-specific signing
+and validation surface.
 
 ## What does the Snap sign?
 
