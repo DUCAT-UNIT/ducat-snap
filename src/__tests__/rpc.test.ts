@@ -806,7 +806,38 @@ describe('RPC router', () => {
       }),
     ).rejects.toMatchObject({
       code: 'PSBT_TOO_MANY_RECIPIENTS',
-      details: expect.objectContaining({ maxExternalRecipients: 8 }),
+      details: expect.objectContaining({ visibleOutputFold: 8 }),
+    });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
+  it('rejects a PSBT where change outputs push an external recipient past the visible fold', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: Buffer.alloc(32, 23).toString('hex'),
+      index: 0,
+      witnessUtxo: { script: keySet.satsOutputScript, value: 2_000_000 },
+    });
+    // Only ONE external recipient, but 8 change outputs to our own address come first, so the
+    // recipient sits at non-data position 8 — outside the first-8 visible slice (SAY-07 follow-up:
+    // counting external outputs alone (1 <= 8) would wrongly let this through).
+    for (let index = 0; index < 8; index++) {
+      psbt.addOutput({ address: keySet.record.sats.address, value: 10_000 });
+    }
+    const external = deriveAccountSetFromBaseNodes('signet', testNode(31), testNode(32));
+    psbt.addOutput({ address: external.record.sats.address, value: 50_000 });
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signPsbt',
+        params: { network: 'signet', psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } },
+      }),
+    ).rejects.toMatchObject({
+      code: 'PSBT_TOO_MANY_RECIPIENTS',
+      details: expect.objectContaining({ hiddenRecipientAddress: external.record.sats.address }),
     });
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });

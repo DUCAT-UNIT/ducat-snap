@@ -28,11 +28,12 @@ const ALLOWED_ECDSA_SIGHASH_TYPES = [Transaction.SIGHASH_ALL];
 const ALLOWED_TAPROOT_SIGHASH_TYPES = [Transaction.SIGHASH_DEFAULT, Transaction.SIGHASH_ALL];
 const MAX_PSBT_INPUTS = 80;
 const MAX_PSBT_OUTPUTS = 120;
-// The confirmation dialog itemizes the first 8 outputs. We reject PSBTs whose external
-// (non-change, non-data) recipient count exceeds that fold rather than silently collapsing
-// the overflow into an aggregate line (SAY-07), so every destination a user signs over is
-// individually shown. Change and OP_RETURN/data outputs do not count against this cap.
-const MAX_EXTERNAL_RECIPIENTS = 8;
+// The confirmation dialog itemizes the first VISIBLE_OUTPUT_FOLD non-data outputs
+// (confirmations.ts renders recipientOutputs.slice(0, 8) in transaction order). We reject any
+// PSBT where an external recipient would fall outside that visible slice rather than silently
+// collapsing it into the hidden-output aggregate (SAY-07), so every destination a user signs
+// over is itemized. This must stay in sync with the slice size in confirmations.ts.
+const VISIBLE_OUTPUT_FOLD = 8;
 const DUCAT_VAULT_RETURN_VERSION = 1;
 const DUCAT_VAULT_RETURN_MIN_SIZE = 14;
 const DUCAT_VAULT_RETURN_LOCKED_SIZE = 38;
@@ -420,6 +421,42 @@ function assertUniqueInputOutpoints(psbt: Psbt): void {
     }
 
     seen.set(key, index);
+  }
+}
+
+// Mirrors confirmations.ts isDataOutput: OP_RETURN and zero-value unknown scripts are data,
+// not spendable recipients, and are excluded from the itemized recipient list.
+function isSummaryDataOutput(output: PsbtOutputSummary): boolean {
+  return output.role === 'op_return' || (output.role === 'unknown' && output.valueSats === 0);
+}
+
+/**
+ * Reject a PSBT where an external recipient would fall outside the dialog's visible output fold.
+ *
+ * The confirmation itemizes the first VISIBLE_OUTPUT_FOLD *non-data* outputs in transaction order
+ * (change + external interleaved), then collapses the rest into a hidden aggregate. Counting only
+ * external outputs is not enough (SAY-07 follow-up): change outputs ordered before a recipient
+ * still consume visible slots, so a PSBT with several leading change outputs and a couple of later
+ * recipients can push a recipient address past the fold even with few external outputs total. We
+ * reject when any external output's position *among non-data outputs* is at or beyond the fold, so
+ * the cap matches exactly what the user can see.
+ */
+function assertAllExternalRecipientsVisible(summary: PsbtSummary): void {
+  let nonDataPosition = 0;
+
+  for (const output of summary.outputs) {
+    if (isSummaryDataOutput(output)) {
+      continue;
+    }
+
+    if (!output.isMine && nonDataPosition >= VISIBLE_OUTPUT_FOLD) {
+      throw ducatError('PSBT_TOO_MANY_RECIPIENTS', 'This PSBT has an external recipient the Ducat confirmation cannot individually display (it falls past the visible output list), so it was rejected rather than hiding the destination.', {
+        hiddenRecipientAddress: output.address,
+        visibleOutputFold: VISIBLE_OUTPUT_FOLD,
+      });
+    }
+
+    nonDataPosition += 1;
   }
 }
 
@@ -916,16 +953,7 @@ export function preparePsbtForSigning(psbtBase64: string, network: DucatNetwork,
 
   const summary = summarizePsbt(psbt, network, keySet, signInputs, signedInputs);
 
-  const externalRecipientCount = summary.outputs.filter(
-    (output) => !output.isMine && output.role !== 'op_return' && !(output.role === 'unknown' && output.valueSats === 0),
-  ).length;
-
-  if (externalRecipientCount > MAX_EXTERNAL_RECIPIENTS) {
-    throw ducatError('PSBT_TOO_MANY_RECIPIENTS', 'This PSBT pays more external recipients than the Ducat confirmation can individually display, so it was rejected rather than hiding destinations.', {
-      externalRecipientCount,
-      maxExternalRecipients: MAX_EXTERNAL_RECIPIENTS,
-    });
-  }
+  assertAllExternalRecipientsVisible(summary);
 
   return {
     psbt,
