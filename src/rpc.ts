@@ -257,7 +257,7 @@ async function signMessage(origin: string, rawParams: unknown): Promise<SignMess
   await notifyAction({ title, status: 'pending', detail: 'Message signature approval requested' });
   await confirmMessage({ origin, network, address, role, message, context });
 
-  const signature = signBip322SimpleMessage({
+  const { signature, messageHash } = signBip322SimpleMessage({
     keySet,
     role,
     message,
@@ -277,7 +277,7 @@ async function signMessage(origin: string, rawParams: unknown): Promise<SignMess
     status: 'success',
     result: {
       address,
-      messageHash: '',
+      messageHash,
       signature,
       protocol: 'BIP322',
     },
