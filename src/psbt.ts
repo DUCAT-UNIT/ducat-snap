@@ -28,6 +28,12 @@ const ALLOWED_ECDSA_SIGHASH_TYPES = [Transaction.SIGHASH_ALL];
 const ALLOWED_TAPROOT_SIGHASH_TYPES = [Transaction.SIGHASH_DEFAULT, Transaction.SIGHASH_ALL];
 const MAX_PSBT_INPUTS = 80;
 const MAX_PSBT_OUTPUTS = 120;
+// The confirmation dialog itemizes the first VISIBLE_OUTPUT_FOLD non-data outputs in transaction
+// order; we reject any PSBT where an external recipient would fall outside that visible slice
+// rather than silently collapsing it into the hidden-output aggregate (SAY-07), so every
+// destination a user signs over is itemized. confirmations.ts imports this constant to size its
+// own output slice, so validation and display can never drift apart.
+export const VISIBLE_OUTPUT_FOLD = 8;
 const DUCAT_VAULT_RETURN_VERSION = 1;
 const DUCAT_VAULT_RETURN_MIN_SIZE = 14;
 const DUCAT_VAULT_RETURN_LOCKED_SIZE = 38;
@@ -396,11 +402,15 @@ function validateSignedInput(psbt: Psbt, index: number, address: string, keySet:
   };
 }
 
+function outpointKey(input: Psbt['txInputs'][number]): string {
+  return `${Buffer.from(input.hash).toString('hex')}:${input.index}`;
+}
+
 function assertUniqueInputOutpoints(psbt: Psbt): void {
   const seen = new Map<string, number>();
 
   for (const [index, input] of psbt.txInputs.entries()) {
-    const key = `${Buffer.from(input.hash).toString('hex')}:${input.index}`;
+    const key = outpointKey(input);
     const previousIndex = seen.get(key);
 
     if (previousIndex !== undefined) {
@@ -411,6 +421,69 @@ function assertUniqueInputOutpoints(psbt: Psbt): void {
     }
 
     seen.set(key, index);
+  }
+}
+
+// Mirrors confirmations.ts isDataOutput: OP_RETURN and zero-value unknown scripts are data,
+// not spendable recipients, and are excluded from the itemized recipient list.
+function isSummaryDataOutput(output: PsbtOutputSummary): boolean {
+  return output.role === 'op_return' || (output.role === 'unknown' && output.valueSats === 0);
+}
+
+/**
+ * Reject a PSBT where an external recipient would fall outside the dialog's visible output fold.
+ *
+ * The confirmation itemizes the first VISIBLE_OUTPUT_FOLD *non-data* outputs in transaction order
+ * (change + external interleaved), then collapses the rest into a hidden aggregate. Counting only
+ * external outputs is not enough (SAY-07 follow-up): change outputs ordered before a recipient
+ * still consume visible slots, so a PSBT with several leading change outputs and a couple of later
+ * recipients can push a recipient address past the fold even with few external outputs total. We
+ * reject when any external output's position *among non-data outputs* is at or beyond the fold, so
+ * the cap matches exactly what the user can see.
+ */
+function assertAllExternalRecipientsVisible(summary: PsbtSummary): void {
+  let nonDataPosition = 0;
+
+  for (const output of summary.outputs) {
+    if (isSummaryDataOutput(output)) {
+      continue;
+    }
+
+    if (!output.isMine && nonDataPosition >= VISIBLE_OUTPUT_FOLD) {
+      throw ducatError('PSBT_TOO_MANY_RECIPIENTS', 'This PSBT has an external recipient the Ducat confirmation cannot individually display (it falls past the visible output list), so it was rejected rather than hiding the destination.', {
+        hiddenRecipientAddress: output.address,
+        visibleOutputFold: VISIBLE_OUTPUT_FOLD,
+      });
+    }
+
+    nonDataPosition += 1;
+  }
+}
+
+/**
+ * Reject a batch where two entries spend the same outpoint. assertUniqueInputOutpoints
+ * only deduplicates within a single PSBT, but the batch dialog promises "all-or-nothing"
+ * and "signs the full batch in order" — a promise that cannot hold if entries conflict,
+ * since two transactions spending the same UTXO can never both confirm (SAY-04).
+ */
+export function assertUniqueBatchOutpoints(psbts: Psbt[]): void {
+  const seen = new Map<string, number>();
+
+  for (const [entryIndex, psbt] of psbts.entries()) {
+    for (const input of psbt.txInputs) {
+      const key = outpointKey(input);
+      const previousEntry = seen.get(key);
+
+      if (previousEntry !== undefined && previousEntry !== entryIndex) {
+        throw ducatError('BATCH_CONFLICTING_OUTPOINT', 'Two transactions in this batch spend the same previous output, so they cannot all be confirmed. The batch was rejected.', {
+          entryIndex,
+          conflictsWithEntry: previousEntry,
+          outpoint: key,
+        });
+      }
+
+      seen.set(key, entryIndex);
+    }
   }
 }
 
@@ -493,7 +566,12 @@ function decodeVaultActionFromSequences(inputs: Psbt['txInputs']): DecodedVaultA
   return null;
 }
 
-function inferVaultCollateralSats(action: DecodedVaultAction, outputs: Psbt['txOutputs']): number | undefined {
+function inferVaultCollateralSats(
+  action: DecodedVaultAction,
+  outputs: Psbt['txOutputs'],
+  network: DucatNetwork,
+  keySet: AccountPublicSet,
+): number | undefined {
   const outputIndex = action.vaultOutputIndex;
   const output = outputs[outputIndex];
 
@@ -501,19 +579,51 @@ function inferVaultCollateralSats(action: DecodedVaultAction, outputs: Psbt['txO
     return undefined;
   }
 
+  // Only treat this output as collateral when it actually pays the user's own
+  // vault address. The frontend chooses vaultOutputIndex positionally, so without
+  // this check it could place an attacker-bound amount at that index and have it
+  // displayed as authoritative "Collateral" under the "decoded from vault data"
+  // badge (SAY-01). A non-vault output here yields no collateral figure.
+  const address = output.address ?? parseOutputAddress(Buffer.from(output.script), network);
+
+  if (outputRole(address, keySet) !== 'vault') {
+    return undefined;
+  }
+
   return output.value;
 }
+
+// Index into a tx's outputs that carries the vault for a given legacy action flag.
+// Mirrors DUCAT_VAULT_ACTION_CODES so a legacy-decoded action does not diverge from
+// the canonical sequence decode (SAY-01): e.g. borrow ('b') is output 1, not 0.
+const LEGACY_VAULT_OUTPUT_INDEX: Record<DucatVaultActionFlag, number> = {
+  o: 2,
+  c: -1,
+  b: 1,
+  r: 0,
+  d: 0,
+  w: 0,
+  x: 0,
+  l: 0,
+};
 
 function legacyVaultAction(flag: DucatVaultActionFlag): DecodedVaultAction {
   return {
     actionFlag: flag,
     actionType: DUCAT_ACTION_TYPES[flag],
     protocolAction: DUCAT_ACTION_TYPES[flag],
-    vaultOutputIndex: flag === 'o' ? 2 : 0,
+    vaultOutputIndex: LEGACY_VAULT_OUTPUT_INDEX[flag] ?? 0,
   };
 }
 
-function decodeLegacyDucatVaultReturn(payload: Buffer, action: DecodedVaultAction, outputIndex: number, outputs: Psbt['txOutputs']): DucatVaultReturnData | null {
+function decodeLegacyDucatVaultReturn(
+  payload: Buffer,
+  action: DecodedVaultAction,
+  outputIndex: number,
+  outputs: Psbt['txOutputs'],
+  network: DucatNetwork,
+  keySet: AccountPublicSet,
+): DucatVaultReturnData | null {
   if (payload.length !== DUCAT_VAULT_RETURN_MIN_SIZE && payload.length !== DUCAT_VAULT_RETURN_LOCKED_SIZE) {
     return null;
   }
@@ -546,7 +656,7 @@ function decodeLegacyDucatVaultReturn(payload: Buffer, action: DecodedVaultActio
     unitBalanceUnit: unitBalanceCents / 100,
     unitPrice,
     unitTimestamp,
-    collateralSats: inferVaultCollateralSats(action, outputs),
+    collateralSats: inferVaultCollateralSats(action, outputs, network, keySet),
   };
 
   if (isLocked) {
@@ -557,7 +667,14 @@ function decodeLegacyDucatVaultReturn(payload: Buffer, action: DecodedVaultActio
   return decoded;
 }
 
-function decodeCoreDucatVaultReturn(payload: Buffer, action: DecodedVaultAction, outputIndex: number, outputs: Psbt['txOutputs']): DucatVaultReturnData | null {
+function decodeCoreDucatVaultReturn(
+  payload: Buffer,
+  action: DecodedVaultAction,
+  outputIndex: number,
+  outputs: Psbt['txOutputs'],
+  network: DucatNetwork,
+  keySet: AccountPublicSet,
+): DucatVaultReturnData | null {
   if (payload.length < 2 || payload[0] !== DUCAT_VAULT_RETURN_VERSION) {
     return null;
   }
@@ -583,7 +700,7 @@ function decodeCoreDucatVaultReturn(payload: Buffer, action: DecodedVaultAction,
       unitBalanceUnit: 0,
       unitPrice: 0,
       unitTimestamp: 0,
-      collateralSats: inferVaultCollateralSats(action, outputs),
+      collateralSats: inferVaultCollateralSats(action, outputs, network, keySet),
       guardianCount,
       priceCommitCount: 0,
     };
@@ -631,7 +748,7 @@ function decodeCoreDucatVaultReturn(payload: Buffer, action: DecodedVaultAction,
     unitBalanceUnit: unitBalanceCents / 100,
     unitPrice,
     unitTimestamp,
-    collateralSats: inferVaultCollateralSats(action, outputs),
+    collateralSats: inferVaultCollateralSats(action, outputs, network, keySet),
     tholdPrice,
     tholdHash,
     guardianCount,
@@ -639,7 +756,13 @@ function decodeCoreDucatVaultReturn(payload: Buffer, action: DecodedVaultAction,
   };
 }
 
-function decodeDucatVaultReturn(outputScript: Buffer, outputIndex: number, psbt: Psbt): DucatVaultReturnData | null {
+function decodeDucatVaultReturn(
+  outputScript: Buffer,
+  outputIndex: number,
+  psbt: Psbt,
+  network: DucatNetwork,
+  keySet: AccountPublicSet,
+): DucatVaultReturnData | null {
   const chunks = btcScript.decompile(outputScript);
 
   if (chunks?.length !== 3 || chunks[0] !== opcodes.OP_RETURN || chunks[1] !== opcodes.OP_8 || !Buffer.isBuffer(chunks[2])) {
@@ -650,12 +773,17 @@ function decodeDucatVaultReturn(outputScript: Buffer, outputIndex: number, psbt:
   const sequenceAction = decodeVaultActionFromSequences(psbt.txInputs);
 
   if (sequenceAction) {
-    return decodeCoreDucatVaultReturn(payload, sequenceAction, outputIndex, psbt.txOutputs) ?? decodeLegacyDucatVaultReturn(payload, sequenceAction, outputIndex, psbt.txOutputs);
+    return (
+      decodeCoreDucatVaultReturn(payload, sequenceAction, outputIndex, psbt.txOutputs, network, keySet) ??
+      decodeLegacyDucatVaultReturn(payload, sequenceAction, outputIndex, psbt.txOutputs, network, keySet)
+    );
   }
 
   const payloadAction = actionFlag(payload[1]);
 
-  return payloadAction ? decodeLegacyDucatVaultReturn(payload, legacyVaultAction(payloadAction), outputIndex, psbt.txOutputs) : null;
+  return payloadAction
+    ? decodeLegacyDucatVaultReturn(payload, legacyVaultAction(payloadAction), outputIndex, psbt.txOutputs, network, keySet)
+    : null;
 }
 
 function allSignedInputIndexes(signInputs: SignInputs): number[] {
@@ -752,7 +880,7 @@ export function summarizePsbt(
     const outputScript = Buffer.from(output.script);
     const outputAddress = output.address ?? parseOutputAddress(outputScript, network);
     const role = outputRole(outputAddress, keySet);
-    const vaultData = decodeDucatVaultReturn(outputScript, index, psbt) ?? undefined;
+    const vaultData = decodeDucatVaultReturn(outputScript, index, psbt, network, keySet) ?? undefined;
 
     return {
       address: outputAddress,
@@ -823,9 +951,13 @@ export function preparePsbtForSigning(psbtBase64: string, network: DucatNetwork,
     }
   }
 
+  const summary = summarizePsbt(psbt, network, keySet, signInputs, signedInputs);
+
+  assertAllExternalRecipientsVisible(summary);
+
   return {
     psbt,
-    summary: summarizePsbt(psbt, network, keySet, signInputs, signedInputs),
+    summary,
   };
 }
 

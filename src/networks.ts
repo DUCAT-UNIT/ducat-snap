@@ -51,6 +51,12 @@ export const DUCAT_SUPPORTED_NETWORKS: readonly DucatNetwork[] = DEV_REGTEST_ENA
  * signs but surfaces the cosigner key in the confirmation dialog so the user can verify it.
  * Populate these with the production guardian keys to enforce the cosigner identity.
  */
+// SAY-06 (acknowledged): mainnet and the testnets currently pin the SAME guardian key, so a
+// compromise of the less-protected testnet guardian infra would also expose the mainnet cosigner
+// identity. The per-network allowlist mechanism itself is sound (isKnownGuardianPubkey enforces it
+// per network); the open item is operational — distinct guardian keys must be provisioned and
+// pinned per network by Ducat guardian ops before mainnet launch. Tracked for the keygen/ops
+// hand-off, not fixable in the Snap source alone (a real distinct mainnet pubkey is required).
 export const DUCAT_GUARDIAN_PUBKEYS: Record<DucatNetwork, readonly string[]> = {
   mainnet: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],
   signet: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],

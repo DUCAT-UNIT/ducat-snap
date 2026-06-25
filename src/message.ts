@@ -6,10 +6,16 @@ import { bitcoinNetwork } from './networks';
 import { taprootSigner, toSigner } from './psbt';
 import type { DucatAddressRole } from './types';
 
+/** The BIP0322 tagged message digest: sha256(tagHash || tagHash || message). */
+export function bip322MessageHash(message: string): Buffer {
+  const tagHash = crypto.sha256(Buffer.from('BIP0322-signed-message'));
+
+  return crypto.sha256(Buffer.concat([tagHash, tagHash, Buffer.from(message)]));
+}
+
 function buildToSpendTx(message: string, scriptPubKey: Buffer): Transaction {
   const tx = new Transaction();
-  const tagHash = crypto.sha256(Buffer.from('BIP0322-signed-message'));
-  const messageHash = crypto.sha256(Buffer.concat([tagHash, tagHash, Buffer.from(message)]));
+  const messageHash = bip322MessageHash(message);
   const scriptSig = Buffer.concat([Buffer.from([opcodes.OP_0, 0x20]), messageHash]);
 
   tx.version = 0;
@@ -57,7 +63,7 @@ export function signBip322SimpleMessage(params: {
   keySet: AccountKeySet;
   role: DucatAddressRole;
   message: string;
-}): string {
+}): { signature: string; messageHash: string } {
   const scriptPubKey = getOutputScriptForRole(params.keySet, params.role);
   const toSpendTx = buildToSpendTx(params.message, scriptPubKey);
   const toSignPsbt = buildToSignPsbt({
@@ -81,5 +87,8 @@ export function signBip322SimpleMessage(params: {
     throw new Error('Failed to produce BIP322 witness.');
   }
 
-  return Buffer.from(finalScriptWitness).toString('base64');
+  return {
+    signature: Buffer.from(finalScriptWitness).toString('base64'),
+    messageHash: bip322MessageHash(params.message).toString('hex'),
+  };
 }

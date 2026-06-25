@@ -9,7 +9,7 @@ import { getHomeState } from './home';
 import { signBip322SimpleMessage } from './message';
 import { DUCAT_ALLOWED_ORIGINS, DUCAT_DEV_ALLOWED_ORIGINS, DUCAT_SUPPORTED_NETWORKS, normalizeNetwork } from './networks';
 import { notifyAction, notifyActionFailure } from './notifications';
-import { preparePsbtForSigning, signPreparedPsbt } from './psbt';
+import { assertUniqueBatchOutpoints, preparePsbtForSigning, signPreparedPsbt } from './psbt';
 import { appendRecentAction, clearRecentActions, rememberDucatSession } from './state';
 import { sendTransfer } from './transfer';
 import type { DucatActionContext, DucatNetwork, SignInputs } from './types';
@@ -257,7 +257,7 @@ async function signMessage(origin: string, rawParams: unknown): Promise<SignMess
   await notifyAction({ title, status: 'pending', detail: 'Message signature approval requested' });
   await confirmMessage({ origin, network, address, role, message, context });
 
-  const signature = signBip322SimpleMessage({
+  const { signature, messageHash } = signBip322SimpleMessage({
     keySet,
     role,
     message,
@@ -277,7 +277,7 @@ async function signMessage(origin: string, rawParams: unknown): Promise<SignMess
     status: 'success',
     result: {
       address,
-      messageHash: '',
+      messageHash,
       signature,
       protocol: 'BIP322',
     },
@@ -416,6 +416,9 @@ async function signBatch(origin: string, rawParams: unknown): Promise<SignBatchR
   }));
   snapDebug('signBatch: psbts prepared', { count: prepared.length });
   assertSingleNetwork(prepared.map((item) => item.summary));
+  // Reject a batch whose entries spend the same outpoint: the dialog promises the
+  // batch is all-or-nothing, but conflicting transactions can never all confirm (SAY-04).
+  assertUniqueBatchOutpoints(prepared.map((item) => item.psbt));
   const decodedActionType = prepared.find((item) => item.summary.vaultUpdates.length > 0)?.summary.vaultUpdates[0]?.actionType;
   const actionContext = decodedActionType ? { ...(context ?? {}), actionType: decodedActionType } : context;
   const title = actionLabel(actionContext, 'Sign Ducat batch');

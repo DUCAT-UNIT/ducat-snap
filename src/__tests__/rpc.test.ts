@@ -632,7 +632,10 @@ describe('RPC router', () => {
 
     const rendered = dialogValues(request).join('\n');
 
-    expect(rendered).toContain('Deposit BTC');
+    // The app claimed actionType 'deposit', but with no decodable Ducat OP_RETURN the Snap
+    // cannot verify that, so the headline is tagged "(app-provided)" rather than presented as
+    // an authoritative action (SAY-02).
+    expect(rendered).toContain('Deposit BTC (app-provided)');
     // With no decodable Ducat OP_RETURN, app-supplied vault numbers must NOT be rendered as
     // an authoritative vault-state panel (they cannot be verified from the PSBT).
     expect(rendered).not.toContain('Updated vault state');
@@ -688,6 +691,9 @@ describe('RPC router', () => {
     const rendered = dialogValues(request).join('\n');
 
     expect(rendered).toContain('Deposit BTC');
+    // This action IS verified from the decoded OP_RETURN, so the headline must not be tagged
+    // "(app-provided)" (SAY-02 only marks unverifiable, non-vault actions).
+    expect(rendered).not.toContain('(app-provided)');
     expect(rendered).toContain('Adds BTC collateral to the vault.');
     expect(rendered).toContain('decoded from vault data');
     expect(rendered).toContain('Collateral');
@@ -777,6 +783,65 @@ describe('RPC router', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
+  it('rejects a PSBT with more external recipients than the dialog can display', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: Buffer.alloc(32, 19).toString('hex'),
+      index: 0,
+      witnessUtxo: { script: keySet.satsOutputScript, value: 1_000_000 },
+    });
+    // 9 distinct external recipients — the 9th sits past the VISIBLE_OUTPUT_FOLD (8).
+    for (let index = 0; index < 9; index++) {
+      const external = deriveAccountSetFromBaseNodes('signet', testNode(20 + index), testNode(40 + index));
+      psbt.addOutput({ address: external.record.sats.address, value: 50_000 });
+    }
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signPsbt',
+        params: { network: 'signet', psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } },
+      }),
+    ).rejects.toMatchObject({
+      code: 'PSBT_TOO_MANY_RECIPIENTS',
+      details: expect.objectContaining({ visibleOutputFold: 8 }),
+    });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
+  it('rejects a PSBT where change outputs push an external recipient past the visible fold', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: Buffer.alloc(32, 23).toString('hex'),
+      index: 0,
+      witnessUtxo: { script: keySet.satsOutputScript, value: 2_000_000 },
+    });
+    // Only ONE external recipient, but 8 change outputs to our own address come first, so the
+    // recipient sits at non-data position 8 — outside the first-8 visible slice (SAY-07 follow-up:
+    // counting external outputs alone (1 <= 8) would wrongly let this through).
+    for (let index = 0; index < 8; index++) {
+      psbt.addOutput({ address: keySet.record.sats.address, value: 10_000 });
+    }
+    const external = deriveAccountSetFromBaseNodes('signet', testNode(31), testNode(32));
+    psbt.addOutput({ address: external.record.sats.address, value: 50_000 });
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signPsbt',
+        params: { network: 'signet', psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } },
+      }),
+    ).rejects.toMatchObject({
+      code: 'PSBT_TOO_MANY_RECIPIENTS',
+      details: expect.objectContaining({ hiddenRecipientAddress: external.record.sats.address }),
+    });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
   it('batch signing preserves PSBT order', async () => {
     setSnapMock();
     const first = makePsbt(100_000, 4);
@@ -796,6 +861,30 @@ describe('RPC router', () => {
     expect(result.psbts).toHaveLength(2);
     expect(Psbt.fromBase64(result.psbts[0], { network: bitcoinNetwork('signet') }).txOutputs[0].value).toBe(99_000);
     expect(Psbt.fromBase64(result.psbts[1], { network: bitcoinNetwork('signet') }).txOutputs[0].value).toBe(199_000);
+  });
+
+  it('rejects a batch whose entries spend the same outpoint before confirmation', async () => {
+    const request = setSnapMock();
+    // Same seed => same prevout hash:vout across both entries (SAY-04).
+    const first = makePsbt(100_000, 9);
+    const second = makePsbt(200_000, 9);
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signBatch',
+        params: {
+          network: 'signet',
+          entries: [
+            { psbt: first.psbt, signInputs: { [first.keySet.record.sats.address]: [0] } },
+            { psbt: second.psbt, signInputs: { [second.keySet.record.sats.address]: [0] } },
+          ],
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: 'BATCH_CONFLICTING_OUTPOINT',
+      details: expect.objectContaining({ entryIndex: 1, conflictsWithEntry: 0 }),
+    });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
   it('batch signing rejects the whole batch before confirmation when one entry is invalid', async () => {
@@ -1043,6 +1132,8 @@ describe('RPC router', () => {
       const rendered = JSON.stringify(home.content);
 
       expect(rendered).toContain('Signet testnet');
+      // The privacy disclosure that balance lookups contact external services (SAY-08).
+      expect(rendered).toContain('Balance lookups contact external services');
       expect(rendered).toContain('Alpha vault');
       expect(rendered).toContain('623.33% collateral');
       expect(rendered).toContain('45,000 sats');

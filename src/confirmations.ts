@@ -17,8 +17,10 @@ import {
   roleLabel,
   sanitizeMarkdown,
   truncateMiddle,
+  unverifiedActionLabel,
 } from './display';
 import { ducatError } from './errors';
+import { VISIBLE_OUTPUT_FOLD } from './psbt';
 import type {
   DucatActionContext,
   DucatAddressRole,
@@ -209,7 +211,10 @@ function contextFromDecodedVault(summary: PsbtSummary, context?: DucatActionCont
 
   // Every numeric field below is taken strictly from the PSBT-decoded vault data. App-supplied
   // vault numbers are never used as a fallback, and `source` is always stamped by us so the
-  // "decoded from vault data" provenance cannot be forged via context.
+  // "decoded from vault data" provenance cannot be forged via context. `collateralSats` is the
+  // one figure not carried in the OP_RETURN payload — it is read from the vault output's value,
+  // but only after inferVaultCollateralSats() confirms that output actually pays the user's own
+  // vault address (SAY-01); a non-vault output yields `undefined`, not an attacker-chosen amount.
   return {
     ...context,
     actionType: vaultData.actionType,
@@ -373,22 +378,17 @@ function batchEntryRecipientRows(summary: PsbtSummary): SnapElement[] {
     return [uiMuted('Self-transfer only - no external recipient.')];
   }
 
-  const visible = externalOutputs.slice(0, 3);
-  const hidden = externalOutputs.slice(visible.length);
-  const rows = visible.map((output) =>
+  // Itemize every external recipient. assertAllExternalRecipientsVisible (psbt.ts) already
+  // rejects any entry whose external recipients exceed the visible fold, so this list is bounded
+  // and never collapses a destination the user is signing over into a "+N more" aggregate (the
+  // SAY-07 issue applied equally to this batch-entry view, not just the single-PSBT dialog).
+  return externalOutputs.map((output) =>
     uiRow(
       'To',
       detailValue(formatBtcValue(output.valueSats), truncateMiddle(output.address, 12, 8)),
       output.role === 'unknown' ? 'warning' : undefined,
     ),
   );
-
-  if (hidden.length) {
-    const hiddenSats = hidden.reduce((total, output) => total + output.valueSats, 0);
-    rows.push(uiMuted(`+ ${hidden.length} more recipient${hidden.length === 1 ? '' : 's'} (${formatSatsOnly(hiddenSats)})`));
-  }
-
-  return rows;
 }
 
 function cosignInputsSection(cosignInputs: PsbtSummary['signedInputs']): SnapElement[] {
@@ -452,8 +452,9 @@ export async function confirmMessage(params: {
   message: string;
   context?: DucatActionContext;
 }): Promise<void> {
-  const displayedMessage = params.message.slice(0, 800);
-  const isTruncated = displayedMessage.length < params.message.length;
+  // signMessage rejects any message longer than MAX_MESSAGE_LENGTH (800) before this
+  // dialog runs, so the whole message always fits and is shown in full (SAY-09: the
+  // former truncation/"showing the first 800 characters" branch was unreachable).
   const messageSha256 = crypto.sha256(Buffer.from(params.message)).toString('hex');
   const messageFingerprint = `${messageSha256.slice(0, 16)}...${messageSha256.slice(-8)}`;
 
@@ -491,12 +492,8 @@ export async function confirmMessage(params: {
           uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
         uiCollapsibleSection(
-          isTruncated ? 'Message preview' : 'Message to sign',
-          [
-            uiMuted('Copyable value is exactly what will be signed.'),
-            ...(isTruncated ? [uiMuted('Showing the first 800 characters.')] : []),
-            uiCopyable(displayedMessage),
-          ],
+          'Message to sign',
+          [uiMuted('Copyable value is exactly what will be signed.'), uiCopyable(params.message)],
           true,
         ),
         ...contextSection(params.context, 'App labels are shown for context. The copyable message above is exactly what the Snap signs.'),
@@ -532,7 +529,12 @@ export async function confirmPsbt(params: {
 
   const displayContext = contextFromDecodedVault(summary, context);
   const signedInputs = summary.signedInputIndexes.map((index) => `#${index}`).join(', ');
-  const action = actionLabel(displayContext, 'Ducat transaction');
+  // When the PSBT carries decodable Ducat vault data, contextFromDecodedVault stamps a
+  // Snap-verified actionType and the headline is trustworthy. Otherwise the action name is
+  // whatever the app claimed, so tag it "(app-provided)" rather than presenting an unverified
+  // string as the authoritative action (SAY-02).
+  const isVaultVerified = summary.vaultUpdates.length > 0;
+  const action = isVaultVerified ? actionLabel(displayContext, 'Ducat transaction') : unverifiedActionLabel(displayContext, 'Bitcoin transaction');
   const leavesWalletSats = maybeAddSats(summary.externalOutputSats, summary.feeSats);
   const visibleWarnings = summary.warnings.map((warning) => warning.trim()).filter(Boolean);
   const recipientOutputs = summary.outputs
@@ -542,7 +544,7 @@ export async function confirmPsbt(params: {
   const changeOutputCount = recipientOutputs.filter(({ output }) => output.isMine).length;
   const externalOutputs = recipientOutputs.filter(({ output }) => !output.isMine);
   const primaryExternalOutput = externalOutputs[0]?.output;
-  const visibleOutputs = recipientOutputs.slice(0, 8);
+  const visibleOutputs = recipientOutputs.slice(0, VISIBLE_OUTPUT_FOLD);
   const hiddenOutputs = recipientOutputs.slice(visibleOutputs.length);
   const hiddenExternalSats = hiddenOutputs.filter(({ output }) => !output.isMine).reduce((total, { output }) => total + output.valueSats, 0);
   const dataOutputs = summary.outputs.map((output, index) => ({ index, output })).filter(({ output }) => isDataOutput(output));
@@ -711,7 +713,9 @@ export async function confirmBatch(params: {
           description: `${originNameLabel(params.origin)} - ${networkLabel(network)}`,
           extra: 'all-or-nothing',
           image: DUCAT_MARK_SVG,
-          title: `${actionLabel(displayContext, 'Ducat')} batch`,
+          // Same provenance rule as confirmPsbt (SAY-02): only a vault-decoded batch gets a
+          // Snap-verified action headline; otherwise the app's label is tagged "(app-provided)".
+          title: `${decodedBatchSummary ? actionLabel(displayContext, 'Ducat') : unverifiedActionLabel(displayContext, 'Bitcoin')} batch`,
           value: formatMaybeBtcValue(netTotal),
         }),
         uiBanner(statusTitle, statusSeverity, statusBody),
