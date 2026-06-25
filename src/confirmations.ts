@@ -455,8 +455,9 @@ export async function confirmMessage(params: {
   message: string;
   context?: DucatActionContext;
 }): Promise<void> {
-  const displayedMessage = params.message.slice(0, 800);
-  const isTruncated = displayedMessage.length < params.message.length;
+  // signMessage rejects any message longer than MAX_MESSAGE_LENGTH (800) before this
+  // dialog runs, so the whole message always fits and is shown in full (SAY-09: the
+  // former truncation/"showing the first 800 characters" branch was unreachable).
   const messageSha256 = crypto.sha256(Buffer.from(params.message)).toString('hex');
   const messageFingerprint = `${messageSha256.slice(0, 16)}...${messageSha256.slice(-8)}`;
 
@@ -494,12 +495,8 @@ export async function confirmMessage(params: {
           uiRow('Private keys', 'Stay inside MetaMask'),
         ]),
         uiCollapsibleSection(
-          isTruncated ? 'Message preview' : 'Message to sign',
-          [
-            uiMuted('Copyable value is exactly what will be signed.'),
-            ...(isTruncated ? [uiMuted('Showing the first 800 characters.')] : []),
-            uiCopyable(displayedMessage),
-          ],
+          'Message to sign',
+          [uiMuted('Copyable value is exactly what will be signed.'), uiCopyable(params.message)],
           true,
         ),
         ...contextSection(params.context, 'App labels are shown for context. The copyable message above is exactly what the Snap signs.'),
