@@ -28,6 +28,11 @@ const ALLOWED_ECDSA_SIGHASH_TYPES = [Transaction.SIGHASH_ALL];
 const ALLOWED_TAPROOT_SIGHASH_TYPES = [Transaction.SIGHASH_DEFAULT, Transaction.SIGHASH_ALL];
 const MAX_PSBT_INPUTS = 80;
 const MAX_PSBT_OUTPUTS = 120;
+// The confirmation dialog itemizes the first 8 outputs. We reject PSBTs whose external
+// (non-change, non-data) recipient count exceeds that fold rather than silently collapsing
+// the overflow into an aggregate line (SAY-07), so every destination a user signs over is
+// individually shown. Change and OP_RETURN/data outputs do not count against this cap.
+const MAX_EXTERNAL_RECIPIENTS = 8;
 const DUCAT_VAULT_RETURN_VERSION = 1;
 const DUCAT_VAULT_RETURN_MIN_SIZE = 14;
 const DUCAT_VAULT_RETURN_LOCKED_SIZE = 38;
@@ -909,9 +914,22 @@ export function preparePsbtForSigning(psbtBase64: string, network: DucatNetwork,
     }
   }
 
+  const summary = summarizePsbt(psbt, network, keySet, signInputs, signedInputs);
+
+  const externalRecipientCount = summary.outputs.filter(
+    (output) => !output.isMine && output.role !== 'op_return' && !(output.role === 'unknown' && output.valueSats === 0),
+  ).length;
+
+  if (externalRecipientCount > MAX_EXTERNAL_RECIPIENTS) {
+    throw ducatError('PSBT_TOO_MANY_RECIPIENTS', 'This PSBT pays more external recipients than the Ducat confirmation can individually display, so it was rejected rather than hiding destinations.', {
+      externalRecipientCount,
+      maxExternalRecipients: MAX_EXTERNAL_RECIPIENTS,
+    });
+  }
+
   return {
     psbt,
-    summary: summarizePsbt(psbt, network, keySet, signInputs, signedInputs),
+    summary,
   };
 }
 

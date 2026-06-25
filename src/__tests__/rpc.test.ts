@@ -777,6 +777,34 @@ describe('RPC router', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
+  it('rejects a PSBT with more external recipients than the dialog can display', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: Buffer.alloc(32, 19).toString('hex'),
+      index: 0,
+      witnessUtxo: { script: keySet.satsOutputScript, value: 1_000_000 },
+    });
+    // 9 distinct external recipients > MAX_EXTERNAL_RECIPIENTS (8).
+    for (let index = 0; index < 9; index++) {
+      const external = deriveAccountSetFromBaseNodes('signet', testNode(20 + index), testNode(40 + index));
+      psbt.addOutput({ address: external.record.sats.address, value: 50_000 });
+    }
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signPsbt',
+        params: { network: 'signet', psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } },
+      }),
+    ).rejects.toMatchObject({
+      code: 'PSBT_TOO_MANY_RECIPIENTS',
+      details: expect.objectContaining({ maxExternalRecipients: 8 }),
+    });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
   it('batch signing preserves PSBT order', async () => {
     setSnapMock();
     const first = makePsbt(100_000, 4);
