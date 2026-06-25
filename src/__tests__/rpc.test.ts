@@ -798,6 +798,30 @@ describe('RPC router', () => {
     expect(Psbt.fromBase64(result.psbts[1], { network: bitcoinNetwork('signet') }).txOutputs[0].value).toBe(199_000);
   });
 
+  it('rejects a batch whose entries spend the same outpoint before confirmation', async () => {
+    const request = setSnapMock();
+    // Same seed => same prevout hash:vout across both entries (SAY-04).
+    const first = makePsbt(100_000, 9);
+    const second = makePsbt(200_000, 9);
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signBatch',
+        params: {
+          network: 'signet',
+          entries: [
+            { psbt: first.psbt, signInputs: { [first.keySet.record.sats.address]: [0] } },
+            { psbt: second.psbt, signInputs: { [second.keySet.record.sats.address]: [0] } },
+          ],
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: 'BATCH_CONFLICTING_OUTPOINT',
+      details: expect.objectContaining({ entryIndex: 1, conflictsWithEntry: 0 }),
+    });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
   it('batch signing rejects the whole batch before confirmation when one entry is invalid', async () => {
     const request = setSnapMock();
     const first = makePsbt(100_000, 7);

@@ -396,11 +396,15 @@ function validateSignedInput(psbt: Psbt, index: number, address: string, keySet:
   };
 }
 
+function outpointKey(input: Psbt['txInputs'][number]): string {
+  return `${Buffer.from(input.hash).toString('hex')}:${input.index}`;
+}
+
 function assertUniqueInputOutpoints(psbt: Psbt): void {
   const seen = new Map<string, number>();
 
   for (const [index, input] of psbt.txInputs.entries()) {
-    const key = `${Buffer.from(input.hash).toString('hex')}:${input.index}`;
+    const key = outpointKey(input);
     const previousIndex = seen.get(key);
 
     if (previousIndex !== undefined) {
@@ -411,6 +415,33 @@ function assertUniqueInputOutpoints(psbt: Psbt): void {
     }
 
     seen.set(key, index);
+  }
+}
+
+/**
+ * Reject a batch where two entries spend the same outpoint. assertUniqueInputOutpoints
+ * only deduplicates within a single PSBT, but the batch dialog promises "all-or-nothing"
+ * and "signs the full batch in order" — a promise that cannot hold if entries conflict,
+ * since two transactions spending the same UTXO can never both confirm (SAY-04).
+ */
+export function assertUniqueBatchOutpoints(psbts: Psbt[]): void {
+  const seen = new Map<string, number>();
+
+  for (const [entryIndex, psbt] of psbts.entries()) {
+    for (const input of psbt.txInputs) {
+      const key = outpointKey(input);
+      const previousEntry = seen.get(key);
+
+      if (previousEntry !== undefined && previousEntry !== entryIndex) {
+        throw ducatError('BATCH_CONFLICTING_OUTPOINT', 'Two transactions in this batch spend the same previous output, so they cannot all be confirmed. The batch was rejected.', {
+          entryIndex,
+          conflictsWithEntry: previousEntry,
+          outpoint: key,
+        });
+      }
+
+      seen.set(key, entryIndex);
+    }
   }
 }
 
