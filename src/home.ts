@@ -316,12 +316,15 @@ function usdLabel(value: number | null): string {
 }
 
 function collateralRatioLabel(value: number | null): string | undefined {
-  if (value === null) {
+  // The validator returns the collateral ratio as a multiplier (e.g. 6.2333 = 623.33%),
+  // so it is always scaled by 100. The previous `value < 20 ? *100 : value` magnitude
+  // guess understated any genuine ratio >= 20 by 100x and created a discontinuity at the
+  // boundary (SAY-03); a ratio of 20 is a healthy 2000% vault, not 20%.
+  if (value === null || value <= 0) {
     return undefined;
   }
 
-  const percent = value > 0 && value < 20 ? value * 100 : value;
-  const formatted = percent.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  const formatted = (value * 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
   return `${formatted}% collateral`;
 }
