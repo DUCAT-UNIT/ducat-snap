@@ -377,22 +377,17 @@ function batchEntryRecipientRows(summary: PsbtSummary): SnapElement[] {
     return [uiMuted('Self-transfer only - no external recipient.')];
   }
 
-  const visible = externalOutputs.slice(0, 3);
-  const hidden = externalOutputs.slice(visible.length);
-  const rows = visible.map((output) =>
+  // Itemize every external recipient. assertAllExternalRecipientsVisible (psbt.ts) already
+  // rejects any entry whose external recipients exceed the visible fold, so this list is bounded
+  // and never collapses a destination the user is signing over into a "+N more" aggregate (the
+  // SAY-07 issue applied equally to this batch-entry view, not just the single-PSBT dialog).
+  return externalOutputs.map((output) =>
     uiRow(
       'To',
       detailValue(formatBtcValue(output.valueSats), truncateMiddle(output.address, 12, 8)),
       output.role === 'unknown' ? 'warning' : undefined,
     ),
   );
-
-  if (hidden.length) {
-    const hiddenSats = hidden.reduce((total, output) => total + output.valueSats, 0);
-    rows.push(uiMuted(`+ ${hidden.length} more recipient${hidden.length === 1 ? '' : 's'} (${formatSatsOnly(hiddenSats)})`));
-  }
-
-  return rows;
 }
 
 function cosignInputsSection(cosignInputs: PsbtSummary['signedInputs']): SnapElement[] {
