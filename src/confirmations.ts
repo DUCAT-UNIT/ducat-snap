@@ -17,6 +17,7 @@ import {
   roleLabel,
   sanitizeMarkdown,
   truncateMiddle,
+  unverifiedActionLabel,
 } from './display';
 import { ducatError } from './errors';
 import type {
@@ -532,7 +533,12 @@ export async function confirmPsbt(params: {
 
   const displayContext = contextFromDecodedVault(summary, context);
   const signedInputs = summary.signedInputIndexes.map((index) => `#${index}`).join(', ');
-  const action = actionLabel(displayContext, 'Ducat transaction');
+  // When the PSBT carries decodable Ducat vault data, contextFromDecodedVault stamps a
+  // Snap-verified actionType and the headline is trustworthy. Otherwise the action name is
+  // whatever the app claimed, so tag it "(app-provided)" rather than presenting an unverified
+  // string as the authoritative action (SAY-02).
+  const isVaultVerified = summary.vaultUpdates.length > 0;
+  const action = isVaultVerified ? actionLabel(displayContext, 'Ducat transaction') : unverifiedActionLabel(displayContext, 'Bitcoin transaction');
   const leavesWalletSats = maybeAddSats(summary.externalOutputSats, summary.feeSats);
   const visibleWarnings = summary.warnings.map((warning) => warning.trim()).filter(Boolean);
   const recipientOutputs = summary.outputs
@@ -711,7 +717,9 @@ export async function confirmBatch(params: {
           description: `${originNameLabel(params.origin)} - ${networkLabel(network)}`,
           extra: 'all-or-nothing',
           image: DUCAT_MARK_SVG,
-          title: `${actionLabel(displayContext, 'Ducat')} batch`,
+          // Same provenance rule as confirmPsbt (SAY-02): only a vault-decoded batch gets a
+          // Snap-verified action headline; otherwise the app's label is tagged "(app-provided)".
+          title: `${decodedBatchSummary ? actionLabel(displayContext, 'Ducat') : unverifiedActionLabel(displayContext, 'Bitcoin')} batch`,
           value: formatMaybeBtcValue(netTotal),
         }),
         uiBanner(statusTitle, statusSeverity, statusBody),

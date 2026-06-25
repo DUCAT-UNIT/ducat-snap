@@ -68,6 +68,23 @@ export function actionLabel(context?: DucatActionContext, fallback = 'Ducat acti
   return ACTION_LABELS[key] ?? titleCaseFallback(raw);
 }
 
+/**
+ * Headline for a transaction whose action the Snap could NOT verify from the PSBT (e.g. a plain
+ * BTC spend with no decodable Ducat vault data). The action name there is whatever the app
+ * claimed, so we must not let it occupy the primary slot as if the Snap vouched for it (SAY-02):
+ * either show the Snap-derived fallback, or the app label tagged "(app-provided)" so the user
+ * knows it is unverified. The truthful PSBT-derived recipients/amounts/fee are shown regardless.
+ */
+export function unverifiedActionLabel(context?: DucatActionContext, fallback = 'Bitcoin transaction'): string {
+  const raw = context?.title ?? context?.actionType ?? context?.flow;
+
+  if (!raw) {
+    return fallback;
+  }
+
+  return `${actionLabel(context, fallback)} (app-provided)`;
+}
+
 export function roleLabel(role: DucatAddressRole | null | undefined): string {
   return role ? ROLE_LABELS[role] : 'External account';
 }

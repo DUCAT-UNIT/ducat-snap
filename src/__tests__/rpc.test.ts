@@ -632,7 +632,10 @@ describe('RPC router', () => {
 
     const rendered = dialogValues(request).join('\n');
 
-    expect(rendered).toContain('Deposit BTC');
+    // The app claimed actionType 'deposit', but with no decodable Ducat OP_RETURN the Snap
+    // cannot verify that, so the headline is tagged "(app-provided)" rather than presented as
+    // an authoritative action (SAY-02).
+    expect(rendered).toContain('Deposit BTC (app-provided)');
     // With no decodable Ducat OP_RETURN, app-supplied vault numbers must NOT be rendered as
     // an authoritative vault-state panel (they cannot be verified from the PSBT).
     expect(rendered).not.toContain('Updated vault state');
@@ -688,6 +691,9 @@ describe('RPC router', () => {
     const rendered = dialogValues(request).join('\n');
 
     expect(rendered).toContain('Deposit BTC');
+    // This action IS verified from the decoded OP_RETURN, so the headline must not be tagged
+    // "(app-provided)" (SAY-02 only marks unverifiable, non-vault actions).
+    expect(rendered).not.toContain('(app-provided)');
     expect(rendered).toContain('Adds BTC collateral to the vault.');
     expect(rendered).toContain('decoded from vault data');
     expect(rendered).toContain('Collateral');
