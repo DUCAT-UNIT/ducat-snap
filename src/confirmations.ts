@@ -209,7 +209,10 @@ function contextFromDecodedVault(summary: PsbtSummary, context?: DucatActionCont
 
   // Every numeric field below is taken strictly from the PSBT-decoded vault data. App-supplied
   // vault numbers are never used as a fallback, and `source` is always stamped by us so the
-  // "decoded from vault data" provenance cannot be forged via context.
+  // "decoded from vault data" provenance cannot be forged via context. `collateralSats` is the
+  // one figure not carried in the OP_RETURN payload — it is read from the vault output's value,
+  // but only after inferVaultCollateralSats() confirms that output actually pays the user's own
+  // vault address (SAY-01); a non-vault output yields `undefined`, not an attacker-chosen amount.
   return {
     ...context,
     actionType: vaultData.actionType,
