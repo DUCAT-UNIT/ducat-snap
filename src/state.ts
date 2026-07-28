@@ -1,12 +1,26 @@
+/** @fileoverview Sanitizes persisted state and maintains bounded actions, sessions, keys, and endpoint overrides. */
 import { DUCAT_SUPPORTED_NETWORKS } from './networks';
-import type { DucatNetwork, DucatSnapState, RecentAction } from './types';
+import { normalizeNetworkEndpointUrl } from './network-endpoint-policy';
+import type {
+  DucatAccount,
+  DucatNetwork,
+  DucatSnapState,
+  NetworkEndpointOverride,
+  NetworkEndpointOverrides,
+  PrivateKeyOverrideRecord,
+  RecentAction,
+} from './types';
 
 const MAX_RECENT_ACTIONS = 12;
 const RECENT_ACTION_STATUSES = new Set(['signed', 'broadcast', 'failed']);
 // Networks accepted in persisted state. Derived from DUCAT_SUPPORTED_NETWORKS so
-// `regtest` is accepted only in a dev build (DEV_REGTEST_ENABLED); the published
-// build treats a stored `regtest` value as invalid, matching normalizeNetwork.
+// storage validation stays aligned with the RPC and Home network selectors.
 const STORED_NETWORKS = new Set<string>(DUCAT_SUPPORTED_NETWORKS);
+
+type RawStoredState = Partial<DucatSnapState> & {
+  lastNetwork?: unknown;
+  selectedNetwork?: unknown;
+};
 
 function isStoredNetwork(value: unknown): value is DucatNetwork {
   return typeof value === 'string' && STORED_NETWORKS.has(value);
@@ -15,7 +29,7 @@ function isStoredNetwork(value: unknown): value is DucatNetwork {
 let fallbackIdCounter = 0;
 
 function emptyState(): DucatSnapState {
-  return { recentActions: [] };
+  return { recentActions: [], selectedNetwork: 'mutinynet' };
 }
 
 function id(): string {
@@ -67,29 +81,153 @@ function isDetails(value: unknown): value is RecentAction['details'] {
   );
 }
 
+function isHex(value: unknown, bytes: number): value is string {
+  return typeof value === 'string' && new RegExp(`^[0-9a-f]{${bytes * 2}}$`, 'iu').test(value);
+}
+
+function isDucatAccount(value: unknown, pubkeyBytes: 32 | 33): value is DucatAccount {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const account = value as Partial<DucatAccount>;
+
+  return typeof account.address === 'string' && isHex(account.pubkey, pubkeyBytes);
+}
+
+function isKeyOverride(value: unknown): value is PrivateKeyOverrideRecord {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const account = value as Partial<PrivateKeyOverrideRecord>;
+
+  return (
+    typeof account.id === 'string' &&
+    account.source === 'imported' &&
+    isStoredNetwork(account.network) &&
+    typeof account.created_at === 'number' &&
+    Number.isFinite(account.created_at) &&
+    typeof account.fingerprint === 'string' &&
+    isHex(account.private_key, 32) &&
+    isDucatAccount(account.sats, 33) &&
+    isDucatAccount(account.runes, 32)
+  );
+}
+
+function withKeyOverrides(state: DucatSnapState, keyOverrides: PrivateKeyOverrideRecord[]): DucatSnapState {
+  if (!keyOverrides.length) {
+    return state;
+  }
+
+  return {
+    ...state,
+    keyOverrides,
+  };
+}
+
+function sanitizedNetworkEndpointOverrides(value: unknown): NetworkEndpointOverrides | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const result: NetworkEndpointOverrides = {};
+
+  for (const [networkInput, overrideInput] of Object.entries(value)) {
+    if (!isStoredNetwork(networkInput) || !overrideInput || typeof overrideInput !== 'object' || Array.isArray(overrideInput)) {
+      continue;
+    }
+
+    const override = overrideInput as Record<string, unknown>;
+    if (override.network_identity_verified !== true) {
+      continue;
+    }
+    const hasValidator = override.validator_base_url !== undefined;
+    const hasEsplora = override.esplora_base_url !== undefined;
+    let validatorUrl: string | undefined;
+    let esploraUrl: string | undefined;
+    try {
+      validatorUrl = hasValidator
+        ? normalizeNetworkEndpointUrl(override.validator_base_url, 'validator_base_url', networkInput)
+        : undefined;
+      esploraUrl = hasEsplora
+        ? normalizeNetworkEndpointUrl(override.esplora_base_url, 'esplora_base_url', networkInput)
+        : undefined;
+    } catch {
+      continue;
+    }
+
+    const next: NetworkEndpointOverride = { network_identity_verified: true };
+    if (validatorUrl) {
+      next.validator_base_url = validatorUrl;
+    }
+    if (esploraUrl) {
+      next.esplora_base_url = esploraUrl;
+    }
+    if (next.validator_base_url || next.esplora_base_url) {
+      result[networkInput] = next;
+    }
+  }
+
+  return Object.keys(result).length ? result : undefined;
+}
+
+/**
+ * Loads untrusted Snap state and retains only bounded schema-valid records and verified overrides.
+ * @returns Sanitized state safe for wallet policy decisions.
+ */
 export async function getState(): Promise<DucatSnapState> {
-  const storedState = await snap.request<Partial<DucatSnapState> | null>({
+  const storedState = await snap.request<RawStoredState | null>({
     method: 'snap_manageState',
     params: { operation: 'get' },
   });
 
-  if (!storedState || !Array.isArray(storedState.recentActions)) {
+  if (!storedState || typeof storedState !== 'object' || Array.isArray(storedState)) {
     return emptyState();
   }
 
-  return {
-    recentActions: storedState.recentActions
+  const recentActions = Array.isArray(storedState.recentActions) ? storedState.recentActions : [];
+  const keyOverrides = Array.isArray(storedState.keyOverrides) ? storedState.keyOverrides.filter(isKeyOverride) : [];
+  const networkEndpointOverrides = sanitizedNetworkEndpointOverrides(storedState.networkEndpointOverrides);
+
+  const selectedNetwork = isStoredNetwork(storedState.selectedNetwork)
+    ? storedState.selectedNetwork
+    : isStoredNetwork(storedState.lastNetwork)
+      ? storedState.lastNetwork
+      : 'mutinynet';
+  const state = withKeyOverrides({
+    recentActions: recentActions
       .filter(isRecentAction)
       .sort((left, right) => right.timestamp - left.timestamp)
       .slice(0, MAX_RECENT_ACTIONS),
-    lastNetwork: isStoredNetwork(storedState.lastNetwork) ? storedState.lastNetwork : undefined,
+    selectedNetwork,
     lastOrigin: typeof storedState.lastOrigin === 'string' ? storedState.lastOrigin : undefined,
-  };
+  }, keyOverrides);
+  const sanitizedState = networkEndpointOverrides ? { ...state, networkEndpointOverrides } : state;
+  const needsMigration = !isStoredNetwork(storedState.selectedNetwork) || Object.prototype.hasOwnProperty.call(storedState, 'lastNetwork');
+
+  if (needsMigration) {
+    await snap.request({
+      method: 'snap_manageState',
+      params: {
+        operation: 'update',
+        newState: sanitizedState,
+      },
+    });
+  }
+
+  return sanitizedState;
 }
 
+/**
+ * Prepends a timestamped action, bounds history, and remembers its origin.
+ * @param action - Completed public action details without generated metadata.
+ * @returns When the sanitized state update is persisted.
+ */
 export async function appendRecentAction(action: Omit<RecentAction, 'id' | 'timestamp'>): Promise<void> {
   const state = await getState();
   const nextState: DucatSnapState = {
+    ...state,
     recentActions: [
       {
         ...action,
@@ -99,7 +237,6 @@ export async function appendRecentAction(action: Omit<RecentAction, 'id' | 'time
       },
       ...state.recentActions,
     ].slice(0, MAX_RECENT_ACTIONS),
-    lastNetwork: action.network,
     lastOrigin: action.origin,
   };
 
@@ -112,17 +249,10 @@ export async function appendRecentAction(action: Omit<RecentAction, 'id' | 'time
   });
 }
 
+/** @returns When action history is cleared without altering keys, endpoints, or session metadata. */
 export async function clearRecentActions(): Promise<void> {
   const state = await getState();
-  const nextState: DucatSnapState = { recentActions: [] };
-
-  if (state.lastNetwork) {
-    nextState.lastNetwork = state.lastNetwork;
-  }
-
-  if (state.lastOrigin) {
-    nextState.lastOrigin = state.lastOrigin;
-  }
+  const nextState: DucatSnapState = { ...state, recentActions: [] };
 
   await snap.request({
     method: 'snap_manageState',
@@ -133,7 +263,12 @@ export async function clearRecentActions(): Promise<void> {
   });
 }
 
-export async function rememberDucatSession(network: DucatNetwork, origin: string): Promise<void> {
+/**
+ * Persists the most recent authorized origin without replacing other state.
+ * @param origin - Authorized request origin.
+ * @returns When the session metadata is persisted.
+ */
+export async function rememberDucatSession(origin: string): Promise<void> {
   const state = await getState();
 
   await snap.request({
@@ -142,8 +277,23 @@ export async function rememberDucatSession(network: DucatNetwork, origin: string
       operation: 'update',
       newState: {
         ...state,
-        lastNetwork: network,
         lastOrigin: origin,
+      },
+    },
+  });
+}
+
+/** @param network - Confirmed user-selected network. @returns When the selection is persisted. */
+export async function setSelectedNetwork(network: DucatNetwork): Promise<void> {
+  const state = await getState();
+
+  await snap.request({
+    method: 'snap_manageState',
+    params: {
+      operation: 'update',
+      newState: {
+        ...state,
+        selectedNetwork: network,
       },
     },
   });

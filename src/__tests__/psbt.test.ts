@@ -31,6 +31,24 @@ function makeKeySet() {
   );
 }
 
+function makeSharedTaprootKeySet() {
+  const keySet = makeKeySet();
+
+  return {
+    ...keySet,
+    record: {
+      ...keySet.record,
+      vault: { ...keySet.record.runes },
+    },
+    vaultNode: keySet.runesNode,
+    vaultOutputScript: keySet.runesOutputScript,
+    vaultInternalPubkey: keySet.runesInternalPubkey,
+    taprootNode: keySet.runesNode,
+    taprootOutputScript: keySet.runesOutputScript,
+    taprootInternalPubkey: keySet.runesInternalPubkey,
+  };
+}
+
 function makeScriptPathPayment(xOnlyPubkey: Buffer) {
   const redeemScript = btcScript.compile([xOnlyPubkey, opcodes.OP_CHECKSIG]);
   return makeTaprootScriptPathPayment(redeemScript);
@@ -439,6 +457,85 @@ describe('PSBT signing', () => {
     expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
     expect(signed.data.inputs[0].tapScriptSig?.[0].leafHash).toBeDefined();
     expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
+  });
+
+  it('distinguishes runes and vault inputs when both roles share one Taproot key', () => {
+    const keySet = makeSharedTaprootKeySet();
+    const inscriptionSuffix = Buffer.from(
+      '0063036f72640101106170706c69636174696f6e2f6a736f6e010714f04df4c4b30d2b7ac6e1ed2445aeb12a9cb4d2ec000e7b226c626c223a2244656d6f227d68',
+      'hex',
+    );
+    const cosignPrefix = btcScript.compile([
+      keySet.vaultInternalPubkey,
+      opcodes.OP_CHECKSIGVERIFY,
+      GUARD_TAPROOT_KEY,
+      opcodes.OP_CHECKSIG,
+    ]);
+    const scriptPath = makeTaprootScriptPathPayment(Buffer.concat([cosignPrefix, inscriptionSuffix]));
+    const vaultPsbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    vaultPsbt.addInput({
+      hash: '35'.repeat(32),
+      index: 0,
+      sequence: vaultSequence(161),
+      tapLeafScript: [
+        {
+          controlBlock: scriptPath.controlBlock,
+          leafVersion: 0xc0,
+          script: scriptPath.redeemScript,
+        },
+      ],
+      witnessUtxo: {
+        script: scriptPath.output,
+        value: 10_000,
+      },
+    });
+    vaultPsbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    const sharedAddress = keySet.record.runes.address;
+    const vaultSignInputs = { [sharedAddress]: [0] };
+    const preparedVault = preparePsbtForSigning(vaultPsbt.toBase64(), 'signet', keySet, vaultSignInputs);
+    const signedVault = Psbt.fromBase64(signPreparedPsbt(preparedVault.psbt, keySet, vaultSignInputs), {
+      network: bitcoinNetwork('signet'),
+    });
+
+    expect(preparedVault.summary.signedInputs[0]).toMatchObject({
+      role: 'vault',
+      verification: 'committed-ducat-cosign-leaf',
+    });
+    expect(signedVault.data.inputs[0].tapScriptSig).toHaveLength(1);
+    expect(signedVault.data.inputs[0].tapKeySig).toBeUndefined();
+
+    const runesPsbt = new Psbt({ network: bitcoinNetwork('signet') });
+    runesPsbt.addInput({
+      hash: '36'.repeat(32),
+      index: 0,
+      tapInternalKey: keySet.runesInternalPubkey,
+      witnessUtxo: {
+        script: keySet.runesOutputScript,
+        value: 10_000,
+      },
+    });
+    runesPsbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    const runesSignInputs = { [sharedAddress]: [0] };
+    const preparedRunes = preparePsbtForSigning(runesPsbt.toBase64(), 'signet', keySet, runesSignInputs);
+    const signedRunes = Psbt.fromBase64(signPreparedPsbt(preparedRunes.psbt, keySet, runesSignInputs), {
+      network: bitcoinNetwork('signet'),
+    });
+
+    expect(preparedRunes.summary.signedInputs[0]).toMatchObject({
+      role: 'runes',
+      verification: 'matched-account-output',
+    });
+    expect(signedRunes.data.inputs[0].tapKeySig).toBeDefined();
+    expect(signedRunes.data.inputs[0].tapScriptSig).toBeUndefined();
   });
 
   it('rejects committed Taproot script-path inputs that are not Ducat cosign leaves', () => {

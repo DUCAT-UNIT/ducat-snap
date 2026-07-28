@@ -1,3 +1,4 @@
+/** @fileoverview Builds fail-closed confirmations from verified facts while separating untrusted app metadata. */
 import { crypto } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
@@ -298,6 +299,18 @@ function countCard(title: string, value: string, description: string, extra?: st
   });
 }
 
+function unitEvidenceRows(summary: PsbtSummary): SnapElement[] {
+  return summary.unitInputs.map((input) =>
+    uiRow(
+      truncateMiddle(input.coinId, 12, 8),
+      detailValue(
+        `${input.activeAmount} active / ${input.reservedAmount} reserved`,
+        `${input.classification} - asset ${input.assetId}`,
+      ),
+    ),
+  );
+}
+
 function actionKey(context?: DucatActionContext): string | null {
   const raw = context?.actionType ?? context?.flow ?? context?.title;
 
@@ -444,6 +457,12 @@ function timeoutInputsSection(timeoutInputs: PsbtSummary['signedInputs']): SnapE
   return [uiCollapsibleSection(`Unilateral exit (${timeoutInputs.length})`, rows, false)];
 }
 
+/**
+ * Requires approval after displaying the exact message, signer role, origin, network, and digest.
+ * @param params - Message, digest, role, network, origin, and account metadata.
+ * @returns Only after explicit user approval.
+ * @throws A user-rejected error when approval is denied.
+ */
 export async function confirmMessage(params: {
   origin: string;
   network: DucatNetwork;
@@ -508,24 +527,18 @@ export async function confirmMessage(params: {
   }
 }
 
+/**
+ * Requires approval of a verified PSBT summary including recipients, change, fees, and provenance.
+ * @param params - Prepared transaction summary and request context.
+ * @returns Only after explicit user approval.
+ * @throws When fee visibility is unavailable or approval is denied.
+ */
 export async function confirmPsbt(params: {
   origin: string;
   summary: PsbtSummary;
   context?: DucatActionContext;
 }): Promise<void> {
   const { summary, context, origin } = params;
-
-  // Hard-stop instead of rendering "Unavailable": if the total miner fee cannot be computed
-  // (any input omitted its value data), the user cannot see the net BTC leaving the wallet. We
-  // refuse before showing the dialog rather than letting an approval proceed with a hidden fee
-  // and total. The Ducat app must supply value data (witnessUtxo) for every input it asks us to
-  // sign over, including non-signed inputs that contribute to the fee.
-  if (summary.feeSats === null) {
-    throw ducatError('PSBT_FEE_UNAVAILABLE', 'This PSBT does not include enough value data to compute the Bitcoin miner fee, so the Ducat Snap cannot show the total you would pay and will not sign it.', {
-      inputCount: summary.inputCount,
-      inputValueSats: summary.inputValueSats,
-    });
-  }
 
   const displayContext = contextFromDecodedVault(summary, context);
   const signedInputs = summary.signedInputIndexes.map((index) => `#${index}`).join(', ');
@@ -637,6 +650,9 @@ export async function confirmPsbt(params: {
         ]),
         ...cosignSection,
         ...timeoutSection,
+        ...(summary.unitInputs.length
+          ? [uiCollapsibleSection(`Verified UNIT inputs (${summary.unitInputs.length})`, unitEvidenceRows(summary), true)]
+          : []),
         uiCollapsibleSection(
           `Inspect signed inputs (${summary.signedInputs.length})`,
           [...inputRows, ...(summary.signedInputs.length > visibleSignedInputs.length ? [uiMuted(`+ ${summary.signedInputs.length - visibleSignedInputs.length} more inputs`)] : [])],
@@ -670,6 +686,12 @@ export async function confirmPsbt(params: {
   }
 }
 
+/**
+ * Requires one all-or-nothing approval for a bounded PSBT batch with visible aggregate fees.
+ * @param params - Verified batch summaries and request context.
+ * @returns Only after explicit user approval of the complete batch.
+ * @throws When any fee is unavailable or approval is denied.
+ */
 export async function confirmBatch(params: {
   origin: string;
   entries: { summary: PsbtSummary; context?: DucatActionContext }[];
@@ -765,6 +787,14 @@ export async function confirmBatch(params: {
           ],
           true,
         ),
+        ...(summaries.some((summary) => summary.unitInputs.length)
+          ? [
+              uiCollapsibleSection(
+                `Verified UNIT inputs (${summaries.reduce((total, summary) => total + summary.unitInputs.length, 0)})`,
+                summaries.flatMap(unitEvidenceRows),
+              ),
+            ]
+          : []),
         uiDivider(),
         uiMuted('Approve only if every transaction and recipient matches the Ducat app flow.'),
       ]),
@@ -773,92 +803,5 @@ export async function confirmBatch(params: {
 
   if (!confirmed) {
     throw ducatError('USER_REJECTED', 'You rejected Ducat batch signing.');
-  }
-}
-
-export async function confirmTransfer(params: {
-  origin: string;
-  network: DucatNetwork;
-  from: string;
-  to: string;
-  amountSats: number;
-  feeSats: number;
-  feeRate: number;
-  changeSats: number;
-  inputCount: number;
-  inputValueSats: number;
-  broadcastEndpoint: string;
-}): Promise<void> {
-  const confirmed = await snap.request<boolean>({
-    method: 'snap_dialog',
-    params: {
-      type: 'confirmation',
-      content: uiBox([
-        uiCard({
-          description: `${originNameLabel(params.origin)} - ${networkLabel(params.network)}`,
-          extra: 'you pay',
-          image: DUCAT_MARK_SVG,
-          title: 'Send BTC',
-          value: formatBtcValue(params.amountSats + params.feeSats),
-        }),
-        uiBanner('Ready to broadcast', 'warning', 'Approving signs and broadcasts this BTC transfer. Check the recipient before continuing.'),
-        uiSection([
-          uiHeading('Approval summary'),
-          amountCard('You pay', params.amountSats + params.feeSats, 'Recipient value plus Bitcoin miner fee'),
-          amountCard('Recipient gets', params.amountSats, `To ${truncateMiddle(params.to, 12, 8)}`),
-          amountCard('Change', params.changeSats, 'Returns to BTC account'),
-          compactReviewLine('Network fee', params.feeSats, `${params.feeRate} sat/vB`),
-        ]),
-        uiSection([
-          uiHeading('Broadcast check'),
-          countCard('Selected UTXOs', `${params.inputCount} input${params.inputCount === 1 ? '' : 's'}`, 'BTC account funds selected for this transfer', formatSats(params.inputValueSats, params.network)),
-          uiRow('Broadcast', inlineSecurity('Signs and broadcasts', 'warning'), 'warning'),
-          uiRow('Private keys', 'Stay inside MetaMask'),
-        ]),
-        uiCollapsibleSection('Request details', [
-          uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
-          uiRow('Network', networkLabel(params.network)),
-        ]),
-        uiCollapsibleSection('Inspect route', [
-          uiRow('From', uiCopyable(params.from)),
-          uiRow('To', uiCopyable(params.to)),
-          uiRow('Broadcast endpoint', uiCopyable(params.broadcastEndpoint)),
-        ]),
-        uiDivider(),
-        uiMuted('Approve only if the recipient and the amount shown under You pay are correct.'),
-      ]),
-    },
-  });
-
-  if (!confirmed) {
-    throw ducatError('USER_REJECTED', 'You rejected Ducat transfer.');
-  }
-}
-
-export async function confirmClearRecentActions(origin: string): Promise<void> {
-  const confirmed = await snap.request<boolean>({
-    method: 'snap_dialog',
-    params: {
-      type: 'confirmation',
-      content: uiBox([
-        uiCard({
-          description: originNameLabel(origin),
-          image: DUCAT_MARK_SVG,
-          title: 'Clear recent actions',
-          value: 'History',
-        }),
-        uiBanner('Snap Home only', 'info', 'This clears only the recent Ducat action history shown on Snap Home.'),
-        uiSection([
-          uiHeading('Security check'),
-          uiRow('App', detailValue(originNameLabel(origin), originUrlLabel(origin))),
-          uiRow('Accounts and keys', 'Unchanged'),
-          uiRow('Balances and vaults', 'Unchanged'),
-        ]),
-      ]),
-    },
-  });
-
-  if (!confirmed) {
-    throw ducatError('USER_REJECTED', 'You rejected clearing Ducat recent actions.');
   }
 }

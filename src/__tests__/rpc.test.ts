@@ -1,25 +1,49 @@
 import { opcodes, Psbt, script as btcScript } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
-import { deriveAccountSetFromBaseNodes } from '../accounts';
+import { deriveAccountSetFromBaseNodes, p2trAccount, p2wpkhAccount, toXOnly } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 import { renderHomePage } from '../home';
-import { bitcoinNetwork, validatorUrls } from '../networks';
+import { truncateMiddle } from '../display';
+import { networkProfile } from '../network-profiles';
+import { bitcoinNetwork } from '../networks';
 import { ALLOWED_ORIGINS, handleRpcRequest } from '../rpc';
+import { getWalletInventory, invalidateWalletInventory } from '../wallet-inventory';
+import type { PrivateKeyOverrideRecord } from '../types';
 import packageJson from '../../package.json';
 import manifest from '../../snap.manifest.json';
+
+jest.mock('../psbt-verification', () => ({
+  createPsbtVerificationContext: jest.fn(async () => ({ verify: jest.fn(async () => undefined) })),
+}));
+jest.mock('../wallet-inventory', () => ({
+  getWalletInventory: jest.fn(async () => ({
+    balances: {
+      btcSats: '12345', btcUtxos: 1, unitActive: '10000', unitReserved: '0',
+      unitMixedActive: '0', unitMixedReserved: '0',
+    },
+  })),
+  invalidateWalletInventory: jest.fn(),
+}));
 
 const ORIGIN = 'https://app.ducatprotocol.com';
 
 type SnapRequestArgs = {
   method: string;
   params?: {
+    context?: unknown;
+    id?: unknown;
     message?: string;
     operation?: string;
     path?: string[];
     newState?: unknown;
     type?: string;
+    ui?: unknown;
   };
+};
+
+type SnapRequestMock = jest.Mock & {
+  interfaces: Map<string, unknown>;
 };
 
 function testNode(byte: number) {
@@ -30,8 +54,32 @@ function testKeySet() {
   return deriveAccountSetFromBaseNodes('signet', testNode(1), testNode(2));
 }
 
-function setSnapMock(dialogResult = true, initialState: unknown = null) {
-  let managedState: unknown = initialState;
+function keyOverride(byte = 9): PrivateKeyOverrideRecord {
+  const node = DucatKeyNode.fromPrivateKey(Buffer.alloc(32, byte), Buffer.alloc(32));
+  const publicKey = Buffer.from(node.publicKey);
+  const sats = p2wpkhAccount('signet', publicKey);
+  const runes = p2trAccount('signet', toXOnly(publicKey));
+
+  return {
+    id: 'imported-signet-1',
+    source: 'imported',
+    network: 'signet',
+    created_at: 1_700_000_000,
+    fingerprint: `signet:${runes.address}`,
+    private_key: Buffer.alloc(32, byte).toString('hex'),
+    sats: { address: sats.address, pubkey: sats.pubkey },
+    runes: { address: runes.address, pubkey: runes.pubkey },
+  };
+}
+
+function setSnapMock(dialogResult = true, initialState: unknown = null): SnapRequestMock {
+  let managedState: unknown = initialState && typeof initialState === 'object' && !Array.isArray(initialState)
+    ? ('selectedNetwork' in initialState
+      ? initialState
+      : { ...initialState, selectedNetwork: 'signet' })
+    : { recentActions: [], selectedNetwork: 'signet' };
+  let interfaceCount = 0;
+  const interfaces = new Map<string, unknown>();
   const request = jest.fn(async ({ method, params }: SnapRequestArgs) => {
     if (method === 'snap_getBip32Entropy') {
       const byte = params?.path?.[1] === "84'" ? 1 : 2;
@@ -59,8 +107,22 @@ function setSnapMock(dialogResult = true, initialState: unknown = null) {
       return undefined;
     }
 
+    if (method === 'snap_createInterface') {
+      interfaceCount += 1;
+      const id = `interface-${interfaceCount}`;
+      interfaces.set(id, params?.ui);
+      return id;
+    }
+
+    if (method === 'snap_updateInterface') {
+      interfaces.set(String(params?.id), params?.ui);
+      return undefined;
+    }
+
     throw new Error(`Unexpected Snap method ${method}`);
-  });
+  }) as SnapRequestMock;
+
+  request.interfaces = interfaces;
 
   (globalThis as unknown as { snap: { request: typeof request } }).snap = { request };
 
@@ -85,6 +147,26 @@ function makePsbt(value: number, seed: number) {
   });
 
   return { keySet, psbt: psbt.toBase64() };
+}
+
+function makeImportedPsbt(value: number, seed: number, account: PrivateKeyOverrideRecord) {
+  const imported = p2wpkhAccount('signet', Buffer.from(account.sats.pubkey, 'hex'));
+  const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+  psbt.addInput({
+    hash: Buffer.alloc(32, seed).toString('hex'),
+    index: 0,
+    witnessUtxo: {
+      script: imported.output,
+      value,
+    },
+  });
+  psbt.addOutput({
+    address: imported.address,
+    value: value - 1_000,
+  });
+
+  return { psbt: psbt.toBase64(), address: imported.address };
 }
 
 function makeExternalPsbt(value: number, seed: number) {
@@ -117,6 +199,10 @@ function uint32(value: number): Buffer {
   buffer.writeUInt32BE(value);
 
   return buffer;
+}
+
+function occurrenceCount(value: string, pattern: string): number {
+  return value.split(pattern).length - 1;
 }
 
 function vaultReturnPayload(flag: string, unitBalanceCents: number, unitPrice: number, unitTimestamp: number, tholdPrice?: number): Buffer {
@@ -228,10 +314,10 @@ function collectDialogText(value: unknown): string[] {
 }
 
 describe('RPC router', () => {
-  it('uses the dev validator for Snap home data', () => {
-    expect(validatorUrls('mainnet')).toEqual(['https://validator-mainnet.prod.ducatprotocol.com']);
-    expect(validatorUrls('signet')).toEqual(['https://validator-testnet4.dev.ducatprotocol.com']);
-    expect(validatorUrls('mutinynet')).toEqual(['https://validator-mutinynet.dev.ducatprotocol.com']);
+  it('uses bundled network profiles for Snap network data', () => {
+    expect(networkProfile('mainnet').validator_base_url).toBe('https://validator-mainnet.prod.ducatprotocol.com');
+    expect(networkProfile('signet').validator_base_url).toBe('https://validator-testnet4.dev.ducatprotocol.com');
+    expect(networkProfile('mutinynet').validator_base_url).toBe('https://validator-mutinynet.dev.ducatprotocol.com');
   });
 
   it('rejects unknown RPC methods', async () => {
@@ -244,10 +330,9 @@ describe('RPC router', () => {
     expect([...ALLOWED_ORIGINS].sort()).toEqual([...manifestOrigins].sort());
   });
 
-  // `apply-dev-origins.mjs` patches the manifest in place for dev builds (with a
-  // "DO NOT COMMIT" warning). This fails if a dev-patched manifest — e.g. an
-  // `http://localhost` origin — is ever committed, so the invariant is caught in
-  // CI rather than by reviewer discipline.
+  // Dev builds patch only the generated `.snap/dev` manifest. This remains a
+  // defense-in-depth check that a development origin never enters the tracked
+  // production manifest.
   it('committed manifest authorizes only HTTPS Ducat origins (no dev origins leak)', () => {
     const manifestOrigins: string[] = manifest.initialPermissions['endowment:rpc'].allowedOrigins;
 
@@ -269,14 +354,13 @@ describe('RPC router', () => {
   it('merges DUCAT_SNAP_DEV_ORIGINS into the allowlist for a dev build', () => {
     try {
       jest.isolateModules(() => {
-        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000, http://localhost:8000';
+        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000, http://localhost:8075, http://frontend:3000, http://ducat-admin:8075';
         const { ALLOWED_ORIGINS: dev } = require('../rpc');
-        // Dev origins authorized...
         expect(dev.has('http://localhost:3000')).toBe(true);
-        expect(dev.has('http://localhost:8000')).toBe(true);
-        // ...alongside the HTTPS Ducat origins...
+        expect(dev.has('http://localhost:8075')).toBe(true);
+        expect(dev.has('http://frontend:3000')).toBe(true);
+        expect(dev.has('http://ducat-admin:8075')).toBe(true);
         expect(dev.has('https://app.ducatprotocol.com')).toBe(true);
-        // ...and unrelated origins still rejected.
         expect(dev.has('https://evil.example')).toBe(false);
       });
     } finally {
@@ -287,19 +371,32 @@ describe('RPC router', () => {
   it('returns Snap capabilities', async () => {
     const result = await handleRpcRequest(ORIGIN, { method: 'ducat_getCapabilities' });
 
-    expect(result).toEqual(
-      expect.objectContaining({
-        snap: '@ducat-unit/wallet-snap',
-        version: packageJson.version,
-        // Published/default build: regtest is gated off (DUCAT_SNAP_DEV_REGTEST unset).
-        networks: ['mainnet', 'signet', 'mutinynet'],
-        methods: expect.arrayContaining(['ducat_clearRecentActions']),
-        features: expect.objectContaining({
-          mainnet: true,
-          psbtSigning: true,
-        }),
-      }),
-    );
+    expect(result).toEqual({
+      snap: '@ducat-unit/wallet-snap',
+      version: packageJson.version,
+      networks: ['regtest', 'signet', 'mutinynet', 'testnet4', 'mainnet'],
+      methods: [
+        'ducat_getCapabilities',
+        'ducat_getNetwork',
+        'ducat_switchNetwork',
+        'ducat_getAccounts',
+        'ducat_getWalletInventory',
+        'ducat_signMessage',
+        'ducat_signPsbt',
+        'ducat_signBatch',
+      ],
+      features: {
+        batchSigning: true,
+        bip322MessageSigning: true,
+        explicitNetworkSelection: true,
+        mainnet: true,
+        psbtSigning: true,
+        snapHome: true,
+        walletInventory: true,
+      },
+    });
+    expect((result as { methods: string[] }).methods).not.toContain('ducat_signReserveIssue');
+    expect((result as { features: Record<string, unknown> }).features).not.toHaveProperty('reserveIssueSigning');
   });
 
   it('rejects unauthorized origins before requesting entropy', async () => {
@@ -310,20 +407,6 @@ describe('RPC router', () => {
     });
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
-  });
-
-  it('confirms and clears recent actions through RPC', async () => {
-    const request = setSnapMock();
-
-    const result = await handleRpcRequest(ORIGIN, { method: 'ducat_clearRecentActions' });
-    const dialogText = dialogValues(request).join('\n');
-    const stateUpdate = request.mock.calls.find(
-      ([arg]) => arg.method === 'snap_manageState' && arg.params?.operation === 'update',
-    )?.[0].params?.newState;
-
-    expect(result).toEqual({ cleared: true });
-    expect(dialogText).toContain('Clear recent actions');
-    expect(stateUpdate).toEqual({ recentActions: [] });
   });
 
   it('returns derived Ducat account records', async () => {
@@ -346,8 +429,35 @@ describe('RPC router', () => {
     expect((accounts as ReturnType<typeof testKeySet>['record']).runes.pubkey).not.toBe((accounts as ReturnType<typeof testKeySet>['record']).vault.pubkey);
   });
 
+  it('returns the active imported account without IDs, source labels, or entropy fallback', async () => {
+    const override = keyOverride(6);
+    const request = setSnapMock(true, {
+      recentActions: [],
+      keyOverrides: [override],
+    });
+
+    const active = await handleRpcRequest(ORIGIN, {
+      method: 'ducat_getAccounts',
+      params: { network: 'signet' },
+    }) as Record<string, unknown>;
+
+    expect(active).toEqual(expect.objectContaining({ sats: override.sats, runes: override.runes }));
+    expect(active).not.toHaveProperty('id');
+    expect(active).not.toHaveProperty('source');
+    expect(active).not.toHaveProperty('private_key');
+    expect(request.mock.calls.some(([arg]) => arg.method === 'snap_getBip32Entropy')).toBe(false);
+  });
+
+  it.each([
+    'ducat_clearRecentActions', 'ducat_getHomeState', 'ducat_getUnitInventory', 'ducat_importPrivateKey',
+    'ducat_listAccounts', 'ducat_removeKeyOverride', 'ducat_sendTransfer', 'ducat_sendUnitTransfer',
+  ])('rejects removed public method %s', async (method) => {
+    setSnapMock();
+    await expect(handleRpcRequest(ORIGIN, { method, params: { network: 'signet' } })).rejects.toMatchObject({ code: 'METHOD_NOT_FOUND' });
+  });
+
   it('returns mainnet account records from mainnet entropy paths', async () => {
-    const request = setSnapMock();
+    const request = setSnapMock(true, { recentActions: [], selectedNetwork: 'mainnet' });
 
     const accounts = await handleRpcRequest(ORIGIN, {
       method: 'ducat_getAccounts',
@@ -374,29 +484,34 @@ describe('RPC router', () => {
     await expect(
       handleRpcRequest(ORIGIN, {
         method: 'ducat_getAccounts',
-        params: { network: 'testnet4' },
+        params: { network: 'unknownnet' },
       }),
-    ).rejects.toThrow('supports mainnet, signet, and mutinynet only');
+    ).rejects.toThrow('supports regtest, signet, mutinynet, testnet4, and mainnet only');
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
-  it('rejects the dev-only regtest network in the published build', async () => {
-    const request = setSnapMock();
+  it('returns regtest account records', async () => {
+    const request = setSnapMock(true, { recentActions: [], selectedNetwork: 'regtest' });
 
-    // regtest is gated behind DUCAT_SNAP_DEV_REGTEST (unset here), so the published
-    // build treats it like any unknown network: rejected before any entropy/dialog.
-    await expect(
-      handleRpcRequest(ORIGIN, {
-        method: 'ducat_getAccounts',
-        params: { network: 'regtest' },
+    const accounts = await handleRpcRequest(ORIGIN, {
+      method: 'ducat_getAccounts',
+      params: { network: 'regtest' },
+    });
+
+    expect(accounts).toEqual(
+      expect.objectContaining({
+        sats: expect.objectContaining({ address: expect.stringMatching(/^bcrt1q/u) }),
+        runes: expect.objectContaining({ address: expect.stringMatching(/^bcrt1p/u) }),
+        vault: expect.objectContaining({ address: expect.stringMatching(/^bcrt1p/u) }),
       }),
-    ).rejects.toThrow('supports mainnet, signet, and mutinynet only');
-    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
+    );
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
   it('validates signPsbt params before requesting entropy', async () => {
+    setSnapMock();
+
     await expect(
       handleRpcRequest(ORIGIN, {
         method: 'ducat_signPsbt',
@@ -575,6 +690,25 @@ describe('RPC router', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
+  it('rejects accountId on message signing in this release', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signMessage',
+        params: {
+          network: 'signet',
+          accountId: 'imported-signet-1',
+          address: keySet.record.sats.address,
+          message: 'hello',
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_PARAMS' });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
   it('rejects malformed PSBTs', async () => {
     const request = setSnapMock();
     const keySet = testKeySet();
@@ -586,6 +720,27 @@ describe('RPC router', () => {
       }),
     ).rejects.toMatchObject({ code: 'MALFORMED_PSBT' });
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
+  it('signs PSBTs with the active imported account without an account identifier', async () => {
+    (invalidateWalletInventory as jest.Mock).mockClear();
+    const imported = keyOverride();
+    const request = setSnapMock(true, { recentActions: [], keyOverrides: [imported] });
+    const { address, psbt } = makeImportedPsbt(100_000, 18, imported);
+
+    const result = await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signPsbt',
+      params: {
+        network: 'signet',
+        psbt,
+        signInputs: { [address]: [0] },
+      },
+    });
+
+    expect(result).toEqual({ psbt: expect.any(String) });
+    expect(invalidateWalletInventory).toHaveBeenCalledWith('signet');
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
   it('rejects PSBT signing when the confirmation is declined', async () => {
@@ -843,6 +998,7 @@ describe('RPC router', () => {
   });
 
   it('batch signing preserves PSBT order', async () => {
+    (invalidateWalletInventory as jest.Mock).mockClear();
     setSnapMock();
     const first = makePsbt(100_000, 4);
     const second = makePsbt(200_000, 5);
@@ -859,6 +1015,7 @@ describe('RPC router', () => {
     })) as { psbts: string[] };
 
     expect(result.psbts).toHaveLength(2);
+    expect(invalidateWalletInventory).toHaveBeenCalledWith('signet');
     expect(Psbt.fromBase64(result.psbts[0], { network: bitcoinNetwork('signet') }).txOutputs[0].value).toBe(99_000);
     expect(Psbt.fromBase64(result.psbts[1], { network: bitcoinNetwork('signet') }).txOutputs[0].value).toBe(199_000);
   });
@@ -930,133 +1087,8 @@ describe('RPC router', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
-  it('rejects unsafe transfer fee rates before requesting entropy', async () => {
-    const request = setSnapMock();
-    const recipient = deriveAccountSetFromBaseNodes('signet', testNode(7), testNode(8)).record.sats.address;
-    const originalFetch = globalThis.fetch;
-
-    globalThis.fetch = jest.fn() as typeof fetch;
-
-    try {
-      await expect(
-        handleRpcRequest(ORIGIN, {
-          method: 'ducat_sendTransfer',
-          params: { network: 'signet', address: recipient, amountSats: 10_000, feeRate: 1_001 },
-        }),
-      ).rejects.toMatchObject({
-        code: 'INVALID_PARAMS',
-        details: expect.objectContaining({ maxFeeRate: 1_000 }),
-      });
-      expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
-      expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
-      expect(globalThis.fetch).not.toHaveBeenCalled();
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it('remembers transfer session before a declined confirmation', async () => {
-    const request = setSnapMock(false);
-    const keySet = testKeySet();
-    const recipient = deriveAccountSetFromBaseNodes('signet', testNode(7), testNode(8)).record.sats.address;
-    const originalFetch = globalThis.fetch;
-
-    globalThis.fetch = jest.fn(async (url: RequestInfo | URL) => {
-      const href = String(url);
-
-      if (href.endsWith(`/address/${keySet.record.sats.address}/utxo`)) {
-        return new Response(JSON.stringify([{ txid: 'a'.repeat(64), vout: 0, value: 20_000 }]), { status: 200 });
-      }
-
-      throw new Error(`Unexpected fetch ${href}`);
-    }) as typeof fetch;
-
-    try {
-      await expect(
-        handleRpcRequest('https://dev.app.ducatprotocol.com', {
-          method: 'ducat_sendTransfer',
-          params: { network: 'signet', address: recipient, amountSats: 10_000, feeRate: 1 },
-        }),
-      ).rejects.toMatchObject({ code: 'USER_REJECTED' });
-
-      const updates = request.mock.calls
-        .filter(([arg]) => arg.method === 'snap_manageState' && arg.params?.operation === 'update')
-        .map(([arg]) => arg.params?.newState);
-
-      expect(updates).toContainEqual(
-        expect.objectContaining({
-          lastNetwork: 'signet',
-          lastOrigin: 'https://dev.app.ducatprotocol.com',
-        }),
-      );
-      expect(updates).not.toContainEqual(expect.objectContaining({ recentActions: expect.arrayContaining([expect.objectContaining({ actionType: 'transfer' })]) }));
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it('rejects malformed transfer broadcast txids and records a failed action', async () => {
-    const request = setSnapMock();
-    const keySet = testKeySet();
-    const recipient = deriveAccountSetFromBaseNodes('signet', testNode(7), testNode(8)).record.sats.address;
-    const originalFetch = globalThis.fetch;
-
-    globalThis.fetch = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
-      const href = String(url);
-
-      if (href.endsWith(`/address/${keySet.record.sats.address}/utxo`)) {
-        return new Response(JSON.stringify([{ txid: 'b'.repeat(64), vout: 0, value: 20_000 }]), { status: 200 });
-      }
-
-      if (href.endsWith('/tx') && init?.method === 'POST') {
-        return new Response('not-a-txid', { status: 200 });
-      }
-
-      throw new Error(`Unexpected fetch ${href}`);
-    }) as typeof fetch;
-
-    try {
-      await expect(
-        handleRpcRequest('https://dev.app.ducatprotocol.com', {
-          method: 'ducat_sendTransfer',
-          params: { network: 'signet', address: recipient, amountSats: 10_000, feeRate: 1 },
-        }),
-      ).rejects.toMatchObject({
-        code: 'BROADCAST_FAILED',
-        details: expect.objectContaining({ response: 'not-a-txid' }),
-      });
-
-      const updates = request.mock.calls
-        .filter(([arg]) => arg.method === 'snap_manageState' && arg.params?.operation === 'update')
-        .map(([arg]) => arg.params?.newState);
-
-      expect(updates).toContainEqual(
-        expect.objectContaining({
-          recentActions: expect.arrayContaining([
-            expect.objectContaining({
-              actionType: 'transfer',
-              status: 'failed',
-            }),
-          ]),
-        }),
-      );
-      expect(updates).not.toContainEqual(
-        expect.objectContaining({
-          recentActions: expect.arrayContaining([
-            expect.objectContaining({
-              actionType: 'transfer',
-              status: 'broadcast',
-            }),
-          ]),
-        }),
-      );
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
   it('renders Snap Home from the last connected network and origin', async () => {
-    setSnapMock(true, {
+    const request = setSnapMock(true, {
       recentActions: [
         {
           id: 'recent-borrow',
@@ -1075,7 +1107,7 @@ describe('RPC router', () => {
           },
         },
       ],
-      lastNetwork: 'signet',
+      selectedNetwork: 'signet',
       lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -1128,19 +1160,37 @@ describe('RPC router', () => {
         params: { network: 'signet' },
       });
 
+      const keySet = testKeySet();
       const home = await renderHomePage();
-      const rendered = JSON.stringify(home.content);
+      expect(home).toEqual({ id: 'interface-1' });
+      const rendered = JSON.stringify(request.interfaces.get('interface-1'));
 
-      expect(rendered).toContain('Signet testnet');
-      // The privacy disclosure that balance lookups contact external services (SAY-08).
-      expect(rendered).toContain('Balance lookups contact external services');
-      expect(rendered).toContain('Alpha vault');
-      expect(rendered).toContain('623.33% collateral');
-      expect(rendered).toContain('45,000 sats');
-      expect(rendered).toContain('Collateral');
-      expect(rendered).toContain('Debt');
-      expect(rendered).not.toContain('Recent Ducat actions');
+      expect(rendered).toContain('signet');
+      expect(rendered).toContain('Manage');
+      expect(rendered).not.toContain(truncateMiddle(keySet.record.sats.address));
+      expect(rendered).not.toContain(truncateMiddle(keySet.record.runes.address));
+      expect(rendered).toContain(keySet.record.sats.address);
+      expect(rendered).toContain(keySet.record.runes.address);
+      expect(rendered).toContain(keySet.record.sats.pubkey);
+      expect(rendered).toContain('manage-key');
+      expect(rendered).toContain('https://validator-testnet4.dev.ducatprotocol.com');
+      expect(rendered).toContain('manage-validator');
+      expect(rendered).toContain('https://mempool.space/signet/api');
+      expect(rendered).toContain('manage-esplora');
+      expect(occurrenceCount(rendered, keySet.record.sats.address)).toBe(1);
+      expect(occurrenceCount(rendered, keySet.record.runes.address)).toBe(1);
+      expect(rendered).not.toContain('mainnet enabled');
+      expect(rendered).not.toContain('Balance lookups contact external services');
+      expect(rendered).toContain('12345 sats');
+      expect(rendered).toContain('10000 active / 0 reserved');
+      expect(rendered).not.toContain('Alpha vault');
+      expect(rendered).toContain('Bitcoin public key');
+      expect(rendered).not.toContain('Bitcoin private key');
+      expect(rendered).not.toContain('Network endpoints');
+      expect(rendered).not.toContain('Account management');
       expect(rendered).not.toContain('Accounts');
+      expect(rendered).not.toContain('Label');
+      expect(rendered).not.toContain('Recent Ducat actions');
       expect(rendered).not.toContain('Open Ducat app');
       expect(rendered).not.toContain('Ducat actions');
       expect(rendered).not.toContain('https://dev.app.ducatprotocol.com/?action=deposit');
@@ -1150,10 +1200,51 @@ describe('RPC router', () => {
     }
   });
 
-  it('treats malformed Snap Home network balances as unavailable', async () => {
-    setSnapMock(true, {
+  it('renders Snap Home addresses from the imported override account', async () => {
+    const override = keyOverride(9);
+    const derived = testKeySet();
+    const request = setSnapMock(true, {
       recentActions: [],
-      lastNetwork: 'signet',
+      keyOverrides: [override],
+      selectedNetwork: 'signet',
+      lastOrigin: 'https://dev.app.ducatprotocol.com',
+    });
+    const fetchMock = jest.fn(async (url: RequestInfo | URL) => {
+      const href = String(url);
+
+      if (href.includes(`/address/${override.sats.address}`) || href.includes(`/address/${override.runes.address}`)) {
+        return new Response(JSON.stringify({ chain_stats: { funded_txo_sum: 0, spent_txo_sum: 0 }, mempool_stats: { funded_txo_sum: 0, spent_txo_sum: 0 } }), { status: 200 });
+      }
+
+      if (href.includes('validator-testnet4.dev.ducatprotocol.com/api/vault/pubkey/')) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+
+      throw new Error(`Unexpected fetch ${href}`);
+    });
+    const originalFetch = globalThis.fetch;
+
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const home = await renderHomePage();
+      expect(home).toEqual({ id: 'interface-1' });
+      const rendered = JSON.stringify(request.interfaces.get('interface-1'));
+
+      expect(rendered).toContain(override.sats.address);
+      expect(rendered).toContain(override.runes.address);
+      expect(rendered).toContain(override.sats.pubkey);
+      expect(rendered).not.toContain(derived.record.sats.address);
+      expect(rendered).not.toContain(derived.record.runes.address);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('treats malformed Snap Home network balances as unavailable', async () => {
+    const request = setSnapMock(true, {
+      recentActions: [],
+      selectedNetwork: 'signet',
       lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -1170,24 +1261,19 @@ describe('RPC router', () => {
       }
 
       if (href.includes('validator-testnet4.dev.ducatprotocol.com/api/address/')) {
-        return new Response(JSON.stringify({ data: [{ asset_balance: -1 }] }), { status: 200 });
+        return new Response(JSON.stringify({ data: [null] }), { status: 200 });
       }
 
       if (href.includes('validator-testnet4.dev.ducatprotocol.com/api/vault/pubkey/')) {
-        return new Response(
-          JSON.stringify([
-            {
-              root_txid: 'vault-invalid',
-              thold_price: -40_000,
-              unit_balance: -1_000,
-              unit_price: -100_000,
-              vault_action: 'active',
-              vault_balance: -50_000_000,
-              vault_ratio: -6,
-            },
-          ]),
-          { status: 200 },
-        );
+        return new Response(JSON.stringify([null, {
+          root_txid: 'vault-invalid',
+          thold_price: -40_000,
+          unit_balance: -1_000,
+          unit_price: -100_000,
+          vault_action: 'active',
+          vault_balance: -50_000_000,
+          vault_ratio: -6,
+        }]), { status: 200 });
       }
 
       throw new Error(`Unexpected fetch ${href} ${init?.method ?? 'GET'}`);
@@ -1197,15 +1283,17 @@ describe('RPC router', () => {
     globalThis.fetch = fetchMock as typeof fetch;
 
     try {
+      (getWalletInventory as jest.Mock).mockRejectedValueOnce(new Error('malformed remote payload'));
       const home = await renderHomePage();
-      const rendered = JSON.stringify(home.content);
+      expect(home).toEqual({ id: 'interface-1' });
+      const rendered = JSON.stringify(request.interfaces.get('interface-1'));
 
-      expect(rendered).toContain('Balance lookup unavailable');
+      expect(rendered).toContain('Wallet data unavailable');
       expect(rendered).toContain('BTC');
       expect(rendered).toContain('Unavailable');
       expect(rendered).toContain('UNIT');
-      expect(rendered).toContain('Vault');
-      expect(rendered).toContain('Unknown');
+      expect(rendered).toContain('Message signing remains available');
+      expect(rendered).not.toContain('Vault');
       expect(rendered).not.toContain('-0.5');
       expect(rendered).not.toContain('-1,000');
       expect(rendered).not.toContain('$-');

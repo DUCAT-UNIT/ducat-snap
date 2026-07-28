@@ -1,18 +1,21 @@
+/** @fileoverview Authorizes and dispatches bounded RPC requests while gating unprompted signing to development. */
 import type { Json } from '@metamask/snaps-sdk';
 
-import { getAccountKeySet, getRoleForAddress } from './accounts';
-import { confirmBatch, confirmClearRecentActions, confirmMessage, confirmPsbt } from './confirmations';
+import { getRoleForAddress } from './accounts';
+import { confirmBatch, confirmMessage, confirmPsbt } from './confirmations';
 import { snapDebug } from './debug';
 import { actionLabel } from './display';
 import { ducatError } from './errors';
-import { getHomeState } from './home';
+import { getActiveAccountKeySet } from './key-overrides';
 import { signBip322SimpleMessage } from './message';
+import { assertSelectedNetwork, getSelectedNetwork, requestNetworkSwitch } from './network-selection';
 import { DUCAT_ALLOWED_ORIGINS, DUCAT_DEV_ALLOWED_ORIGINS, DUCAT_SUPPORTED_NETWORKS, normalizeNetwork } from './networks';
 import { notifyAction, notifyActionFailure } from './notifications';
 import { assertUniqueBatchOutpoints, preparePsbtForSigning, signPreparedPsbt } from './psbt';
-import { appendRecentAction, clearRecentActions, rememberDucatSession } from './state';
-import { sendTransfer } from './transfer';
+import { createPsbtVerificationContext } from './psbt-verification';
+import { appendRecentAction, rememberDucatSession } from './state';
 import type { DucatActionContext, DucatNetwork, SignInputs } from './types';
+import { getWalletInventory, invalidateWalletInventory } from './wallet-inventory';
 import packageJson from '../package.json';
 
 type JsonRpcRequest = {
@@ -66,10 +69,11 @@ type CapabilitiesResponse = {
   features: {
     batchSigning: boolean;
     bip322MessageSigning: boolean;
+    explicitNetworkSelection: boolean;
     mainnet: boolean;
     psbtSigning: boolean;
-    simpleBtcTransfer: boolean;
     snapHome: boolean;
+    walletInventory: boolean;
   };
 };
 
@@ -226,8 +230,33 @@ function paramsObject(params: unknown): Record<string, unknown> {
   return Object.fromEntries(Object.entries(params));
 }
 
+const FORBIDDEN_PUBLIC_PARAM_KEYS = new Set([
+  'accountId',
+  'account_id',
+  'assetId',
+  'asset_id',
+  'validatorUrl',
+  'validator_url',
+  'validatorEndpoint',
+  'esploraUrl',
+  'esplora_url',
+  'esploraEndpoint',
+  'privateKey',
+  'private_key',
+]);
+
+function assertExactParams(rawParams: unknown, allowed: readonly string[]): Record<string, unknown> {
+  const params = paramsObject(rawParams);
+  const unexpected = Object.keys(params).find((key) => FORBIDDEN_PUBLIC_PARAM_KEYS.has(key) || !allowed.includes(key));
+  if (unexpected) {
+    throw ducatError('INVALID_PARAMS', 'The Ducat Snap request contains an unsupported parameter.', { field: unexpected });
+  }
+  return params;
+}
+
 async function signMessage(origin: string, rawParams: unknown): Promise<SignMessageResponse> {
-  const params = paramsObject(rawParams) as SignMessageParams;
+  const params = assertExactParams(rawParams, ['network', 'address', 'message', 'context']) as SignMessageParams;
+
   const network = normalizeNetwork(params.network);
   const address = typeof params.address === 'string' ? params.address : '';
   const message = typeof params.message === 'string' ? params.message : '';
@@ -244,14 +273,14 @@ async function signMessage(origin: string, rawParams: unknown): Promise<SignMess
     });
   }
 
-  const keySet = await getAccountKeySet(network);
+  const keySet = await getActiveAccountKeySet(network);
   const role = getRoleForAddress(keySet, address);
 
   if (!role) {
     throw ducatError('UNMANAGED_ADDRESS', 'This address is not managed by the Ducat Snap.', { address });
   }
 
-  await rememberDucatSession(network, origin);
+  await rememberDucatSession(origin);
   const title = actionLabel(context, 'Sign Ducat message');
 
   await notifyAction({ title, status: 'pending', detail: 'Message signature approval requested' });
@@ -291,7 +320,7 @@ async function signMessage(origin: string, rawParams: unknown): Promise<SignMess
 // (`confirm: false`) is exclusively driven by the dev-only RPC method below, which is
 // dead-code-eliminated from production (see DEV_UNPROMPTED_ENABLED).
 async function signPsbt(origin: string, rawParams: unknown, confirm = true): Promise<SignPsbtResponse> {
-  const params = paramsObject(rawParams) as SignPsbtParams;
+  const params = assertExactParams(rawParams, ['network', 'psbt', 'signInputs', 'context']) as SignPsbtParams;
   const network = normalizeNetwork(params.network);
 
   if (typeof params.psbt !== 'string') {
@@ -300,13 +329,21 @@ async function signPsbt(origin: string, rawParams: unknown, confirm = true): Pro
 
   const context = optionalContext(params.context);
   const signInputs = parseSignInputs(params.signInputs, 'signInputs');
-  const keySet = await getAccountKeySet(network);
+  const keySet = await getActiveAccountKeySet(network);
   const prepared = preparePsbtForSigning(params.psbt, network, keySet, signInputs);
+  if (prepared.summary.feeSats === null) {
+    throw ducatError('PSBT_FEE_UNAVAILABLE', 'This PSBT does not include enough value data to compute the Bitcoin miner fee, so the Ducat Snap cannot show the total you would pay and will not sign it.', {
+      inputCount: prepared.summary.inputCount,
+      inputValueSats: prepared.summary.inputValueSats,
+    });
+  }
+  const verification = await createPsbtVerificationContext(network);
+  await verification.verify(prepared.psbt, prepared.summary);
   const decodedActionType = prepared.summary.vaultUpdates[0]?.actionType;
   const actionContext = decodedActionType ? { ...(context ?? {}), actionType: decodedActionType } : context;
   const title = actionLabel(actionContext, 'Sign Ducat transaction');
 
-  await rememberDucatSession(network, origin);
+  await rememberDucatSession(origin);
   await notifyAction({ title, status: 'pending', detail: 'Transaction approval requested' });
 
   if (confirm) {
@@ -314,6 +351,10 @@ async function signPsbt(origin: string, rawParams: unknown, confirm = true): Pro
   }
 
   const psbt = signPreparedPsbt(prepared.psbt, keySet, signInputs);
+  // The website may broadcast immediately and then invalidate its shared query.
+  // Drop the pre-sign snapshot now so that next read observes the resulting
+  // wallet state instead of reusing inputs this signature is expected to spend.
+  invalidateWalletInventory(network);
 
   await appendRecentAction({
     actionType: decodedActionType ?? context?.actionType ?? 'sign-psbt',
@@ -376,28 +417,48 @@ function capabilities(): CapabilitiesResponse {
     version: packageJson.version,
     networks: [...DUCAT_SUPPORTED_NETWORKS],
     methods: [
-      'ducat_clearRecentActions',
-      'ducat_getAccounts',
       'ducat_getCapabilities',
-      'ducat_getHomeState',
+      'ducat_getNetwork',
+      'ducat_switchNetwork',
+      'ducat_getAccounts',
+      'ducat_getWalletInventory',
       'ducat_signMessage',
       'ducat_signPsbt',
       'ducat_signBatch',
-      'ducat_sendTransfer',
     ],
     features: {
       bip322MessageSigning: true,
+      explicitNetworkSelection: true,
       psbtSigning: true,
       batchSigning: true,
-      simpleBtcTransfer: true,
       snapHome: true,
       mainnet: true,
+      walletInventory: true,
     },
   };
 }
 
+const NETWORK_SCOPED_METHODS = new Set([
+  'ducat_getAccounts',
+  'ducat_getWalletInventory',
+  'ducat_signMessage',
+  'ducat_signPsbt',
+  'ducat_signPsbtUnprompted',
+  'ducat_signBatch',
+]);
+
+async function assertRequestNetwork(method: string, paramsInput: unknown): Promise<void> {
+  if (!NETWORK_SCOPED_METHODS.has(method)) {
+    return;
+  }
+
+  const params = paramsObject(paramsInput);
+  await assertSelectedNetwork(params.network);
+}
+
 async function signBatch(origin: string, rawParams: unknown): Promise<SignBatchResponse> {
-  const params = paramsObject(rawParams) as SignBatchParams;
+  const params = assertExactParams(rawParams, ['network', 'entries', 'context']) as SignBatchParams;
+
   const network = normalizeNetwork(params.network);
   const context = optionalContext(params.context);
   const entries = parseBatchEntries(params.entries);
@@ -409,7 +470,7 @@ async function signBatch(origin: string, rawParams: unknown): Promise<SignBatchR
     actionType: context?.actionType,
   });
 
-  const keySet = await getAccountKeySet(network);
+  const keySet = await getActiveAccountKeySet(network);
   const prepared = entries.map((entry) => ({
     ...entry,
     ...preparePsbtForSigning(entry.psbt, network, keySet, entry.signInputs),
@@ -419,11 +480,25 @@ async function signBatch(origin: string, rawParams: unknown): Promise<SignBatchR
   // Reject a batch whose entries spend the same outpoint: the dialog promises the
   // batch is all-or-nothing, but conflicting transactions can never all confirm (SAY-04).
   assertUniqueBatchOutpoints(prepared.map((item) => item.psbt));
+  const unavailableFeeEntry = prepared.findIndex((item) => item.summary.feeSats === null);
+  if (unavailableFeeEntry !== -1) {
+    throw ducatError('PSBT_FEE_UNAVAILABLE', 'A transaction in this Ducat batch does not include enough value data to compute its Bitcoin miner fee.', {
+      entryIndex: unavailableFeeEntry,
+    });
+  }
+  const verification = await createPsbtVerificationContext(network);
+  // Verify in signing order so an output created by an earlier unbroadcast
+  // entry can be trusted as a later entry's prevout. The shared context still
+  // deduplicates genuinely external Esplora reads, and no confirmation occurs
+  // until every entry has passed.
+  for (const item of prepared) {
+    await verification.verify(item.psbt, item.summary);
+  }
   const decodedActionType = prepared.find((item) => item.summary.vaultUpdates.length > 0)?.summary.vaultUpdates[0]?.actionType;
   const actionContext = decodedActionType ? { ...(context ?? {}), actionType: decodedActionType } : context;
   const title = actionLabel(actionContext, 'Sign Ducat batch');
 
-  await rememberDucatSession(network, origin);
+  await rememberDucatSession(origin);
   await notifyAction({ title, status: 'pending', detail: `${prepared.length} transaction approval requested` });
   snapDebug('signBatch: requesting confirmation dialog', { title });
   await confirmBatch({
@@ -434,6 +509,7 @@ async function signBatch(origin: string, rawParams: unknown): Promise<SignBatchR
   snapDebug('signBatch: confirmation approved; signing');
 
   const psbts = prepared.map((item) => signPreparedPsbt(item.psbt, keySet, item.signInputs));
+  invalidateWalletInventory(network);
   snapDebug('signBatch: signed', { count: psbts.length });
 
   await appendRecentAction({
@@ -465,28 +541,38 @@ function actionTitleFromParams(rawParams: unknown, fallback: string): string {
   return actionLabel(optionalContext(params.context), fallback);
 }
 
+/**
+ * Authorizes the caller and dispatches one bounded Ducat JSON-RPC request fail-closed.
+ * @param origin - Requesting origin supplied by the Snap runtime.
+ * @param request - Untrusted method and params payload.
+ * @returns JSON-compatible result from the selected validated handler.
+ * @throws A structured Snap error for disallowed origins, invalid params, or unsupported methods.
+ */
 export async function handleRpcRequest(origin: string, request: JsonRpcRequest): Promise<Json> {
   snapDebug('rpc <-', request.method, 'from', origin);
   assertAllowedOrigin(origin);
+  await assertRequestNetwork(request.method, request.params);
 
   switch (request.method) {
-    case 'ducat_clearRecentActions':
-      await confirmClearRecentActions(origin);
-      await clearRecentActions();
-
-      return { cleared: true };
-
     case 'ducat_getAccounts': {
-      const params = paramsObject(request.params);
+      const params = assertExactParams(request.params, ['network']);
       const network = normalizeNetwork(params.network);
-      const account = await getAccountKeySet(network);
-      await rememberDucatSession(network, origin);
+      const account = await getActiveAccountKeySet(network);
+      await rememberDucatSession(origin);
 
       return account.record;
     }
 
     case 'ducat_getCapabilities':
+      assertExactParams(request.params, []);
       return capabilities();
+
+    case 'ducat_getNetwork':
+      assertExactParams(request.params, []);
+      return getSelectedNetwork();
+
+    case 'ducat_switchNetwork':
+      return requestNetworkSwitch(request.params, origin);
 
     case 'ducat_signMessage':
       return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat message'), async () => signMessage(origin, request.params));
@@ -519,12 +605,10 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest):
     case 'ducat_signBatch':
       return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat batch'), async () => signBatch(origin, request.params));
 
-    case 'ducat_sendTransfer':
-      return withFailureNotification('Send BTC', async () => sendTransfer(origin, paramsObject(request.params)));
-
-    case 'ducat_getHomeState': {
-      const params = paramsObject(request.params);
-      return getHomeState(params.network);
+    case 'ducat_getWalletInventory': {
+      const params = assertExactParams(request.params, ['network']);
+      await rememberDucatSession(origin);
+      return getWalletInventory(params.network);
     }
 
     default:

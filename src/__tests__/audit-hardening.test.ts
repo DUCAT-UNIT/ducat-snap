@@ -7,6 +7,10 @@ import { actionLabel } from '../display';
 import { handleRpcRequest } from '../rpc';
 import { bitcoinNetwork } from '../networks';
 
+jest.mock('../psbt-verification', () => ({
+  createPsbtVerificationContext: jest.fn(async () => ({ verify: jest.fn(async () => undefined) })),
+}));
+
 const ORIGIN = 'https://app.ducatprotocol.com';
 
 type SnapRequestArgs = {
@@ -23,7 +27,7 @@ function testKeySet() {
 }
 
 function setSnapMock(dialogResult = true) {
-  let managedState: unknown = null;
+  let managedState: unknown = { recentActions: [], selectedNetwork: 'signet' };
   const request = jest.fn(async ({ method, params }: SnapRequestArgs) => {
     if (method === 'snap_getBip32Entropy') {
       const byte = params?.path?.[1] === "84'" ? 1 : 2;
