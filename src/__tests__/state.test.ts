@@ -1,5 +1,5 @@
 import { appendRecentAction, clearRecentActions, getState, rememberDucatSession } from '../state';
-import type { DucatSnapState } from '../types';
+import type { DucatSnapState, PrivateKeyOverrideRecord } from '../types';
 
 type SnapRequestArgs = {
   method: string;
@@ -32,7 +32,77 @@ function setStateMock(initialState: unknown = null) {
   };
 }
 
+const keyOverride: PrivateKeyOverrideRecord = {
+  id: 'imported-signet-1',
+  source: 'imported',
+  network: 'signet',
+  created_at: 1_700_000_000,
+  fingerprint: 'fp-1',
+  private_key: '11'.repeat(32),
+  sats: {
+    address: 'tb1qexample',
+    pubkey: `02${'11'.repeat(32)}`,
+  },
+  runes: {
+    address: 'tb1pexample',
+    pubkey: '22'.repeat(32),
+  },
+};
+
 describe('Snap state', () => {
+  it('defaults an empty store to Mutinynet without eagerly writing state', async () => {
+    const { request } = setStateMock(null);
+
+    await expect(getState()).resolves.toEqual({ recentActions: [], selectedNetwork: 'mutinynet' });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('migrates a valid legacy selection once and removes the legacy field', async () => {
+    const { request, getStoredState } = setStateMock({
+      recentActions: [],
+      lastNetwork: 'signet',
+      lastOrigin: 'https://app.ducatprotocol.com',
+      keyOverrides: [keyOverride],
+      networkEndpointOverrides: {
+        signet: {
+          validator_base_url: 'https://validator-override.example',
+          network_identity_verified: true,
+        },
+      },
+    });
+
+    const first = await getState();
+    const second = await getState();
+
+    expect(first.selectedNetwork).toBe('signet');
+    expect(second).toEqual(first);
+    expect(first.keyOverrides).toEqual([keyOverride]);
+    expect(first.lastOrigin).toBe('https://app.ducatprotocol.com');
+    expect(first.networkEndpointOverrides?.signet?.validator_base_url).toBe('https://validator-override.example');
+    expect(getStoredState()).not.toHaveProperty('lastNetwork');
+    expect(request.mock.calls.filter(([args]) => args.params?.operation === 'update')).toHaveLength(1);
+  });
+
+  it('prefers a valid explicit selection over conflicting legacy state', async () => {
+    const { getStoredState } = setStateMock({
+      recentActions: [],
+      selectedNetwork: 'regtest',
+      lastNetwork: 'mainnet',
+    });
+
+    const state = await getState();
+
+    expect(state.selectedNetwork).toBe('regtest');
+    expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'regtest' });
+  });
+
+  it('defaults corrupt explicit and legacy selections to Mutinynet', async () => {
+    const { getStoredState } = setStateMock({ recentActions: [], selectedNetwork: 'bad', lastNetwork: 'also-bad' });
+
+    await expect(getState()).resolves.toEqual({ recentActions: [], selectedNetwork: 'mutinynet' });
+    expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'mutinynet' });
+  });
+
   it('filters corrupt actions, sorts newest first, caps history, and preserves session metadata', async () => {
     const validActions = Array.from({ length: 14 }, (_, index) => ({
       id: `valid-${index}`,
@@ -48,7 +118,7 @@ describe('Snap state', () => {
         { id: 'bad-details', actionType: 'deposit', network: 'signet', origin: 'http://localhost:3002', timestamp: 999, details: [] },
         ...validActions,
       ],
-      lastNetwork: 'signet',
+      selectedNetwork: 'signet',
       lastOrigin: 'http://localhost:3002',
     });
 
@@ -57,14 +127,14 @@ describe('Snap state', () => {
     expect(state.recentActions).toHaveLength(12);
     expect(state.recentActions[0]?.id).toBe('valid-13');
     expect(state.recentActions.at(-1)?.id).toBe('valid-2');
-    expect(state.lastNetwork).toBe('signet');
+    expect(state.selectedNetwork).toBe('signet');
     expect(state.lastOrigin).toBe('http://localhost:3002');
   });
 
-  it('appends actions with default signed status and updates the last session', async () => {
+  it('appends actions with default signed status without changing selection', async () => {
     const { getStoredState } = setStateMock({
       recentActions: [],
-      lastNetwork: 'mutinynet',
+      selectedNetwork: 'mutinynet',
       lastOrigin: 'https://app.ducatprotocol.com',
     });
 
@@ -87,11 +157,11 @@ describe('Snap state', () => {
         origin: 'http://localhost:3002',
       }),
     );
-    expect(storedState.lastNetwork).toBe('signet');
+    expect(storedState.selectedNetwork).toBe('mutinynet');
     expect(storedState.lastOrigin).toBe('http://localhost:3002');
   });
 
-  it('clears recent actions without losing the last connected network and origin', async () => {
+  it('clears recent actions without losing the selected network and origin', async () => {
     const { getStoredState } = setStateMock({
       recentActions: [
         {
@@ -103,7 +173,7 @@ describe('Snap state', () => {
           status: 'broadcast',
         },
       ],
-      lastNetwork: 'signet',
+      selectedNetwork: 'signet',
       lastOrigin: 'http://localhost:3002',
     });
 
@@ -111,19 +181,19 @@ describe('Snap state', () => {
 
     expect(getStoredState()).toEqual({
       recentActions: [],
-      lastNetwork: 'signet',
+      selectedNetwork: 'signet',
       lastOrigin: 'http://localhost:3002',
     });
   });
 
-  it('remembers the current Ducat session without changing recent actions', async () => {
-    const { getStoredState } = setStateMock({ recentActions: [] });
+  it('remembers the current Ducat origin without changing recent actions or selection', async () => {
+    const { getStoredState } = setStateMock({ recentActions: [], selectedNetwork: 'regtest' });
 
-    await rememberDucatSession('mutinynet', 'https://dev.app.ducatprotocol.com');
+    await rememberDucatSession('https://dev.app.ducatprotocol.com');
 
     expect(getStoredState()).toEqual({
       recentActions: [],
-      lastNetwork: 'mutinynet',
+      selectedNetwork: 'regtest',
       lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
   });
@@ -140,7 +210,7 @@ describe('Snap state', () => {
           status: 'signed',
         },
       ],
-      lastNetwork: 'mainnet',
+      selectedNetwork: 'mainnet',
       lastOrigin: 'https://app.ducatprotocol.com',
     });
 
@@ -148,6 +218,108 @@ describe('Snap state', () => {
 
     expect(state.recentActions).toHaveLength(1);
     expect(state.recentActions[0]?.network).toBe('mainnet');
-    expect(state.lastNetwork).toBe('mainnet');
+    expect(state.selectedNetwork).toBe('mainnet');
+  });
+
+  it('preserves key overrides when appending and clearing recent actions', async () => {
+    const { getStoredState } = setStateMock({
+      recentActions: [],
+      keyOverrides: [keyOverride],
+      selectedNetwork: 'signet',
+      lastOrigin: 'https://app.ducatprotocol.com',
+    });
+
+    await appendRecentAction({
+      actionType: 'send-unit',
+      network: 'signet',
+      origin: 'https://app.ducatprotocol.com',
+      summary: 'Sent UNIT',
+    });
+    await clearRecentActions();
+
+    expect((getStoredState() as DucatSnapState).keyOverrides).toEqual([keyOverride]);
+  });
+
+  it('does not drop key overrides when recent actions are malformed', async () => {
+    setStateMock({
+      recentActions: 'bad',
+      keyOverrides: [keyOverride],
+      selectedNetwork: 'signet',
+      lastOrigin: 'https://app.ducatprotocol.com',
+    });
+
+    const state = await getState();
+
+    expect(state.recentActions).toEqual([]);
+    expect(state.keyOverrides).toEqual([keyOverride]);
+  });
+
+  it('loads valid network endpoint overrides from Snap state', async () => {
+    setStateMock({
+      recentActions: [],
+      networkEndpointOverrides: {
+        signet: {
+          validator_base_url: 'https://validator-override.example',
+          esplora_base_url: 'https://esplora-override.example/api',
+          network_identity_verified: true,
+        },
+      },
+    });
+
+    const state = await getState();
+
+    expect(state.networkEndpointOverrides?.signet).toEqual({
+      validator_base_url: 'https://validator-override.example',
+      esplora_base_url: 'https://esplora-override.example/api',
+      network_identity_verified: true,
+    });
+  });
+
+  it('drops malformed network endpoint overrides from Snap state', async () => {
+    setStateMock({
+      recentActions: [],
+      networkEndpointOverrides: {
+        signet: {
+          validator_base_url: 'file:///tmp/validator',
+          esplora_base_url: 'https://esplora-override.example/api',
+          network_identity_verified: true,
+        },
+      },
+    });
+
+    const state = await getState();
+
+    expect(state.networkEndpointOverrides).toBeUndefined();
+  });
+
+  it('drops legacy endpoint overrides without network identity proof', async () => {
+    setStateMock({
+      recentActions: [],
+      networkEndpointOverrides: {
+        signet: {
+          validator_base_url: 'https://validator-override.example',
+        },
+      },
+    });
+
+    const state = await getState();
+
+    expect(state.networkEndpointOverrides).toBeUndefined();
+  });
+
+  it('drops plaintext remote endpoint overrides from Snap state', async () => {
+    setStateMock({
+      recentActions: [],
+      networkEndpointOverrides: {
+        signet: {
+          validator_base_url: 'http://validator-override.example',
+          network_identity_verified: true,
+        },
+      },
+    });
+
+    const state = await getState();
+
+    expect(state.networkEndpointOverrides).toBeUndefined();
   });
 });

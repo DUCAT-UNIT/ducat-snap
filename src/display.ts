@@ -1,3 +1,4 @@
+/** @fileoverview Sanitizes untrusted text and formats action, origin, network, amount, role, and metadata values. */
 import type { DucatActionContext, DucatAddressRole, DucatNetwork } from './types';
 
 const ACTION_LABELS: Record<string, string> = {
@@ -90,11 +91,7 @@ export function roleLabel(role: DucatAddressRole | null | undefined): string {
 }
 
 export function networkLabel(network: DucatNetwork): string {
-  if (network === 'mainnet') {
-    return 'Bitcoin mainnet';
-  }
-
-  return network === 'mutinynet' ? 'Mutinynet / Signet testnet' : 'Signet testnet';
+  return network;
 }
 
 export function originLabel(origin: string): string {

@@ -1,6 +1,6 @@
 {
   "name": "@ducat-unit/wallet-snap",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Ducat Bitcoin account and signing Snap for MetaMask.",
   "keywords": [
     "ducat",
@@ -48,13 +48,16 @@
     "harness:bitvm3-reclaim-reject": "node scripts/snap-simulation-harness.mjs bitvm3-reclaim-reject",
     "verify:bitvm3": "npm run harness:bitvm3-reclaim && npm run harness:bitvm3-reclaim-reject",
     "verify:harness": "npm run harness:accounts && npm run harness:smoke-signing && npm run verify:bitvm3",
+    "test:release-policy": "node --test scripts/release-policy.test.mjs",
     "verify:release": "bash scripts/verify-release.sh",
     "pack:dry-run": "npm pack --dry-run",
     "prepublishOnly": "npm run verify:release"
   },
   "dependencies": {
     "@bitcoin-js/tiny-secp256k1-asmjs": "2.2.4",
+    "@ducat-unit/core": "^0.22.6",
     "@noble/hashes": "1.8.0",
+    "@scure/btc-signer": "^2.2.0",
     "bitcoinjs-lib": "6.1.7",
     "buffer": "6.0.3"
   },

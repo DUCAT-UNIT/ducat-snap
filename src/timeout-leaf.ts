@@ -1,3 +1,4 @@
+/** @fileoverview Parses minimally encoded BitVM3 CSV timeout leaves and returns the committed reclaim policy. */
 /**
  * Recognizer for the BitVM3 unilateral-exit TIMEOUT tap-leaf:
  *
@@ -102,8 +103,9 @@ function decodeWindow(bytes: Uint8Array): { window: number; consumed: number } |
 }
 
 /**
- * Parse a tap-leaf hex against the BitVM3 timeout-leaf shape. Returns the
- * embedded operator key + Δ, or null if the script is not a timeout leaf.
+ * Parses a tap-leaf hex against the BitVM3 timeout-leaf shape.
+ * @param leafHex - Candidate tapscript bytes encoded as hex.
+ * @returns The embedded operator key and timeout window, or null when the script does not match.
  */
 export function matchTimeoutLeafHex(leafHex: string): TimeoutLeafMatch | null {
   const bytes = hexToBytes(leafHex.toLowerCase());

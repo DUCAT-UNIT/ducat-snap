@@ -1,0 +1,34 @@
+{
+  "networks": [
+    {
+      "id": "mainnet",
+      "label": "mainnet",
+      "validator_base_url": "https://validator-mainnet.prod.ducatprotocol.com",
+      "esplora_base_url": "https://mempool.space/api"
+    },
+    {
+      "id": "signet",
+      "label": "signet",
+      "validator_base_url": "https://validator-testnet4.dev.ducatprotocol.com",
+      "esplora_base_url": "https://mempool.space/signet/api"
+    },
+    {
+      "id": "mutinynet",
+      "label": "mutinynet",
+      "validator_base_url": "https://validator-mutinynet.dev.ducatprotocol.com",
+      "esplora_base_url": "https://mutinynet.com/api"
+    },
+    {
+      "id": "testnet4",
+      "label": "testnet4",
+      "validator_base_url": "https://validator-testnet4.dev.ducatprotocol.com",
+      "esplora_base_url": "https://mempool.space/testnet4/api"
+    },
+    {
+      "id": "regtest",
+      "label": "regtest",
+      "validator_base_url": "http://localhost:8083",
+      "esplora_base_url": "http://localhost:3002"
+    }
+  ]
+}

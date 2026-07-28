@@ -1,3 +1,4 @@
+/** @fileoverview Formats and emits bounded notifications for pending, completed, and failed user actions. */
 import { isDucatSnapError } from './errors';
 
 type ActionNotificationStatus = 'pending' | 'completed' | 'failed';
@@ -24,6 +25,11 @@ function notificationMessage(params: ActionNotificationParams): string {
   return `${prefix}: ${params.title}${detail}`;
 }
 
+/**
+ * Sends a best-effort post-action notification without affecting the completed operation.
+ * @param params - Public action label and outcome metadata.
+ * @returns After notification succeeds or its failure is ignored.
+ */
 export async function notifyAction(params: ActionNotificationParams): Promise<void> {
   try {
     await snap.request({
@@ -39,6 +45,12 @@ export async function notifyAction(params: ActionNotificationParams): Promise<vo
   }
 }
 
+/**
+ * Sends a best-effort failure notification except for explicit user rejection.
+ * @param title - Public action title.
+ * @param error - Unknown operation failure.
+ * @returns After notification succeeds or its failure is ignored.
+ */
 export async function notifyActionFailure(title: string, error: unknown): Promise<void> {
   if (isDucatSnapError(error) && error.code === 'USER_REJECTED') {
     return;

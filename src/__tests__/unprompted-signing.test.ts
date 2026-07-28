@@ -20,6 +20,10 @@ import { deriveAccountSetFromBaseNodes } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 import { bitcoinNetwork } from '../networks';
 
+jest.mock('../psbt-verification', () => ({
+  createPsbtVerificationContext: jest.fn(async () => ({ verify: jest.fn(async () => undefined) })),
+}));
+
 const ORIGIN = 'https://app.ducatprotocol.com';
 
 function testNode(byte: number) {
@@ -30,8 +34,8 @@ function testKeySet() {
   return deriveAccountSetFromBaseNodes('signet', testNode(1), testNode(2));
 }
 
-function setSnapMock(dialogResult = true) {
-  let managedState: unknown = null;
+function setSnapMock(dialogResult = true, selectedNetwork: 'signet' | 'mainnet' = 'signet') {
+  let managedState: unknown = { recentActions: [], selectedNetwork };
   const request = jest.fn(async ({ method, params }: { method: string; params?: { operation?: string; path?: string[]; newState?: unknown } }) => {
     if (method === 'snap_getBip32Entropy') {
       const byte = params?.path?.[1] === "84'" ? 1 : 2;
@@ -65,6 +69,19 @@ function makeSignablePsbt(value: number, seed: number) {
     witnessUtxo: { script: keySet.satsOutputScript, value },
   });
   psbt.addOutput({ address: keySet.record.sats.address, value: value - 1_000 });
+  return { keySet, psbt: psbt.toBase64() };
+}
+
+function makeUnknownFeePsbt() {
+  const keySet = testKeySet();
+  const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+  psbt.addInput({
+    hash: Buffer.alloc(32, 6).toString('hex'),
+    index: 0,
+    witnessUtxo: { script: keySet.satsOutputScript, value: 100_000 },
+  });
+  psbt.addInput({ hash: Buffer.alloc(32, 7).toString('hex'), index: 0 });
+  psbt.addOutput({ address: keySet.record.sats.address, value: 90_000 });
   return { keySet, psbt: psbt.toBase64() };
 }
 
@@ -150,9 +167,23 @@ describe('unprompted signing — dev build (flag on)', () => {
     expect(dialogWasShown(request)).toBe(false);
   });
 
-  it('HARD-REFUSES mainnet even in a dev build, and does not sign', async () => {
+  it('rejects an unknown miner fee without showing a dialog or signing', async () => {
     const { handleRpcRequest } = loadRpcWithFlag('true');
     const request = setSnapMock();
+    const { keySet, psbt } = makeUnknownFeePsbt();
+
+    await expect(
+      handleRpcRequest(ORIGIN, {
+        method: 'ducat_signPsbtUnprompted',
+        params: { network: 'signet', psbt, signInputs: { [keySet.record.sats.address]: [0] } },
+      }),
+    ).rejects.toMatchObject({ code: 'PSBT_FEE_UNAVAILABLE' });
+    expect(dialogWasShown(request)).toBe(false);
+  });
+
+  it('HARD-REFUSES mainnet even in a dev build, and does not sign', async () => {
+    const { handleRpcRequest } = loadRpcWithFlag('true');
+    const request = setSnapMock(true, 'mainnet');
     const { keySet, psbt } = makeSignablePsbt(100_000, 4);
 
     await expect(
