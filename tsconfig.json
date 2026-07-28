@@ -12,5 +12,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "snap.config.ts"]
+  "include": ["src/**/*.ts", "snap.config*.ts"]
 }

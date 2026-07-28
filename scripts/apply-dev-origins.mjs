@@ -7,13 +7,16 @@
  * enforces the manifest allowlist independently of the in-code check), so a local
  * dapp such as the regtest-stack frontend (http://localhost:3000) is authorized.
  *
- * This patches the WORKING-COPY manifest only — never commit the result. It is
- * meant to run inside the host-clean dev container, AFTER `mm-snap build` and
- * BEFORE `mm-snap manifest --fix`:
+ * This patches an explicit generated manifest (normally
+ * `.snap/dev/snap.manifest.json`) — never the tracked production manifest. It
+ * is meant to run inside the host-clean dev container, AFTER `mm-snap build`
+ * and BEFORE `mm-snap manifest --fix`:
  *
- *   DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000 mm-snap build
- *   DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000 node scripts/apply-dev-origins.mjs
- *   mm-snap manifest --fix   # REQUIRED: writes the loader-authoritative shasum
+ *   node scripts/prepare-dev-build.mjs
+ *   DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000 mm-snap build -c snap.config.dev.ts
+ *   DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000 \
+ *     node scripts/apply-dev-origins.mjs .snap/dev/snap.manifest.json
+ *   mm-snap manifest -c snap.config.dev.ts --fix
  *
  * The `--fix` pass is mandatory, not cosmetic: `mm-snap build`'s own shasum write
  * does NOT match what the snap loader (`@metamask/snaps-controllers`) recomputes
@@ -24,10 +27,21 @@
  * unconditionally from a build target.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const MANIFEST = join(dirname(fileURLToPath(import.meta.url)), '..', 'snap.manifest.json');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const manifestPath = process.argv[2];
+
+if (!manifestPath) {
+  throw new Error('usage: apply-dev-origins.mjs <generated-manifest-path>');
+}
+
+const manifest = resolve(root, manifestPath);
+
+if (!manifest.startsWith(`${resolve(root, '.snap')}/`)) {
+  throw new Error('development origins may only be written under the ignored .snap directory');
+}
 
 const devOrigins = (process.env.DUCAT_SNAP_DEV_ORIGINS ?? '')
   .split(',')
@@ -39,8 +53,8 @@ if (devOrigins.length === 0) {
   process.exit(0);
 }
 
-const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8'));
-const rpc = manifest.initialPermissions?.['endowment:rpc'];
+const manifestData = JSON.parse(readFileSync(manifest, 'utf8'));
+const rpc = manifestData.initialPermissions?.['endowment:rpc'];
 
 if (!rpc || !Array.isArray(rpc.allowedOrigins)) {
   throw new Error('snap.manifest.json has no initialPermissions["endowment:rpc"].allowedOrigins to extend.');
@@ -49,9 +63,9 @@ if (!rpc || !Array.isArray(rpc.allowedOrigins)) {
 const before = rpc.allowedOrigins.length;
 rpc.allowedOrigins = [...new Set([...rpc.allowedOrigins, ...devOrigins])];
 
-writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+writeFileSync(manifest, `${JSON.stringify(manifestData, null, 2)}\n`, 'utf8');
 
 console.log(
   `apply-dev-origins: added ${rpc.allowedOrigins.length - before} dev origin(s) [${devOrigins.join(', ')}]; ` +
-    'run `mm-snap manifest --fix` next to write the loader-authoritative shasum. DO NOT COMMIT the patched manifest.',
+    'run `mm-snap manifest -c snap.config.dev.ts --fix` next to write the loader-authoritative shasum.',
 );
