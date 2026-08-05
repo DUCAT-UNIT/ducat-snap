@@ -1,6 +1,6 @@
 {
   "name": "@ducat-unit/wallet-snap",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Ducat Bitcoin account and signing Snap for MetaMask.",
   "keywords": [
     "ducat",
