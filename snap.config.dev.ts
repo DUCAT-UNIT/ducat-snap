@@ -19,10 +19,11 @@ const config: SnapConfig = {
   polyfills: true,
   environment: {
     DUCAT_SNAP_ARTIFACT_POLICY: 'development',
-    DUCAT_SNAP_DEV_UNPROMPTED: process.env.DUCAT_SNAP_DEV_UNPROMPTED ?? 'false',
-    DUCAT_SNAP_DEBUG: process.env.DUCAT_SNAP_DEBUG ?? 'false',
+    DUCAT_SNAP_DEV_UNPROMPTED: 'false',
+    DUCAT_SNAP_DEBUG: 'false',
     DUCAT_SNAP_DEV_ORIGINS: process.env.DUCAT_SNAP_DEV_ORIGINS ?? '',
-    DUCAT_SNAP_ALPHA_ORIGIN: '',
+    ALPHA_MAINNET_VALIDATOR_BASE_URL: 'https://validator-mainnet.alpha.ducatprotocol.com',
+    ALPHA_MAINNET_ESPLORA_BASE_URL: 'https://mempool.space/api',
   },
 };
 

@@ -16,7 +16,7 @@ const FORBIDDEN_PRODUCTION_BUNDLE_EVIDENCE = [
   'ducat_signPsbtUnprompted',
   '[ducat-snap]',
   '.snap/dev',
-  '.snap/alpha',
+  'https://validator-mainnet.alpha.ducatprotocol.com',
 ];
 
 export function assertReleaseEnvironment(env = process.env) {
@@ -34,6 +34,11 @@ export function assertReleaseEnvironment(env = process.env) {
 
   if ((env.DUCAT_SNAP_DEV_ORIGINS ?? '').trim() !== '') {
     throw new Error('DUCAT_SNAP_DEV_ORIGINS must be unset or empty for a release build.');
+  }
+  for (const name of ['ALPHA_MAINNET_VALIDATOR_BASE_URL', 'ALPHA_MAINNET_ESPLORA_BASE_URL']) {
+    if ((env[name] ?? '').trim() !== '') {
+      throw new Error(`${name} must be unset or empty for a release build.`);
+    }
   }
 }
 

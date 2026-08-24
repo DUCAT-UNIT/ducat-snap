@@ -60,34 +60,34 @@ describe('network profiles', () => {
     ]);
   });
 
-  it('compiles exactly one alpha profile from required build inputs', () => {
+  it('compiles every development profile with the reviewed Alpha endpoints', () => {
     const previous = {
       policy: process.env.DUCAT_SNAP_ARTIFACT_POLICY,
       validator: process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL,
       esplora: process.env.ALPHA_MAINNET_ESPLORA_BASE_URL,
-      origin: process.env.DUCAT_SNAP_ALPHA_ORIGIN,
+      origins: process.env.DUCAT_SNAP_DEV_ORIGINS,
     };
     try {
       jest.isolateModules(() => {
-        process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'alpha-mainnet';
-        process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL = 'https://validator.invalid';
-        process.env.ALPHA_MAINNET_ESPLORA_BASE_URL = 'https://esplora.invalid';
-        process.env.DUCAT_SNAP_ALPHA_ORIGIN = 'http://localhost:8075';
-        const alpha = require('../network-profiles.alpha') as typeof import('../network-profiles');
-        expect(alpha.networkProfiles()).toEqual([{
-          id: 'alpha-mainnet',
-          label: 'alpha-mainnet',
-          bitcoin_network: 'mainnet',
-          validator_base_url: 'https://validator.invalid',
-          esplora_base_url: 'https://esplora.invalid',
-        }]);
+        process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
+        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
+        process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL = 'https://validator-mainnet.alpha.ducatprotocol.com';
+        process.env.ALPHA_MAINNET_ESPLORA_BASE_URL = 'https://mempool.space/api';
+        const development = require('../network-profiles') as typeof import('../network-profiles');
+        expect(development.networkProfiles().map((profile) => profile.id)).toEqual([
+          'regtest', 'signet', 'mutinynet', 'testnet4', 'alpha-mainnet', 'mainnet',
+        ]);
+        expect(development.networkProfile('alpha-mainnet')).toEqual({
+          id: 'alpha-mainnet', label: 'alpha-mainnet', bitcoin_network: 'mainnet',
+          validator_base_url: 'https://validator-mainnet.alpha.ducatprotocol.com', esplora_base_url: 'https://mempool.space/api',
+        });
       });
     } finally {
       for (const [name, value] of [
         ['DUCAT_SNAP_ARTIFACT_POLICY', previous.policy],
         ['ALPHA_MAINNET_VALIDATOR_BASE_URL', previous.validator],
         ['ALPHA_MAINNET_ESPLORA_BASE_URL', previous.esplora],
-        ['DUCAT_SNAP_ALPHA_ORIGIN', previous.origin],
+        ['DUCAT_SNAP_DEV_ORIGINS', previous.origins],
       ] as const) {
         if (value === undefined) delete process.env[name];
         else process.env[name] = value;

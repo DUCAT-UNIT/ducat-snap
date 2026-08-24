@@ -10,7 +10,7 @@ import { ducatError } from './errors';
 import { getActiveAccountKeySet } from './key-overrides';
 import { signBip322SimpleMessage } from './message';
 import { assertSelectedNetwork, getSelectedNetwork, requestNetworkSwitch } from './network-selection';
-import { normalizeDeploymentId } from './networks';
+import { bitcoinNetworkForDeployment, normalizeDeploymentId } from './networks';
 import { notifyAction, notifyActionFailure } from './notifications';
 import { assertUniqueBatchOutpoints, preparePsbtForSigning, signPreparedPsbt } from './psbt';
 import { createPsbtVerificationContext } from './psbt-verification';
@@ -581,6 +581,19 @@ function actionTitleFromParams(rawParams: unknown, fallback: string): string {
   return actionLabel(optionalContext(params.context), fallback);
 }
 
+function assertUnpromptedSigningNetwork(method: string, rawParams: unknown): void {
+  if (!DEV_UNPROMPTED_ENABLED || method !== 'ducat_signPsbtUnprompted') return;
+
+  const deploymentId = normalizeDeploymentId(paramsObject(rawParams).network);
+  if (bitcoinNetworkForDeployment(deploymentId) === 'mainnet') {
+    throw ducatError(
+      'DEPLOYMENT_NOT_AVAILABLE',
+      `Unprompted signing is not available for Bitcoin mainnet mechanics (${deploymentId}).`,
+      { artifactPolicy: ARTIFACT_POLICY.policy, deploymentId },
+    );
+  }
+}
+
 /**
  * Authorizes the caller and dispatches one bounded Ducat JSON-RPC request fail-closed.
  * @param origin - Requesting origin supplied by the Snap runtime.
@@ -593,6 +606,7 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest):
   assertAllowedOrigin(origin);
   assertRegisteredMethod(request.method);
   assertRequestDeploymentAvailable(request.method, request.params);
+  assertUnpromptedSigningNetwork(request.method, request.params);
   await assertRequestNetwork(request.method, request.params);
 
   if (DEV_UNPROMPTED_ENABLED && request.method === 'ducat_signPsbtUnprompted') {
@@ -633,8 +647,8 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest):
     //   1. DEV_UNPROMPTED_ENABLED is a build-time `false` in the published build, so this
     //      whole branch is dead-code-eliminated — the method does not exist in production.
     //   2. Even if reached, a disabled build reports it as an unknown method (no information leak).
-    //   3. The compiled development artifact policy refuses every mainnet-backed deployment
-    //      before dispatch; only its allowed deployments may skip the prompt.
+    //   3. The call-site guard normalizes deployment aliases, maps Bitcoin mechanics, and
+    //      refuses mainnet-backed deployments before state, key, dialog, or signing effects.
     // All other safety checks (origin allowlist, input-ownership policy, sighash allowlists,
     // cosign-leaf validation) still run — only the human confirmation is skipped.
     case 'ducat_signBatch':

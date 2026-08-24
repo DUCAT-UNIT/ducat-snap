@@ -6,8 +6,8 @@
 //      skipped because the path is unreachable.
 //   2. DEV (DUCAT_SNAP_DEV_UNPROMPTED=true): the method signs WITHOUT a snap_dialog confirmation
 //      on non-mainnet networks...
-//   3. ...but every mainnet-backed deployment is refused by the development artifact policy, and
-//      no signing occurs.
+//   3. ...but every mainnet-backed deployment is normalized and refused at the RPC call site
+//      before state, key, dialog, or signing effects.
 //   4. The normal `ducat_signPsbt` ALWAYS shows the dialog regardless of the build flag.
 //
 // `DEV_UNPROMPTED_ENABLED` is evaluated at module load from process.env, so each scenario loads
@@ -26,6 +26,7 @@ jest.mock('../psbt-verification', () => ({
 
 const ORIGIN = 'https://app.ducatprotocol.com';
 const DEV_ORIGIN = 'http://localhost:3000';
+const DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
 
 function testNode(byte: number) {
   return DucatKeyNode.fromPrivateKey(Buffer.alloc(32, byte), Buffer.alloc(32, byte + 10));
@@ -105,10 +106,14 @@ function loadRpcWithFlag(value: 'true' | 'false' | undefined): { handleRpcReques
     origins: process.env.DUCAT_SNAP_DEV_ORIGINS,
     unprompted: process.env.DUCAT_SNAP_DEV_UNPROMPTED,
     debug: process.env.DUCAT_SNAP_DEBUG,
+    validator: process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL,
+    esplora: process.env.ALPHA_MAINNET_ESPLORA_BASE_URL,
   };
   process.env.DUCAT_SNAP_ARTIFACT_POLICY = value === 'true' ? 'development' : 'production';
   process.env.DUCAT_SNAP_DEBUG = 'false';
-  if (value === 'true') process.env.DUCAT_SNAP_DEV_ORIGINS = DEV_ORIGIN;
+  process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL = 'https://validator-mainnet.alpha.ducatprotocol.com';
+  process.env.ALPHA_MAINNET_ESPLORA_BASE_URL = 'https://mempool.space/api';
+  if (value === 'true') process.env.DUCAT_SNAP_DEV_ORIGINS = DEV_ORIGINS;
   else delete process.env.DUCAT_SNAP_DEV_ORIGINS;
   if (value === undefined) {
     delete process.env.DUCAT_SNAP_DEV_UNPROMPTED;
@@ -124,6 +129,8 @@ function loadRpcWithFlag(value: 'true' | 'false' | undefined): { handleRpcReques
     ['DUCAT_SNAP_DEV_ORIGINS', previous.origins],
     ['DUCAT_SNAP_DEV_UNPROMPTED', previous.unprompted],
     ['DUCAT_SNAP_DEBUG', previous.debug],
+    ['ALPHA_MAINNET_VALIDATOR_BASE_URL', previous.validator],
+    ['ALPHA_MAINNET_ESPLORA_BASE_URL', previous.esplora],
   ] as const) {
     if (previousValue === undefined) delete process.env[name];
     else process.env[name] = previousValue;
@@ -201,7 +208,11 @@ describe('unprompted signing — dev build (flag on)', () => {
     expect(dialogWasShown(request)).toBe(false);
   });
 
-  it('refuses mainnet through the development artifact policy before signing', async () => {
+  it.each([
+    ['mainnet', 'mainnet'],
+    ['main', 'mainnet'],
+    ['alpha-mainnet', 'alpha-mainnet'],
+  ] as const)('refuses mainnet-backed deployment %s before every wallet effect', async (deployment, canonical) => {
     const { handleRpcRequest } = loadRpcWithFlag('true');
     const request = setSnapMock(true, 'mainnet');
     const { keySet, psbt } = makeSignablePsbt(100_000, 4);
@@ -209,13 +220,13 @@ describe('unprompted signing — dev build (flag on)', () => {
     await expect(
       handleRpcRequest(DEV_ORIGIN, {
         method: 'ducat_signPsbtUnprompted',
-        params: { network: 'mainnet', psbt, signInputs: { [keySet.record.sats.address]: [0] } },
+        params: { network: deployment, psbt, signInputs: { [keySet.record.sats.address]: [0] } },
       }),
     ).rejects.toMatchObject({
       code: 'DEPLOYMENT_NOT_AVAILABLE',
-      details: { artifactPolicy: 'development', deploymentId: 'mainnet' },
+      details: { artifactPolicy: 'development', deploymentId: canonical },
     });
-    expect(dialogWasShown(request)).toBe(false);
+    expect(request).not.toHaveBeenCalled();
   });
 
   it('still requires the dialog for the normal ducat_signPsbt method even when the flag is on', async () => {

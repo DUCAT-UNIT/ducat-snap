@@ -27,7 +27,8 @@ const config: SnapConfig = {
     // a dev build sets it explicitly, e.g.:
     //   DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000 mm-snap build
     DUCAT_SNAP_DEV_ORIGINS: process.env.DUCAT_SNAP_DEV_ORIGINS ?? '',
-    DUCAT_SNAP_ALPHA_ORIGIN: '',
+    ALPHA_MAINNET_VALIDATOR_BASE_URL: '',
+    ALPHA_MAINNET_ESPLORA_BASE_URL: '',
   },
 };
 

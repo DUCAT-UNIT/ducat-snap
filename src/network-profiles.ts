@@ -9,19 +9,49 @@ import {
 import { getState } from './state';
 import type { BitcoinNetwork, DeploymentId, NetworkEndpointOverrides } from './types';
 
-const DEVELOPMENT_PROFILES = process.env.DUCAT_SNAP_ARTIFACT_POLICY === 'development'
-  ? [{
-      id: 'regtest',
-      label: 'regtest',
-      bitcoin_network: 'regtest',
-      validator_base_url: 'http://localhost:8083',
-      esplora_base_url: 'http://localhost:3002',
-    }]
-  : [];
+function requiredDevelopmentInput(
+  name: 'ALPHA_MAINNET_VALIDATOR_BASE_URL' | 'ALPHA_MAINNET_ESPLORA_BASE_URL',
+): string {
+  const value = (name === 'ALPHA_MAINNET_VALIDATOR_BASE_URL'
+    ? process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL
+    : process.env.ALPHA_MAINNET_ESPLORA_BASE_URL
+  )?.trim();
+  if (!value) {
+    throw new Error(`${name} is required for the development Snap artifact`);
+  }
+  return value;
+}
 
-const COMPILED_PROFILES = {
-  networks: [...bundledProfiles.networks, ...DEVELOPMENT_PROFILES],
+const bundledProfile = (id: DeploymentId): unknown => {
+  const profile = bundledProfiles.networks.find((candidate) => candidate.id === id);
+  if (!profile) throw new Error(`missing bundled network profile: ${id}`);
+  return profile;
 };
+
+const COMPILED_PROFILES = process.env.DUCAT_SNAP_ARTIFACT_POLICY === 'development'
+  ? {
+      networks: [
+        {
+          id: 'regtest',
+          label: 'regtest',
+          bitcoin_network: 'regtest',
+          validator_base_url: 'http://localhost:8083',
+          esplora_base_url: 'http://localhost:3002',
+        },
+        bundledProfile('signet'),
+        bundledProfile('mutinynet'),
+        bundledProfile('testnet4'),
+        {
+          id: 'alpha-mainnet',
+          label: 'alpha-mainnet',
+          bitcoin_network: 'mainnet',
+          validator_base_url: requiredDevelopmentInput('ALPHA_MAINNET_VALIDATOR_BASE_URL'),
+          esplora_base_url: requiredDevelopmentInput('ALPHA_MAINNET_ESPLORA_BASE_URL'),
+        },
+        bundledProfile('mainnet'),
+      ],
+    }
+  : bundledProfiles;
 
 export type DeploymentProfile = {
   id: DeploymentId;
