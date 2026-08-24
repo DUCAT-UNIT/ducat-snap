@@ -134,16 +134,19 @@ function setSnapStateMock(initialState: DucatSnapState) {
     method: string;
     params?: {
       id?: unknown;
-      newState?: unknown;
+      key?: keyof DucatSnapState;
       operation?: string;
       path?: string[];
       ui?: unknown;
+      value?: unknown;
     };
   }) => {
     if (method === 'snap_manageState') {
       if (params?.operation === 'get') return managedState;
-      managedState = params?.newState as DucatSnapState;
-      return undefined;
+    }
+    if (method === 'snap_setState' && params?.key) {
+      managedState = { ...managedState, [params.key]: params.value };
+      return null;
     }
     if (method === 'snap_getBip32Entropy') {
       const byte = params?.path?.[1] === "84'" ? 1 : 2;

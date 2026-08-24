@@ -15,7 +15,7 @@ const ORIGIN = 'https://app.ducatprotocol.com';
 
 type SnapRequestArgs = {
   method: string;
-  params?: { operation?: string; path?: string[]; newState?: unknown };
+  params?: { key?: string; operation?: string; path?: string[]; value?: unknown };
 };
 
 function testNode(byte: number) {
@@ -46,9 +46,14 @@ function setSnapMock(dialogResult = true) {
       if (params?.operation === 'get') {
         return managedState;
       }
+    }
 
-      managedState = params?.newState ?? null;
-      return undefined;
+    if (method === 'snap_setState' && params?.key) {
+      const current = managedState && typeof managedState === 'object' && !Array.isArray(managedState)
+        ? managedState
+        : {};
+      managedState = { ...current, [params.key]: params.value };
+      return null;
     }
 
     if (method === 'snap_notify') {

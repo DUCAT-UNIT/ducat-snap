@@ -10,8 +10,8 @@ import { verifyDeploymentEndpointIdentity, type EndpointKind } from './network-e
 import { updateHomeInterface } from './home';
 import { getSelectedNetwork } from './network-selection';
 import { normalizeDeploymentId } from './networks';
-import { getState } from './state';
-import type { DeploymentId, DucatSnapState, NetworkEndpointOverride, NetworkEndpointOverrides } from './types';
+import { getState, updateStateField } from './state';
+import type { DeploymentId, NetworkEndpointOverride, NetworkEndpointOverrides } from './types';
 import { invalidateWalletInventory } from './wallet-inventory';
 import {
   uiBanner,
@@ -107,27 +107,19 @@ function stringField(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function stateWithEndpointOverride(
-  state: DucatSnapState,
+function endpointOverridesWithNetwork(
+  overrides: NetworkEndpointOverrides | undefined,
   network: DeploymentId,
   override: NetworkEndpointOverride | null,
-): DucatSnapState {
-  const current: NetworkEndpointOverrides = { ...(state.networkEndpointOverrides ?? {}) };
+): NetworkEndpointOverrides {
+  const current: NetworkEndpointOverrides = { ...(overrides ?? {}) };
   if (override && (override.validator_base_url || override.esplora_base_url)) {
     current[network] = override;
   } else {
     delete current[network];
   }
 
-  const networkEndpointOverrides = Object.keys(current).length ? current : undefined;
-  const nextState: DucatSnapState = { ...state };
-  if (networkEndpointOverrides) {
-    nextState.networkEndpointOverrides = networkEndpointOverrides;
-  } else {
-    delete nextState.networkEndpointOverrides;
-  }
-
-  return nextState;
+  return current;
 }
 
 function endpointOverrideWithField(
@@ -149,14 +141,10 @@ function endpointOverrideWithField(
   return override;
 }
 
-async function saveEndpointOverride(network: DeploymentId, override: NetworkEndpointOverride | null): Promise<void> {
-  const state = await getState();
-  await snap.request({
-    method: 'snap_manageState',
-    params: {
-      operation: 'update',
-      newState: stateWithEndpointOverride(state, network, override),
-    },
+async function saveEndpointOverride(network: DeploymentId, kind: EndpointKind, url: string | null): Promise<void> {
+  await updateStateField('networkEndpointOverrides', (state) => {
+    const override = endpointOverrideWithField(state.networkEndpointOverrides?.[network], kind, url);
+    return endpointOverridesWithNetwork(state.networkEndpointOverrides, network, override);
   });
 }
 
@@ -199,10 +187,9 @@ export const handleEndpointOverrideInput: OnUserInputHandler = async ({ id, cont
     }
 
     const state = await getState();
-    const currentOverride = state.networkEndpointOverrides?.[network] ?? null;
 
     if (action === 'clear-endpoint') {
-      await saveEndpointOverride(network, endpointOverrideWithField(currentOverride, endpointInput, null));
+      await saveEndpointOverride(network, endpointInput, null);
       invalidateWalletInventory(network);
       await updateEndpointInterface(id, network, {
         severity: 'success',
@@ -223,8 +210,7 @@ export const handleEndpointOverrideInput: OnUserInputHandler = async ({ id, cont
       profile.bitcoin_network,
     );
     await verifyDeploymentEndpointIdentity(network, profile.bitcoin_network, endpointInput, endpointUrl);
-    const override = endpointOverrideWithField(currentOverride, endpointInput, endpointUrl);
-    await saveEndpointOverride(network, override);
+    await saveEndpointOverride(network, endpointInput, endpointUrl);
     invalidateWalletInventory(network);
     await updateEndpointInterface(id, network, {
       severity: 'success',

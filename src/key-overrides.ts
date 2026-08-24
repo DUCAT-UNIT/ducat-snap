@@ -13,12 +13,11 @@ import {
 import { DucatKeyNode } from './bip32';
 import { ducatError } from './errors';
 import { bitcoinNetworkForDeployment, normalizeDeploymentId } from './networks';
-import { getState } from './state';
+import { getState, updateStateField } from './state';
 import type {
   DucatAccount,
   BitcoinNetwork,
   DeploymentId,
-  DucatSnapState,
   PrivateKeyOverrideRecord,
   PublicDucatAccountRecord,
   WalletAccountRecord,
@@ -46,24 +45,6 @@ export type SelectedAccountKeySet = {
   vaultInternalPubkey: Buffer;
   taprootInternalPubkey: Buffer;
 };
-
-function stateWithKeyOverrides(state: DucatSnapState, keyOverrides: PrivateKeyOverrideRecord[]): DucatSnapState {
-  return {
-    ...state,
-    keyOverrides,
-  };
-}
-
-async function saveKeyOverrides(keyOverrides: PrivateKeyOverrideRecord[]): Promise<void> {
-  const state = await getState();
-  await snap.request({
-    method: 'snap_manageState',
-    params: {
-      operation: 'update',
-      newState: stateWithKeyOverrides(state, keyOverrides),
-    },
-  });
-}
 
 function id(): string {
   if (globalThis.crypto?.randomUUID) {
@@ -224,47 +205,17 @@ function keyOverridesWithoutNetwork(keyOverrides: PrivateKeyOverrideRecord[], ne
   return keyOverrides.filter((candidate) => candidate.network !== network);
 }
 
-async function prepareKeyOverride(params: {
+function prepareKeyOverride(params: {
   network: unknown;
   privateKey: unknown;
-}): Promise<{
-  network: DeploymentId;
-  keyOverrides: PrivateKeyOverrideRecord[];
+}): {
   account: PrivateKeyOverrideRecord;
-}> {
+} {
   const network = normalizeDeploymentId(params.network);
   const privateKey = privateKeyFromInput(params.privateKey, network);
-  const state = await getState();
-  const keyOverrides = state.keyOverrides ?? [];
   const account = makeKeyOverride(network, privateKey);
 
-  return { network, keyOverrides, account };
-}
-
-async function findKeyOverrideForRemoval(params: {
-  network: unknown;
-  accountId: unknown;
-}): Promise<{
-  accountId: string;
-  keyOverrides: PrivateKeyOverrideRecord[];
-  account: PrivateKeyOverrideRecord;
-}> {
-  const network = normalizeDeploymentId(params.network);
-  const accountId = typeof params.accountId === 'string' ? params.accountId : '';
-  if (accountId.startsWith('derived:')) {
-    throw ducatError('INVALID_PARAMS', 'Only an imported key override can be removed.');
-  }
-
-  const state = await getState();
-  const keyOverrides = state.keyOverrides ?? [];
-  const account = accountId
-    ? keyOverrides.find((candidate) => candidate.network === network && candidate.id === accountId)
-    : effectiveKeyOverride(keyOverrides, network);
-  if (!account) {
-    throw ducatError('INVALID_PARAMS', 'Imported key override was not found.', { accountId });
-  }
-
-  return { accountId: account.id, keyOverrides, account };
+  return { account };
 }
 
 /**
@@ -277,8 +228,8 @@ export async function importPrivateKeyFromSnapHome(params: {
   network: unknown;
   privateKey: unknown;
 }): Promise<PublicDucatAccountRecord> {
-  const { keyOverrides, account } = await prepareKeyOverride(params);
-  await saveKeyOverrides(replaceKeyOverride(keyOverrides, account));
+  const { account } = prepareKeyOverride(params);
+  await updateStateField('keyOverrides', (state) => replaceKeyOverride(state.keyOverrides ?? [], account));
 
   return publicKeyOverride(account);
 }
@@ -293,10 +244,26 @@ export async function removeKeyOverrideFromSnapHome(params: {
   network: unknown;
   accountId: unknown;
 }): Promise<{ removed: true; accountId: string }> {
-  const { accountId, keyOverrides, account } = await findKeyOverrideForRemoval(params);
-  await saveKeyOverrides(keyOverridesWithoutNetwork(keyOverrides, account.network));
+  const network = normalizeDeploymentId(params.network);
+  const requestedAccountId = typeof params.accountId === 'string' ? params.accountId : '';
+  if (requestedAccountId.startsWith('derived:')) {
+    throw ducatError('INVALID_PARAMS', 'Only an imported key override can be removed.');
+  }
 
-  return { removed: true, accountId };
+  let removedAccountId = '';
+  await updateStateField('keyOverrides', (state) => {
+    const keyOverrides = state.keyOverrides ?? [];
+    const account = requestedAccountId
+      ? keyOverrides.find((candidate) => candidate.network === network && candidate.id === requestedAccountId)
+      : effectiveKeyOverride(keyOverrides, network);
+    if (!account) {
+      throw ducatError('INVALID_PARAMS', 'Imported key override was not found.', { accountId: requestedAccountId });
+    }
+    removedAccountId = account.id;
+    return keyOverridesWithoutNetwork(keyOverrides, account.network);
+  });
+
+  return { removed: true, accountId: removedAccountId };
 }
 
 function overrideKeySet(account: PrivateKeyOverrideRecord): SelectedAccountKeySet {
