@@ -136,6 +136,7 @@ export type DucatVaultReturnData = {
 
 export type PsbtOutputSummary = {
   address: string;
+  scriptHex: string;
   valueSats: number;
   isMine: boolean;
   role: DucatAddressRole | 'external' | 'op_return' | 'unknown';
