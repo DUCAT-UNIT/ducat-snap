@@ -33,7 +33,7 @@ jest.mock('../wallet-inventory', () => ({
 
 const ORIGIN = 'https://app.ducatprotocol.com';
 const DEV_ORIGIN = 'http://localhost:3000';
-const ALPHA_ORIGIN = 'http://localhost:8075';
+const DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
 
 const REGISTERED_NETWORK_METHODS = [
   'ducat_getAccounts',
@@ -157,11 +157,15 @@ function loadDevelopmentRpc(): typeof import('../rpc') {
     origins: process.env.DUCAT_SNAP_DEV_ORIGINS,
     unprompted: process.env.DUCAT_SNAP_DEV_UNPROMPTED,
     debug: process.env.DUCAT_SNAP_DEBUG,
+    validator: process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL,
+    esplora: process.env.ALPHA_MAINNET_ESPLORA_BASE_URL,
   };
   process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
-  process.env.DUCAT_SNAP_DEV_ORIGINS = DEV_ORIGIN;
+  process.env.DUCAT_SNAP_DEV_ORIGINS = DEV_ORIGINS;
   process.env.DUCAT_SNAP_DEV_UNPROMPTED = 'true';
   process.env.DUCAT_SNAP_DEBUG = 'false';
+  process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL = 'https://validator-mainnet.alpha.ducatprotocol.com';
+  process.env.ALPHA_MAINNET_ESPLORA_BASE_URL = 'https://mempool.space/api';
 
   jest.resetModules();
   const module = require('../rpc') as typeof import('../rpc');
@@ -171,6 +175,8 @@ function loadDevelopmentRpc(): typeof import('../rpc') {
     ['DUCAT_SNAP_DEV_ORIGINS', previous.origins],
     ['DUCAT_SNAP_DEV_UNPROMPTED', previous.unprompted],
     ['DUCAT_SNAP_DEBUG', previous.debug],
+    ['ALPHA_MAINNET_VALIDATOR_BASE_URL', previous.validator],
+    ['ALPHA_MAINNET_ESPLORA_BASE_URL', previous.esplora],
   ] as const) {
     if (value === undefined) delete process.env[name];
     else process.env[name] = value;
@@ -536,6 +542,8 @@ describe('RPC router', () => {
       jest.isolateModules(() => {
         process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
         process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000, http://localhost:8075, http://frontend:3000, http://ducat-admin:8075';
+        process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL = 'https://validator-mainnet.alpha.ducatprotocol.com';
+        process.env.ALPHA_MAINNET_ESPLORA_BASE_URL = 'https://mempool.space/api';
         developmentRpc = require('../rpc') as typeof import('../rpc');
         const { ALLOWED_ORIGINS: dev } = developmentRpc;
         const { networkProfiles: developmentProfiles } = require('../network-profiles') as typeof import('../network-profiles');
@@ -545,67 +553,23 @@ describe('RPC router', () => {
         expect(dev.has('http://ducat-admin:8075')).toBe(true);
         expect(dev.has('https://app.ducatprotocol.com')).toBe(false);
         expect(dev.has('https://evil.example')).toBe(false);
-        expect(developmentProfiles().map((profile) => profile.id)).toEqual(['signet', 'mutinynet', 'testnet4', 'regtest']);
+        expect(developmentProfiles().map((profile) => profile.id)).toEqual([
+          'regtest', 'signet', 'mutinynet', 'testnet4', 'alpha-mainnet', 'mainnet',
+        ]);
       });
     } finally {
       process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'production';
       delete process.env.DUCAT_SNAP_DEV_ORIGINS;
+      delete process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL;
+      delete process.env.ALPHA_MAINNET_ESPLORA_BASE_URL;
     }
 
     await expect(developmentRpc.handleRpcRequest('http://localhost:3000', {
       method: 'ducat_getCapabilities',
     })).resolves.toEqual(expect.objectContaining({
-      networks: ['regtest', 'signet', 'mutinynet', 'testnet4'],
-      features: expect.objectContaining({ mainnet: false }),
+      networks: ['regtest', 'signet', 'mutinynet', 'testnet4', 'alpha-mainnet', 'mainnet'],
+      features: expect.objectContaining({ mainnet: true }),
     }));
-  });
-
-  it('derives exact origin, profile, and prompted capabilities for an alpha build', async () => {
-    let alphaRpc!: typeof import('../rpc');
-    const previous = {
-      policy: process.env.DUCAT_SNAP_ARTIFACT_POLICY,
-      validator: process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL,
-      esplora: process.env.ALPHA_MAINNET_ESPLORA_BASE_URL,
-      origin: process.env.DUCAT_SNAP_ALPHA_ORIGIN,
-    };
-    try {
-      jest.isolateModules(() => {
-        process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'alpha-mainnet';
-        process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL = 'https://validator.invalid';
-        process.env.ALPHA_MAINNET_ESPLORA_BASE_URL = 'https://esplora.invalid';
-        process.env.DUCAT_SNAP_ALPHA_ORIGIN = ALPHA_ORIGIN;
-        jest.doMock('../artifact-policy', () => require('../artifact-policy.alpha'));
-        jest.doMock('../network-profiles', () => require('../network-profiles.alpha'));
-        alphaRpc = require('../rpc') as typeof import('../rpc');
-        const { networkProfiles: alphaProfiles } = require('../network-profiles.alpha') as typeof import('../network-profiles');
-        expect([...alphaRpc.ALLOWED_ORIGINS]).toEqual([ALPHA_ORIGIN]);
-        expect(alphaProfiles().map((profile) => profile.id)).toEqual(['alpha-mainnet']);
-      });
-    } finally {
-      jest.dontMock('../artifact-policy');
-      jest.dontMock('../network-profiles');
-      for (const [name, value] of [
-        ['DUCAT_SNAP_ARTIFACT_POLICY', previous.policy],
-        ['ALPHA_MAINNET_VALIDATOR_BASE_URL', previous.validator],
-        ['ALPHA_MAINNET_ESPLORA_BASE_URL', previous.esplora],
-        ['DUCAT_SNAP_ALPHA_ORIGIN', previous.origin],
-      ] as const) {
-        if (value === undefined) delete process.env[name];
-        else process.env[name] = value;
-      }
-    }
-
-    await expect(alphaRpc.handleRpcRequest(ALPHA_ORIGIN, {
-      method: 'ducat_getCapabilities',
-    })).resolves.toEqual(expect.objectContaining({
-      networks: ['alpha-mainnet'],
-      methods: expect.arrayContaining(['ducat_getAccounts', 'ducat_getWalletInventory', 'ducat_signPsbt']),
-      features: expect.objectContaining({ mainnet: false }),
-    }));
-    await expect(alphaRpc.handleRpcRequest(ALPHA_ORIGIN, {
-      method: 'ducat_signPsbtUnprompted',
-      params: { network: 'alpha-mainnet' },
-    })).rejects.toMatchObject({ code: 'METHOD_NOT_FOUND' });
   });
 
   it('returns Snap capabilities', async () => {
@@ -685,49 +649,23 @@ describe('RPC router', () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it('development rejects all mainnet-backed wallet methods before side effects', async () => {
-    const development = loadDevelopmentRpc();
-    const originalFetch = globalThis.fetch;
-    const fetchMock = jest.fn();
-    globalThis.fetch = fetchMock as typeof fetch;
-    try {
-      for (const deployment of ['mainnet', 'alpha-mainnet'] as const) {
-        for (const method of [...REGISTERED_NETWORK_METHODS, 'ducat_signPsbtUnprompted']) {
-          const request = setSnapMock(true, { recentActions: [], selectedNetwork: deployment });
-          await expect(development.handleRpcRequest(DEV_ORIGIN, {
-            method,
-            params: { network: deployment },
-          })).rejects.toMatchObject({
-            code: 'DEPLOYMENT_NOT_AVAILABLE',
-            details: { artifactPolicy: 'development', deploymentId: deployment },
-          });
-          expect(request).not.toHaveBeenCalled();
-          expect(fetchMock).not.toHaveBeenCalled();
-        }
-      }
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it('development repairs stale mainnet state and cannot switch back', async () => {
+  it('development preserves mainnet state and allows an explicitly prompted switch back', async () => {
     const development = loadDevelopmentRpc();
     const request = setSnapMock(true, { recentActions: [], selectedNetwork: 'mainnet' });
 
     await expect(development.handleRpcRequest(DEV_ORIGIN, {
       method: 'ducat_getNetwork',
-    })).resolves.toEqual({ network: 'regtest', label: 'regtest' });
+    })).resolves.toEqual({ network: 'mainnet', label: 'mainnet' });
     await expect(development.handleRpcRequest(DEV_ORIGIN, {
       method: 'ducat_switchNetwork',
       params: { network: 'signet' },
     })).resolves.toEqual({ network: 'signet', changed: true });
 
-    const callCount = request.mock.calls.length;
     await expect(development.handleRpcRequest(DEV_ORIGIN, {
       method: 'ducat_switchNetwork',
       params: { network: 'mainnet' },
-    })).rejects.toMatchObject({ code: 'DEPLOYMENT_NOT_AVAILABLE' });
-    expect(request).toHaveBeenCalledTimes(callCount);
+    })).resolves.toEqual({ network: 'mainnet', changed: true });
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
   it('returns derived Ducat account records', async () => {

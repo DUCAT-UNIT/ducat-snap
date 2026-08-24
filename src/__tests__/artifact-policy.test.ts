@@ -5,10 +5,10 @@ const POLICY_ENV = [
   'DUCAT_SNAP_DEV_ORIGINS',
   'DUCAT_SNAP_DEV_UNPROMPTED',
   'DUCAT_SNAP_DEBUG',
-  'DUCAT_SNAP_ALPHA_ORIGIN',
 ] as const;
 
 const RETIRED_REGTEST_FLAG = ['DUCAT', 'SNAP', 'DEV', 'REGTEST'].join('_');
+const DEVELOPMENT_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
 
 type PolicyModule = typeof import('../artifact-policy');
 
@@ -24,9 +24,7 @@ function loadPolicy(environment: Partial<Record<(typeof POLICY_ENV)[number], str
     }
   }
   jest.resetModules();
-  return (environment.DUCAT_SNAP_ARTIFACT_POLICY === 'alpha-mainnet'
-    ? require('../artifact-policy.alpha')
-    : require('../artifact-policy')) as PolicyModule;
+  return require('../artifact-policy') as PolicyModule;
 }
 
 beforeEach(() => {
@@ -63,16 +61,16 @@ describe('compiled Snap artifact policy', () => {
   it('defines development authority without inheriting production origins', () => {
     const { artifactPolicy } = loadPolicy({
       DUCAT_SNAP_ARTIFACT_POLICY: 'development',
-      DUCAT_SNAP_DEV_ORIGINS: ' http://localhost:3000 , http://localhost:8075 ',
+      DUCAT_SNAP_DEV_ORIGINS: ' http://localhost:3000 , http://localhost:8075 , http://frontend:3000 , http://ducat-admin:8075 ',
       DUCAT_SNAP_DEBUG: 'true',
       DUCAT_SNAP_DEV_UNPROMPTED: 'true',
     });
 
     expect(artifactPolicy()).toEqual({
       policy: 'development',
-      allowed_origins: ['http://localhost:3000', 'http://localhost:8075'],
-      allowed_deployments: ['regtest', 'signet', 'mutinynet', 'testnet4'],
-      default_deployment: 'regtest',
+      allowed_origins: ['http://localhost:3000', 'http://localhost:8075', 'http://frontend:3000', 'http://ducat-admin:8075'],
+      allowed_deployments: ['regtest', 'signet', 'mutinynet', 'testnet4', 'alpha-mainnet', 'mainnet'],
+      default_deployment: 'mutinynet',
       debug_enabled: true,
       unprompted_enabled: true,
     });
@@ -81,12 +79,9 @@ describe('compiled Snap artifact policy', () => {
   it.each([
     ['production', 'regtest'],
     ['production', 'alpha-mainnet'],
-    ['development', 'mainnet'],
-    ['development', 'alpha-mainnet'],
   ] as const)('%s rejects unavailable deployment %s', (policy, deployment) => {
     const { assertDeploymentAvailable } = loadPolicy({
       DUCAT_SNAP_ARTIFACT_POLICY: policy,
-      DUCAT_SNAP_DEV_ORIGINS: policy === 'development' ? 'http://localhost:3000' : undefined,
     });
 
     expect(() => assertDeploymentAvailable(deployment)).toThrow(expect.objectContaining({
@@ -94,58 +89,18 @@ describe('compiled Snap artifact policy', () => {
     }));
   });
 
-  it('development rejects every mainnet-backed deployment', () => {
+  it('development admits every canonical deployment', () => {
     const { assertDeploymentAvailable } = loadPolicy({
       DUCAT_SNAP_ARTIFACT_POLICY: 'development',
-      DUCAT_SNAP_DEV_ORIGINS: 'http://localhost:3000',
+      DUCAT_SNAP_DEV_ORIGINS: DEVELOPMENT_ORIGINS,
     });
 
-    for (const deployment of ['mainnet', 'alpha-mainnet'] satisfies DeploymentId[]) {
-      expect(() => assertDeploymentAvailable(deployment)).toThrow(expect.objectContaining({
-        code: 'DEPLOYMENT_NOT_AVAILABLE',
-      }));
+    for (const deployment of ['regtest', 'signet', 'mutinynet', 'testnet4', 'alpha-mainnet', 'mainnet'] satisfies DeploymentId[]) {
+      expect(() => assertDeploymentAvailable(deployment)).not.toThrow();
     }
   });
 
-  it('defines the exact alpha-mainnet authority', () => {
-    const { artifactPolicy, assertDeploymentAvailable } = loadPolicy({
-      DUCAT_SNAP_ARTIFACT_POLICY: 'alpha-mainnet',
-      DUCAT_SNAP_ALPHA_ORIGIN: 'http://localhost:8075',
-    });
-
-    expect(artifactPolicy()).toEqual({
-      policy: 'alpha-mainnet',
-      allowed_origins: ['http://localhost:8075'],
-      allowed_deployments: ['alpha-mainnet'],
-      default_deployment: 'alpha-mainnet',
-      debug_enabled: false,
-      unprompted_enabled: false,
-    });
-    expect(() => assertDeploymentAvailable('alpha-mainnet')).not.toThrow();
-    for (const deployment of ['mainnet', 'regtest', 'signet', 'mutinynet', 'testnet4'] satisfies DeploymentId[]) {
-      expect(() => assertDeploymentAvailable(deployment)).toThrow(expect.objectContaining({
-        code: 'DEPLOYMENT_NOT_AVAILABLE',
-      }));
-    }
-  });
-
-  it.each([
-    ['DUCAT_SNAP_DEV_ORIGINS', 'http://localhost:8075'],
-    ['DUCAT_SNAP_DEBUG', 'true'],
-    ['DUCAT_SNAP_DEV_UNPROMPTED', 'true'],
-  ] as const)('rejects development-only input %s under alpha policy', (name, value) => {
-    const module = loadPolicy({
-      DUCAT_SNAP_ARTIFACT_POLICY: 'alpha-mainnet',
-      DUCAT_SNAP_ALPHA_ORIGIN: 'http://localhost:8075',
-      [name]: value,
-    });
-
-    expect(() => module.artifactPolicy()).toThrow(expect.objectContaining({
-      code: 'ARTIFACT_POLICY_INVALID',
-    }));
-  });
-
-  it.each([undefined, '', 'preview', 'alpha'])('rejects missing or unknown policy selector: %p', (selector) => {
+  it.each([undefined, '', 'preview', 'alpha', 'alpha-mainnet'])('rejects missing or unknown policy selector: %p', (selector) => {
     const module = loadPolicy({ DUCAT_SNAP_ARTIFACT_POLICY: selector });
 
     expect(() => module.artifactPolicy()).toThrow(expect.objectContaining({
@@ -192,7 +147,7 @@ describe('compiled Snap artifact policy', () => {
       process.env[RETIRED_REGTEST_FLAG] = 'false';
       const development = loadPolicy({
         DUCAT_SNAP_ARTIFACT_POLICY: 'development',
-        DUCAT_SNAP_DEV_ORIGINS: 'http://localhost:3000',
+        DUCAT_SNAP_DEV_ORIGINS: DEVELOPMENT_ORIGINS,
       }).artifactPolicy();
 
       expect(production.allowed_deployments).not.toContain('regtest');
@@ -208,7 +163,7 @@ describe('compiled Snap artifact policy', () => {
     const production = module.artifactPolicy();
 
     process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
-    process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000';
+    process.env.DUCAT_SNAP_DEV_ORIGINS = DEVELOPMENT_ORIGINS;
 
     expect(module.artifactPolicy()).toBe(production);
     expect(module.artifactPolicy().policy).toBe('production');

@@ -3,7 +3,7 @@ import { assertDeploymentAvailable } from './artifact-policy';
 import { networkLabel } from './display';
 import { ducatError } from './errors';
 import { effectiveNetworkProfile } from './network-profiles';
-import { normalizeDeploymentId } from './networks';
+import { bitcoinNetworkForDeployment, normalizeDeploymentId } from './networks';
 import { getState, setSelectedNetwork } from './state';
 import type { DeploymentId } from './types';
 import { invalidateWalletInventory } from './wallet-inventory';
@@ -82,7 +82,7 @@ export async function requestNetworkSwitch(
   }
 
   const profile = effectiveNetworkProfile(network, state.networkEndpointOverrides ?? {});
-  const isMainnet = network === 'mainnet';
+  const isMainnet = bitcoinNetworkForDeployment(network) === 'mainnet';
   const approved = await snap.request<boolean>({
     method: 'snap_dialog',
     params: {

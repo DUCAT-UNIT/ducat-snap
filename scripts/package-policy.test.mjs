@@ -20,7 +20,6 @@ for (const paths of [
   [...EXPECTED_PACKAGE_PATHS, 'docs/audit.pdf'],
   [...EXPECTED_PACKAGE_PATHS, EXPECTED_PACKAGE_PATHS[0]],
   [...EXPECTED_PACKAGE_PATHS, '.snap/dev/snap.manifest.json'],
-  [...EXPECTED_PACKAGE_PATHS, '.snap/alpha/snap.manifest.json'],
   [...EXPECTED_PACKAGE_PATHS, 'ducat-unit-wallet-snap-0.2.3.tgz'],
 ]) {
   test(`rejects non-reviewed package paths: ${paths.at(-1)}`, () => {

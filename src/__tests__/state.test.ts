@@ -36,22 +36,21 @@ function setStateMock(initialState: unknown = null) {
   };
 }
 
-function loadAlphaState(): typeof import('../state') {
+function loadDevelopmentState(): typeof import('../state') {
   const previous = {
     policy: process.env.DUCAT_SNAP_ARTIFACT_POLICY,
-    origin: process.env.DUCAT_SNAP_ALPHA_ORIGIN,
+    origins: process.env.DUCAT_SNAP_DEV_ORIGINS,
   };
-  process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'alpha-mainnet';
-  process.env.DUCAT_SNAP_ALPHA_ORIGIN = 'http://localhost:8075';
+  process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
+  process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
   jest.resetModules();
-  jest.doMock('../artifact-policy', () => require('../artifact-policy.alpha'));
+  (require('../artifact-policy') as typeof import('../artifact-policy')).artifactPolicy();
   const module = require('../state') as typeof import('../state');
   if (previous.policy === undefined) delete process.env.DUCAT_SNAP_ARTIFACT_POLICY;
   else process.env.DUCAT_SNAP_ARTIFACT_POLICY = previous.policy;
-  if (previous.origin === undefined) delete process.env.DUCAT_SNAP_ALPHA_ORIGIN;
-  else process.env.DUCAT_SNAP_ALPHA_ORIGIN = previous.origin;
+  if (previous.origins === undefined) delete process.env.DUCAT_SNAP_DEV_ORIGINS;
+  else process.env.DUCAT_SNAP_DEV_ORIGINS = previous.origins;
   jest.resetModules();
-  jest.dontMock('../artifact-policy');
   return module;
 }
 
@@ -119,7 +118,7 @@ describe('Snap state', () => {
     expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'signet', lastNetwork: 'mainnet' });
   });
 
-  it('preserves a recognized deployment selection in the production artifact', async () => {
+  it('repairs a deployment outside the production artifact authority', async () => {
     const { getStoredState } = setStateMock({
       recentActions: [],
       selectedNetwork: 'alpha-mainnet',
@@ -127,23 +126,30 @@ describe('Snap state', () => {
 
     await expect(getState()).resolves.toMatchObject({
       recentActions: [],
-      selectedNetwork: 'alpha-mainnet',
-    });
-    expect(getStoredState()).toMatchObject({ recentActions: [], selectedNetwork: 'alpha-mainnet' });
-  });
-
-  it('defaults and repairs persisted selection to alpha-mainnet in the alpha artifact', async () => {
-    const alphaState = loadAlphaState();
-    const { getStoredState } = setStateMock({
-      recentActions: [],
       selectedNetwork: 'mutinynet',
     });
+    expect(getStoredState()).toMatchObject({ recentActions: [], selectedNetwork: 'mutinynet' });
+  });
 
-    await expect(alphaState.getState()).resolves.toMatchObject({
+  it('retains all-network selections and defaults malformed selections in the development artifact', async () => {
+    const developmentState = loadDevelopmentState();
+    const { getStoredState } = setStateMock({
+      recentActions: [],
+      selectedNetwork: 'alpha-mainnet',
+    });
+
+    await expect(developmentState.getState()).resolves.toMatchObject({
       recentActions: [],
       selectedNetwork: 'alpha-mainnet',
     });
     expect(getStoredState()).toMatchObject({ recentActions: [], selectedNetwork: 'alpha-mainnet' });
+
+    const { getStoredState: getMalformedStoredState } = setStateMock({
+      recentActions: [],
+      selectedNetwork: 'unknown',
+    });
+    await expect(developmentState.getState()).resolves.toMatchObject({ selectedNetwork: 'mutinynet' });
+    expect(getMalformedStoredState()).toMatchObject({ selectedNetwork: 'mutinynet' });
   });
 
   it('defaults corrupt explicit and legacy selections to Mutinynet', async () => {

@@ -1,14 +1,14 @@
 /** @fileoverview Decodes immutable compile-time Snap artifact authority and deployment availability. */
+import { sha256 } from '@noble/hashes/sha2';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils';
+
 import { ducatError } from './errors';
-import { bitcoinNetworkForDeployment } from './networks';
 import type { DeploymentId } from './types';
 
-export type SnapArtifactPolicy = 'production' | 'development' | 'alpha-mainnet';
-
-export type OperationalSnapArtifactPolicy = Exclude<SnapArtifactPolicy, 'alpha-mainnet'>;
+export type SnapArtifactPolicy = 'production' | 'development';
 
 export type SnapArtifactPolicyEvidence = {
-  policy: OperationalSnapArtifactPolicy;
+  policy: SnapArtifactPolicy;
   allowed_origins: readonly string[];
   allowed_deployments: readonly DeploymentId[];
   default_deployment: DeploymentId;
@@ -34,7 +34,11 @@ const DEVELOPMENT_DEPLOYMENTS = Object.freeze([
   'signet',
   'mutinynet',
   'testnet4',
+  'alpha-mainnet',
+  'mainnet',
 ] as const satisfies readonly DeploymentId[]);
+
+const DEVELOPMENT_ORIGINS_COMMITMENT = '8f3f24b4e50a1b6d7b5957b840bc714edfdcee599dea4ca2377155665781f5da';
 
 function invalidPolicy(message: string, details?: Record<string, unknown>): never {
   throw ducatError('ARTIFACT_POLICY_INVALID', message, details);
@@ -89,17 +93,18 @@ function developmentOrigins(): readonly string[] {
     origins.push(origin);
   }
 
+  const commitment = bytesToHex(sha256(utf8ToBytes(origins.join(','))));
+  if (commitment !== DEVELOPMENT_ORIGINS_COMMITMENT) {
+    return invalidPolicy('DUCAT_SNAP_DEV_ORIGINS must match the reviewed development-origin commitment.', {
+      commitment,
+    });
+  }
+
   return Object.freeze(origins);
 }
 
-function selectedPolicy(): OperationalSnapArtifactPolicy {
+function selectedPolicy(): SnapArtifactPolicy {
   const value = process.env.DUCAT_SNAP_ARTIFACT_POLICY;
-  if (value === 'alpha-mainnet') {
-    throw ducatError(
-      'ARTIFACT_POLICY_NOT_IMPLEMENTED',
-      'The alpha-mainnet Snap artifact policy is reserved and not implemented in Phase 1.',
-    );
-  }
   if (value === 'production' || value === 'development') return value;
   return invalidPolicy('DUCAT_SNAP_ARTIFACT_POLICY must be production or development.', { artifactPolicy: value });
 }
@@ -136,7 +141,7 @@ export function artifactPolicy(): SnapArtifactPolicyEvidence {
     policy,
     allowed_origins: developmentOrigins(),
     allowed_deployments: DEVELOPMENT_DEPLOYMENTS,
-    default_deployment: 'regtest',
+    default_deployment: 'mutinynet',
     debug_enabled: debugEnabled,
     unprompted_enabled: unpromptedEnabled,
   });
@@ -150,9 +155,7 @@ export function artifactPolicy(): SnapArtifactPolicyEvidence {
  */
 export function assertDeploymentAvailable(deploymentId: DeploymentId): void {
   const evidence = artifactPolicy();
-  const mainnetBackedDevelopment = evidence.policy === 'development'
-    && bitcoinNetworkForDeployment(deploymentId) === 'mainnet';
-  if (mainnetBackedDevelopment || !evidence.allowed_deployments.includes(deploymentId)) {
+  if (!evidence.allowed_deployments.includes(deploymentId)) {
     throw ducatError(
       'DEPLOYMENT_NOT_AVAILABLE',
       `Deployment ${deploymentId} is not available in the ${evidence.policy} Snap artifact.`,

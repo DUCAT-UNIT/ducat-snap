@@ -11,6 +11,13 @@ import { fileURLToPath } from 'node:url';
 
 import { parseDevelopmentOrigins } from './dev-origin-policy.mjs';
 
+const REVIEWED_DEVELOPMENT_ORIGINS = Object.freeze([
+  'http://localhost:3000',
+  'http://localhost:8075',
+  'http://frontend:3000',
+  'http://ducat-admin:8075',
+]);
+
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const devRoot = join(root, '.snap', 'dev');
 
@@ -23,7 +30,11 @@ const rpc = manifest.initialPermissions?.['endowment:rpc'];
 if (!rpc || !Array.isArray(rpc.allowedOrigins)) {
   throw new Error('tracked snap.manifest.json has no RPC origin policy');
 }
-rpc.allowedOrigins = parseDevelopmentOrigins(process.env.DUCAT_SNAP_DEV_ORIGINS ?? '');
+const developmentOrigins = parseDevelopmentOrigins(process.env.DUCAT_SNAP_DEV_ORIGINS ?? '');
+if (JSON.stringify(developmentOrigins) !== JSON.stringify(REVIEWED_DEVELOPMENT_ORIGINS)) {
+  throw new Error('DUCAT_SNAP_DEV_ORIGINS must contain the exact reviewed development origins in order');
+}
+rpc.allowedOrigins = developmentOrigins;
 
 rmSync(devRoot, { recursive: true, force: true });
 mkdirSync(join(devRoot, 'images'), { recursive: true });

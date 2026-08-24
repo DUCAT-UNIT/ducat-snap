@@ -14,7 +14,6 @@ import type {
 
 const MAX_RECENT_ACTIONS = 12;
 const RECENT_ACTION_STATUSES = new Set(['signed', 'broadcast', 'failed']);
-const COMPILED_STATE_POLICY = process.env.DUCAT_SNAP_ARTIFACT_POLICY;
 // Networks accepted in persisted state. Derived from DUCAT_SUPPORTED_NETWORKS so
 // storage validation stays aligned with the RPC and Home network selectors.
 const STORED_DEPLOYMENTS = new Set<string>(ALL_DEPLOYMENT_IDS);
@@ -233,21 +232,15 @@ export async function getState(): Promise<DucatSnapState> {
   const recentActions = Array.isArray(storedState.recentActions) ? storedState.recentActions : [];
   const keyOverrides = Array.isArray(storedState.keyOverrides) ? storedState.keyOverrides.filter(isKeyOverride) : [];
   const networkEndpointOverrides = sanitizedNetworkEndpointOverrides(storedState.networkEndpointOverrides);
-  // Alpha and development artifacts repair selections against their compiled authority.
-  // Production keeps its established state behavior so the reviewed package bundle and
-  // manifest remain byte-for-byte unchanged; its RPC boundary still rejects alpha before
-  // wallet side effects.
-  const selectedNetwork = COMPILED_STATE_POLICY === 'alpha-mainnet'
-    ? (storedState.selectedNetwork === 'alpha-mainnet' ? 'alpha-mainnet' : artifactPolicy().default_deployment)
-    : COMPILED_STATE_POLICY === 'development'
-      ? (isStoredDeployment(storedState.selectedNetwork) && artifactPolicy().allowed_deployments.includes(storedState.selectedNetwork)
-          ? storedState.selectedNetwork
-          : artifactPolicy().default_deployment)
-    : isStoredDeployment(storedState.selectedNetwork)
-      ? storedState.selectedNetwork
-      : isStoredDeployment(storedState.lastNetwork)
-        ? storedState.lastNetwork
-        : 'mutinynet';
+  const policy = artifactPolicy();
+  const storedSelection = isStoredDeployment(storedState.selectedNetwork)
+    ? storedState.selectedNetwork
+    : isStoredDeployment(storedState.lastNetwork)
+      ? storedState.lastNetwork
+      : undefined;
+  const selectedNetwork = storedSelection && policy.allowed_deployments.includes(storedSelection)
+    ? storedSelection
+    : policy.default_deployment;
   const state = withKeyOverrides({
     recentActions: recentActions
       .filter(isRecentAction)
@@ -257,9 +250,7 @@ export async function getState(): Promise<DucatSnapState> {
     lastOrigin: typeof storedState.lastOrigin === 'string' ? storedState.lastOrigin : undefined,
   }, keyOverrides);
   const sanitizedState = networkEndpointOverrides ? { ...state, networkEndpointOverrides } : state;
-  const needsMigration = COMPILED_STATE_POLICY === 'alpha-mainnet' || COMPILED_STATE_POLICY === 'development'
-    ? storedState.selectedNetwork !== selectedNetwork
-    : !isStoredDeployment(storedState.selectedNetwork);
+  const needsMigration = storedState.selectedNetwork !== selectedNetwork;
 
   if (needsMigration) {
     await setStateField('selectedNetwork', selectedNetwork);

@@ -27,7 +27,7 @@ test('accepts a clean release environment', () => {
   }));
 });
 
-for (const policy of ['development', 'alpha-mainnet', 'preview']) {
+for (const policy of ['development', 'preview']) {
   test(`rejects ${policy} artifact policy`, () => {
     assert.throws(
       () => assertReleaseEnvironment({ DUCAT_SNAP_ARTIFACT_POLICY: policy }),
@@ -51,6 +51,15 @@ test('rejects development origins', () => {
     /DUCAT_SNAP_DEV_ORIGINS must be unset or empty/,
   );
 });
+
+for (const name of ['ALPHA_MAINNET_VALIDATOR_BASE_URL', 'ALPHA_MAINNET_ESPLORA_BASE_URL']) {
+  test(`rejects ${name}`, () => {
+    assert.throws(
+      () => assertReleaseEnvironment({ [name]: 'https://alpha.example' }),
+      new RegExp(`${name} must be unset or empty`),
+    );
+  });
+}
 
 test('development build parser accepts only an exact non-empty origin set', () => {
   assert.deepEqual(
@@ -107,7 +116,7 @@ for (const forbidden of [
   'ducat_signPsbtUnprompted',
   '[ducat-snap]',
   '.snap/dev',
-  '.snap/alpha',
+  'https://validator-mainnet.alpha.ducatprotocol.com',
 ]) {
   test(`rejects production bundle evidence ${forbidden}`, () => {
     const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${forbidden}`;
