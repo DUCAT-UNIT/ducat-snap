@@ -1,4 +1,5 @@
 /** @fileoverview Enforces transport and Bitcoin-network identity for user-configured remote endpoints. */
+import { normalizeDeploymentId } from './networks';
 import type { BitcoinNetwork, DeploymentId } from './types';
 
 export type EndpointKind = 'validator' | 'esplora';
@@ -83,7 +84,13 @@ export async function verifyDeploymentEndpointIdentity(
     typeof body.chain_network === 'string'
     ? body.chain_network.toLowerCase()
     : '';
-  if (chainNetwork !== deployment) {
+  let validatorDeployment: DeploymentId | null = null;
+  try {
+    validatorDeployment = normalizeDeploymentId(chainNetwork);
+  } catch {
+    // Invalid or unknown validator identities remain an exact mismatch.
+  }
+  if (validatorDeployment !== deployment) {
     throw new Error(`validator endpoint is not on ${deployment}`);
   }
 }
