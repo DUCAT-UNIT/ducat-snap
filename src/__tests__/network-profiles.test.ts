@@ -189,7 +189,24 @@ describe('network profiles', () => {
   });
 
   it('requires exact validator deployment identity but maps Esplora identity to Bitcoin genesis', async () => {
+    const mutinyValidator = jest.fn(async () => Response.json({ chain_network: 'mutiny' })) as typeof fetch;
     const alphaValidator = jest.fn(async () => Response.json({ chain_network: 'alpha-mainnet' })) as typeof fetch;
+
+    await expect(verifyDeploymentEndpointIdentity(
+      'mutinynet',
+      'signet',
+      'validator',
+      'https://validator.example',
+      mutinyValidator,
+    )).resolves.toBeUndefined();
+
+    await expect(verifyDeploymentEndpointIdentity(
+      'signet',
+      'signet',
+      'validator',
+      'https://validator.example',
+      mutinyValidator,
+    )).rejects.toThrow('validator endpoint is not on signet');
 
     await expect(verifyDeploymentEndpointIdentity(
       'mainnet',
