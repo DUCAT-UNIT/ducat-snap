@@ -4,15 +4,15 @@ import { UserInputEventType, type OnUserInputHandler } from '@metamask/snaps-sdk
 import { updateHomeInterface } from './home';
 import { getSelectedNetwork, requestNetworkSwitch } from './network-selection';
 import { networkProfiles } from './network-profiles';
-import { normalizeNetwork } from './networks';
-import type { DucatNetwork } from './types';
+import { normalizeDeploymentId } from './networks';
+import type { DeploymentId } from './types';
 import {
   uiDropdown,
   uiField,
   type SnapElement,
 } from './ui';
 
-export function renderNetworkSelector(network: DucatNetwork): SnapElement {
+export function renderNetworkSelector(network: DeploymentId): SnapElement {
   return uiField(
     'Network',
     uiDropdown(
@@ -36,7 +36,7 @@ export const handleHomeNetworkInput: OnUserInputHandler = async ({ id, event }) 
   }
 
   const previous = await getSelectedNetwork();
-  const network = normalizeNetwork(event.value);
+  const network = normalizeDeploymentId(event.value);
 
   try {
     const result = await requestNetworkSwitch({ network }, 'Ducat Snap Home');

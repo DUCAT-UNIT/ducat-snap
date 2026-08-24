@@ -1,18 +1,47 @@
 import {
   effectiveNetworkProfile,
   networkProfile,
+  networkProfiles,
   validateNetworkProfiles,
 } from '../network-profiles';
-import { verifyNetworkEndpointIdentity } from '../network-endpoint-policy';
-import { DUCAT_GUARDIAN_PUBKEYS, guardianKeyPolicyReady, isKnownGuardianPubkey } from '../networks';
+import { verifyDeploymentEndpointIdentity } from '../network-endpoint-policy';
+import {
+  bitcoinNetworkForDeployment,
+  DUCAT_GUARDIAN_PUBKEYS,
+  guardianKeyPolicyReady,
+  isKnownGuardianPubkey,
+  normalizeDeploymentId,
+} from '../networks';
+
+describe('deployment and Bitcoin identity', () => {
+  it('preserves deployment identity while mapping chain mechanics explicitly', () => {
+    expect(normalizeDeploymentId('alpha-mainnet')).toBe('alpha-mainnet');
+    expect(normalizeDeploymentId('main')).toBe('mainnet');
+    expect(normalizeDeploymentId('mutiny')).toBe('mutinynet');
+    expect(bitcoinNetworkForDeployment('alpha-mainnet')).toBe('mainnet');
+    expect(bitcoinNetworkForDeployment('mainnet')).toBe('mainnet');
+    expect(bitcoinNetworkForDeployment('mutinynet')).toBe('signet');
+  });
+
+  it.each([undefined, null, '', 'alpha', 'unknown'])('rejects unknown deployment identifiers: %p', (value) => {
+    expect(() => normalizeDeploymentId(value)).toThrow();
+  });
+});
 
 describe('network profiles', () => {
+  it('carries an explicit, correct Bitcoin network for every bundled deployment', () => {
+    for (const profile of networkProfiles()) {
+      expect(profile.bitcoin_network).toBe(bitcoinNetworkForDeployment(profile.id));
+    }
+  });
+
   it('loads one bundled profile per supported network', () => {
     const profiles = validateNetworkProfiles({
       networks: [
         {
           id: 'signet',
           label: 'Signet',
+          bitcoin_network: 'signet',
           validator_base_url: 'https://validator-testnet4.dev.ducatprotocol.com',
           esplora_base_url: 'https://mempool.space/signet/api',
         },
@@ -22,6 +51,7 @@ describe('network profiles', () => {
     expect(profiles).toEqual([
       expect.objectContaining({
         id: 'signet',
+        bitcoin_network: 'signet',
         validator_base_url: 'https://validator-testnet4.dev.ducatprotocol.com',
         esplora_base_url: 'https://mempool.space/signet/api',
       }),
@@ -31,10 +61,24 @@ describe('network profiles', () => {
   it('rejects duplicate network ids', () => {
     expect(() => validateNetworkProfiles({
       networks: [
-        { id: 'signet', label: 'A', validator_base_url: 'https://validator-a.example', esplora_base_url: 'https://esplora-a.example' },
-        { id: 'signet', label: 'B', validator_base_url: 'https://validator-b.example', esplora_base_url: 'https://esplora-b.example' },
+        { id: 'signet', label: 'A', bitcoin_network: 'signet', validator_base_url: 'https://validator-a.example', esplora_base_url: 'https://esplora-a.example' },
+        { id: 'signet', label: 'B', bitcoin_network: 'signet', validator_base_url: 'https://validator-b.example', esplora_base_url: 'https://esplora-b.example' },
       ],
     })).toThrow('duplicate network profile: signet');
+  });
+
+  it('rejects absent or inconsistent Bitcoin-network mappings', () => {
+    expect(() => validateNetworkProfiles({
+      networks: [
+        { id: 'signet', label: 'Signet', validator_base_url: 'https://validator.example', esplora_base_url: 'https://esplora.example' },
+      ],
+    })).toThrow('invalid Bitcoin network');
+
+    expect(() => validateNetworkProfiles({
+      networks: [
+        { id: 'mutinynet', label: 'Mutinynet', bitcoin_network: 'mainnet', validator_base_url: 'https://validator.example', esplora_base_url: 'https://esplora.example' },
+      ],
+    })).toThrow('network profile mutinynet must map to Bitcoin signet');
   });
 
   it('rejects malformed profile containers and entries', () => {
@@ -46,7 +90,7 @@ describe('network profiles', () => {
   it('rejects non-http endpoint URLs', () => {
     expect(() => validateNetworkProfiles({
       networks: [
-        { id: 'signet', label: 'Signet', validator_base_url: 'file:///tmp/validator', esplora_base_url: 'https://mempool.space/signet/api' },
+        { id: 'signet', label: 'Signet', bitcoin_network: 'signet', validator_base_url: 'file:///tmp/validator', esplora_base_url: 'https://mempool.space/signet/api' },
       ],
     })).toThrow('validator_base_url must be an HTTP(S) URL');
   });
@@ -84,20 +128,48 @@ describe('network profiles', () => {
   });
 
   it('verifies validator and Esplora network identity', async () => {
-    await expect(verifyNetworkEndpointIdentity('signet', 'validator', 'https://validator.example',
+    await expect(verifyDeploymentEndpointIdentity('signet', 'signet', 'validator', 'https://validator.example',
       jest.fn(async () => Response.json([])) as typeof fetch,
     )).rejects.toThrow('validator endpoint is not on signet');
 
-    await expect(verifyNetworkEndpointIdentity('signet', 'validator', 'https://validator.example',
+    await expect(verifyDeploymentEndpointIdentity('signet', 'signet', 'validator', 'https://validator.example',
       jest.fn(async () => Response.json({ chain_network: 'testnet4' })) as typeof fetch,
     )).rejects.toThrow('validator endpoint is not on signet');
 
-    await expect(verifyNetworkEndpointIdentity('signet', 'esplora', 'https://esplora.example',
+    await expect(verifyDeploymentEndpointIdentity('signet', 'signet', 'esplora', 'https://esplora.example',
       jest.fn(async () => new Response('00000000da84f2bafbbc53dee25a72ae507ff4914b867c565be350b0da8bf043')) as typeof fetch,
     )).rejects.toThrow('esplora endpoint is not on signet');
 
-    await expect(verifyNetworkEndpointIdentity('signet', 'esplora', 'https://esplora.example',
+    await expect(verifyDeploymentEndpointIdentity('signet', 'signet', 'esplora', 'https://esplora.example',
       jest.fn(async () => new Response('00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6')) as typeof fetch,
+    )).resolves.toBeUndefined();
+  });
+
+  it('requires exact validator deployment identity but maps Esplora identity to Bitcoin genesis', async () => {
+    const alphaValidator = jest.fn(async () => Response.json({ chain_network: 'alpha-mainnet' })) as typeof fetch;
+
+    await expect(verifyDeploymentEndpointIdentity(
+      'mainnet',
+      'mainnet',
+      'validator',
+      'https://validator.example',
+      alphaValidator,
+    )).rejects.toThrow('validator endpoint is not on mainnet');
+
+    await expect(verifyDeploymentEndpointIdentity(
+      'alpha-mainnet',
+      'mainnet',
+      'validator',
+      'https://validator.example',
+      alphaValidator,
+    )).resolves.toBeUndefined();
+
+    await expect(verifyDeploymentEndpointIdentity(
+      'alpha-mainnet',
+      'mainnet',
+      'esplora',
+      'https://esplora.example',
+      jest.fn(async () => new Response('000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f')) as typeof fetch,
     )).resolves.toBeUndefined();
   });
 

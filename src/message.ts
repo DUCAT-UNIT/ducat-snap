@@ -3,7 +3,7 @@ import { crypto, opcodes, Psbt, Transaction } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
 import { getInternalPubkeyForRole, getNodeForRole, getOutputScriptForRole, type AccountKeySet } from './accounts';
-import { bitcoinNetwork } from './networks';
+import { bitcoinNetwork, bitcoinNetworkForDeployment } from './networks';
 import { taprootSigner, toSigner } from './psbt';
 import type { DucatAddressRole } from './types';
 
@@ -33,7 +33,7 @@ function buildToSignPsbt(params: {
   toSpendTxId: string;
   scriptPubKey: Buffer;
 }): Psbt {
-  const psbt = new Psbt({ network: bitcoinNetwork(params.keySet.network) });
+  const psbt = new Psbt({ network: bitcoinNetwork(bitcoinNetworkForDeployment(params.keySet.network)) });
 
   psbt.setVersion(0);
   psbt.setLocktime(0);

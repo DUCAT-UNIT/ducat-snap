@@ -4,21 +4,23 @@ import { initEccLib, payments } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
 import { DucatKeyNode } from './bip32';
-import { bitcoinNetwork, normalizeNetwork } from './networks';
-import type { DucatAccount, DucatAddressRole, DucatNetwork, WalletAccountRecord } from './types';
+import { bitcoinNetwork, bitcoinNetworkForDeployment, normalizeDeploymentId } from './networks';
+import type { DeploymentId, DucatAccount, DucatAddressRole, WalletAccountRecord } from './types';
 
 initEccLib(ecc);
 
-export const SATS_BASE_PATHS: Record<DucatNetwork, string[]> = {
+export const SATS_BASE_PATHS: Record<DeploymentId, string[]> = {
   mainnet: ['m', "84'", "0'"],
+  'alpha-mainnet': ['m', "84'", "0'"],
   signet: ['m', "84'", "1'"],
   mutinynet: ['m', "84'", "1'"],
   testnet4: ['m', "84'", "1'"],
   // regtest shares the testnet coin type (1'), matching the local DUCAT stack.
   regtest: ['m', "84'", "1'"],
 };
-export const TAPROOT_BASE_PATHS: Record<DucatNetwork, string[]> = {
+export const TAPROOT_BASE_PATHS: Record<DeploymentId, string[]> = {
   mainnet: ['m', "86'", "0'"],
+  'alpha-mainnet': ['m', "86'", "0'"],
   signet: ['m', "86'", "1'"],
   mutinynet: ['m', "86'", "1'"],
   testnet4: ['m', "86'", "1'"],
@@ -32,7 +34,7 @@ type SnapBip32Entropy = {
 };
 
 export type AccountPublicSet = {
-  network: DucatNetwork;
+  network: DeploymentId;
   record: WalletAccountRecord;
   satsOutputScript: Buffer;
   runesOutputScript: Buffer;
@@ -76,8 +78,8 @@ export function toXOnly(publicKey: Buffer): Buffer {
   return publicKey.length === 32 ? publicKey : publicKey.subarray(1, 33);
 }
 
-function taprootPayment(network: DucatNetwork, label: string, internalPubkey: Buffer): { address: string; output: Buffer } {
-  const net = bitcoinNetwork(network);
+function taprootPayment(network: DeploymentId, label: string, internalPubkey: Buffer): { address: string; output: Buffer } {
+  const net = bitcoinNetwork(bitcoinNetworkForDeployment(network));
   const payment = payments.p2tr({ internalPubkey, network: net });
 
   if (!payment.address || !payment.output) {
@@ -94,8 +96,8 @@ function taprootPayment(network: DucatNetwork, label: string, internalPubkey: Bu
  * @returns Public account fields and expected scriptPubKey.
  * @throws When address derivation fails.
  */
-export function p2wpkhAccount(network: DucatNetwork, publicKey: Buffer): DucatAccount & { output: Buffer } {
-  const payment = payments.p2wpkh({ pubkey: publicKey, network: bitcoinNetwork(network) });
+export function p2wpkhAccount(network: DeploymentId, publicKey: Buffer): DucatAccount & { output: Buffer } {
+  const payment = payments.p2wpkh({ pubkey: publicKey, network: bitcoinNetwork(bitcoinNetworkForDeployment(network)) });
 
   if (!payment.address || !payment.output) {
     throw new Error('Failed to derive imported sats account.');
@@ -114,7 +116,7 @@ export function p2wpkhAccount(network: DucatNetwork, publicKey: Buffer): DucatAc
  * @param internalPubkey - Untweaked x-only internal public key.
  * @returns Public account fields and expected P2TR scriptPubKey.
  */
-export function p2trAccount(network: DucatNetwork, internalPubkey: Buffer): DucatAccount & { output: Buffer } {
+export function p2trAccount(network: DeploymentId, internalPubkey: Buffer): DucatAccount & { output: Buffer } {
   const payment = taprootPayment(network, 'imported', internalPubkey);
 
   return {
@@ -124,8 +126,8 @@ export function p2trAccount(network: DucatNetwork, internalPubkey: Buffer): Duca
   };
 }
 
-function accountRecordFromNodes(network: DucatNetwork, satsNode: DucatKeyNode, runesNode: DucatKeyNode, vaultNode: DucatKeyNode): AccountKeySet {
-  const net = bitcoinNetwork(network);
+function accountRecordFromNodes(network: DeploymentId, satsNode: DucatKeyNode, runesNode: DucatKeyNode, vaultNode: DucatKeyNode): AccountKeySet {
+  const net = bitcoinNetwork(bitcoinNetworkForDeployment(network));
   const satsPubkey = Buffer.from(satsNode.publicKey);
   const runesInternalPubkey = toXOnly(Buffer.from(runesNode.publicKey));
   const vaultInternalPubkey = toXOnly(Buffer.from(vaultNode.publicKey));
@@ -186,8 +188,8 @@ function accountRecordFromNodes(network: DucatNetwork, satsNode: DucatKeyNode, r
  * @throws When an address does not match its corresponding public key.
  */
 export function accountPublicSetFromRecord(networkInput: unknown, record: WalletAccountRecord): AccountPublicSet {
-  const network = normalizeNetwork(networkInput);
-  const net = bitcoinNetwork(network);
+  const network = normalizeDeploymentId(networkInput);
+  const net = bitcoinNetwork(bitcoinNetworkForDeployment(network));
   const satsPubkey = hexBuffer('sats.pubkey', record.sats.pubkey, 33);
   const runesInternalPubkey = hexBuffer('runes.pubkey', record.runes.pubkey, 32);
   const vaultInternalPubkey = hexBuffer('vault.pubkey', record.vault.pubkey, 32);
@@ -235,7 +237,7 @@ export function deriveAccountSetFromBaseNodes(
   satsBaseNode: DucatKeyNode,
   taprootBaseNode: DucatKeyNode,
 ): AccountKeySet {
-  const network = normalizeNetwork(networkInput);
+  const network = normalizeDeploymentId(networkInput);
 
   return accountRecordFromNodes(network, deriveAccountNode(satsBaseNode), deriveAccountNode(taprootBaseNode, 0), deriveAccountNode(taprootBaseNode, 1));
 }
@@ -262,7 +264,7 @@ async function getBip32BaseNode(path: string[]): Promise<DucatKeyNode> {
  * @returns Signing nodes retained inside the Snap plus public account metadata.
  */
 export async function getAccountKeySet(networkInput: unknown): Promise<AccountKeySet> {
-  const network = normalizeNetwork(networkInput);
+  const network = normalizeDeploymentId(networkInput);
   const satsBaseNode = await getBip32BaseNode(SATS_BASE_PATHS[network]);
   const taprootBaseNode = await getBip32BaseNode(TAPROOT_BASE_PATHS[network]);
 

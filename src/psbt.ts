@@ -8,10 +8,10 @@ import type { DucatKeyNode } from './bip32';
 import { matchCosignLeafHex } from './cosign-leaf';
 import { matchTimeoutLeafHex } from './timeout-leaf';
 import { ducatError } from './errors';
-import { bitcoinNetwork, guardianAllowlistEnforced, isKnownGuardianPubkey } from './networks';
+import { bitcoinNetwork, bitcoinNetworkForDeployment, guardianAllowlistEnforced, isKnownGuardianPubkey } from './networks';
 import type {
+  DeploymentId,
   DucatAddressRole,
-  DucatNetwork,
   DucatVaultActionFlag,
   DucatVaultReturnData,
   PsbtInputSummary,
@@ -523,9 +523,9 @@ export function assertUniqueBatchOutpoints(psbts: Psbt[]): void {
   }
 }
 
-function parseOutputAddress(outputScript: Buffer, network: DucatNetwork): string {
+function parseOutputAddress(outputScript: Buffer, network: DeploymentId): string {
   try {
-    return btcAddress.fromOutputScript(outputScript, bitcoinNetwork(network));
+    return btcAddress.fromOutputScript(outputScript, bitcoinNetwork(bitcoinNetworkForDeployment(network)));
   } catch {
     const chunks = btcScript.decompile(outputScript);
     if (chunks?.[0] === opcodes.OP_RETURN) {
@@ -605,7 +605,7 @@ function decodeVaultActionFromSequences(inputs: Psbt['txInputs']): DecodedVaultA
 function inferVaultCollateralSats(
   action: DecodedVaultAction,
   outputs: Psbt['txOutputs'],
-  network: DucatNetwork,
+  network: DeploymentId,
   keySet: AccountPublicSet,
 ): number | undefined {
   const outputIndex = action.vaultOutputIndex;
@@ -657,7 +657,7 @@ function decodeLegacyDucatVaultReturn(
   action: DecodedVaultAction,
   outputIndex: number,
   outputs: Psbt['txOutputs'],
-  network: DucatNetwork,
+  network: DeploymentId,
   keySet: AccountPublicSet,
 ): DucatVaultReturnData | null {
   if (payload.length !== DUCAT_VAULT_RETURN_MIN_SIZE && payload.length !== DUCAT_VAULT_RETURN_LOCKED_SIZE) {
@@ -708,7 +708,7 @@ function decodeCoreDucatVaultReturn(
   action: DecodedVaultAction,
   outputIndex: number,
   outputs: Psbt['txOutputs'],
-  network: DucatNetwork,
+  network: DeploymentId,
   keySet: AccountPublicSet,
 ): DucatVaultReturnData | null {
   if (payload.length < 2 || payload[0] !== DUCAT_VAULT_RETURN_VERSION) {
@@ -796,7 +796,7 @@ function decodeDucatVaultReturn(
   outputScript: Buffer,
   outputIndex: number,
   psbt: Psbt,
-  network: DucatNetwork,
+  network: DeploymentId,
   keySet: AccountPublicSet,
 ): DucatVaultReturnData | null {
   const chunks = btcScript.decompile(outputScript);
@@ -836,7 +836,7 @@ function allSignedInputIndexes(signInputs: SignInputs): number[] {
  * @returns Parsed bitcoinjs-lib PSBT.
  * @throws On oversized, duplicate-input, or malformed PSBT data.
  */
-export function parsePsbt(psbtBase64: string, network: DucatNetwork): Psbt {
+export function parsePsbt(psbtBase64: string, network: DeploymentId): Psbt {
   if (psbtBase64.length > MAX_PSBT_BASE64_LENGTH) {
     throw ducatError('PSBT_TOO_LARGE', 'This PSBT is too large for the Ducat Snap to display and sign safely.', {
       maxBase64Length: MAX_PSBT_BASE64_LENGTH,
@@ -845,7 +845,7 @@ export function parsePsbt(psbtBase64: string, network: DucatNetwork): Psbt {
   }
 
   try {
-    return Psbt.fromBase64(psbtBase64, { network: bitcoinNetwork(network) });
+    return Psbt.fromBase64(psbtBase64, { network: bitcoinNetwork(bitcoinNetworkForDeployment(network)) });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -917,7 +917,7 @@ function buildWarnings(feeSats: number | null, outputs: PsbtOutputSummary[]): st
  */
 export function summarizePsbt(
   psbt: Psbt,
-  network: DucatNetwork,
+  network: DeploymentId,
   keySet: AccountPublicSet,
   signInputs: SignInputs,
   signedInputs: PsbtInputSummary[],
@@ -985,7 +985,7 @@ export function summarizePsbt(
  * @returns Parsed PSBT and complete approval summary.
  * @throws When any input, output, fee, or visibility invariant fails.
  */
-export function preparePsbtForSigning(psbtBase64: string, network: DucatNetwork, keySet: AccountPublicSet, signInputs: SignInputs): {
+export function preparePsbtForSigning(psbtBase64: string, network: DeploymentId, keySet: AccountPublicSet, signInputs: SignInputs): {
   psbt: Psbt;
   summary: PsbtSummary;
 } {

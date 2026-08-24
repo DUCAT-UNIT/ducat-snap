@@ -2,19 +2,19 @@
 import { networkLabel } from './display';
 import { ducatError } from './errors';
 import { effectiveNetworkProfile } from './network-profiles';
-import { normalizeNetwork } from './networks';
+import { normalizeDeploymentId } from './networks';
 import { getState, setSelectedNetwork } from './state';
-import type { DucatNetwork } from './types';
+import type { DeploymentId } from './types';
 import { invalidateWalletInventory } from './wallet-inventory';
 import { uiBanner, uiBox, uiHeading, uiRow, uiSection } from './ui';
 
 export type NetworkResponse = {
-  network: DucatNetwork;
+  network: DeploymentId;
   label: string;
 };
 
 export type NetworkSwitchResponse = {
-  network: DucatNetwork;
+  network: DeploymentId;
   changed: boolean;
 };
 
@@ -22,7 +22,7 @@ function endpointOrigin(value: string): string {
   return new URL(value).origin;
 }
 
-function parseSwitchParams(value: unknown): DucatNetwork {
+function parseSwitchParams(value: unknown): DeploymentId {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw ducatError('INVALID_PARAMS', 'ducat_switchNetwork requires exactly one network parameter.');
   }
@@ -33,7 +33,7 @@ function parseSwitchParams(value: unknown): DucatNetwork {
     throw ducatError('INVALID_PARAMS', 'ducat_switchNetwork accepts only the network parameter.');
   }
 
-  return normalizeNetwork(params.network);
+  return normalizeDeploymentId(params.network);
 }
 
 /** @returns The current Snap-owned network selection and display label. */
@@ -47,8 +47,8 @@ export async function getSelectedNetwork(): Promise<NetworkResponse> {
  * @param networkInput - Untrusted request network.
  * @returns The normalized exact-match network.
  */
-export async function assertSelectedNetwork(networkInput: unknown): Promise<DucatNetwork> {
-  const requestedNetwork = normalizeNetwork(networkInput);
+export async function assertSelectedNetwork(networkInput: unknown): Promise<DeploymentId> {
+  const requestedNetwork = normalizeDeploymentId(networkInput);
   const { selectedNetwork } = await getState();
 
   if (requestedNetwork !== selectedNetwork) {

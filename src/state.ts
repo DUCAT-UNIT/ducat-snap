@@ -1,9 +1,9 @@
 /** @fileoverview Sanitizes persisted state and maintains bounded actions, sessions, keys, and endpoint overrides. */
-import { DUCAT_SUPPORTED_NETWORKS } from './networks';
+import { ALL_DEPLOYMENT_IDS, bitcoinNetworkForDeployment } from './networks';
 import { normalizeNetworkEndpointUrl } from './network-endpoint-policy';
 import type {
   DucatAccount,
-  DucatNetwork,
+  DeploymentId,
   DucatSnapState,
   NetworkEndpointOverride,
   NetworkEndpointOverrides,
@@ -15,15 +15,15 @@ const MAX_RECENT_ACTIONS = 12;
 const RECENT_ACTION_STATUSES = new Set(['signed', 'broadcast', 'failed']);
 // Networks accepted in persisted state. Derived from DUCAT_SUPPORTED_NETWORKS so
 // storage validation stays aligned with the RPC and Home network selectors.
-const STORED_NETWORKS = new Set<string>(DUCAT_SUPPORTED_NETWORKS);
+const STORED_DEPLOYMENTS = new Set<string>(ALL_DEPLOYMENT_IDS);
 
 type RawStoredState = Partial<DucatSnapState> & {
   lastNetwork?: unknown;
   selectedNetwork?: unknown;
 };
 
-function isStoredNetwork(value: unknown): value is DucatNetwork {
-  return typeof value === 'string' && STORED_NETWORKS.has(value);
+function isStoredDeployment(value: unknown): value is DeploymentId {
+  return typeof value === 'string' && STORED_DEPLOYMENTS.has(value);
 }
 
 let fallbackIdCounter = 0;
@@ -59,7 +59,7 @@ function isRecentAction(value: unknown): value is RecentAction {
     typeof candidate.id === 'string' &&
     typeof candidate.actionType === 'string' &&
     (candidate.title === undefined || typeof candidate.title === 'string') &&
-    isStoredNetwork(candidate.network) &&
+    isStoredDeployment(candidate.network) &&
     typeof candidate.origin === 'string' &&
     Number.isFinite(candidate.timestamp) &&
     (candidate.status === undefined || RECENT_ACTION_STATUSES.has(candidate.status)) &&
@@ -105,7 +105,7 @@ function isKeyOverride(value: unknown): value is PrivateKeyOverrideRecord {
   return (
     typeof account.id === 'string' &&
     account.source === 'imported' &&
-    isStoredNetwork(account.network) &&
+    isStoredDeployment(account.network) &&
     typeof account.created_at === 'number' &&
     Number.isFinite(account.created_at) &&
     typeof account.fingerprint === 'string' &&
@@ -134,7 +134,7 @@ function sanitizedNetworkEndpointOverrides(value: unknown): NetworkEndpointOverr
   const result: NetworkEndpointOverrides = {};
 
   for (const [networkInput, overrideInput] of Object.entries(value)) {
-    if (!isStoredNetwork(networkInput) || !overrideInput || typeof overrideInput !== 'object' || Array.isArray(overrideInput)) {
+    if (!isStoredDeployment(networkInput) || !overrideInput || typeof overrideInput !== 'object' || Array.isArray(overrideInput)) {
       continue;
     }
 
@@ -148,10 +148,10 @@ function sanitizedNetworkEndpointOverrides(value: unknown): NetworkEndpointOverr
     let esploraUrl: string | undefined;
     try {
       validatorUrl = hasValidator
-        ? normalizeNetworkEndpointUrl(override.validator_base_url, 'validator_base_url', networkInput)
+        ? normalizeNetworkEndpointUrl(override.validator_base_url, 'validator_base_url', bitcoinNetworkForDeployment(networkInput))
         : undefined;
       esploraUrl = hasEsplora
-        ? normalizeNetworkEndpointUrl(override.esplora_base_url, 'esplora_base_url', networkInput)
+        ? normalizeNetworkEndpointUrl(override.esplora_base_url, 'esplora_base_url', bitcoinNetworkForDeployment(networkInput))
         : undefined;
     } catch {
       continue;
@@ -190,9 +190,9 @@ export async function getState(): Promise<DucatSnapState> {
   const keyOverrides = Array.isArray(storedState.keyOverrides) ? storedState.keyOverrides.filter(isKeyOverride) : [];
   const networkEndpointOverrides = sanitizedNetworkEndpointOverrides(storedState.networkEndpointOverrides);
 
-  const selectedNetwork = isStoredNetwork(storedState.selectedNetwork)
+  const selectedNetwork = isStoredDeployment(storedState.selectedNetwork)
     ? storedState.selectedNetwork
-    : isStoredNetwork(storedState.lastNetwork)
+    : isStoredDeployment(storedState.lastNetwork)
       ? storedState.lastNetwork
       : 'mutinynet';
   const state = withKeyOverrides({
@@ -204,7 +204,7 @@ export async function getState(): Promise<DucatSnapState> {
     lastOrigin: typeof storedState.lastOrigin === 'string' ? storedState.lastOrigin : undefined,
   }, keyOverrides);
   const sanitizedState = networkEndpointOverrides ? { ...state, networkEndpointOverrides } : state;
-  const needsMigration = !isStoredNetwork(storedState.selectedNetwork) || Object.prototype.hasOwnProperty.call(storedState, 'lastNetwork');
+  const needsMigration = !isStoredDeployment(storedState.selectedNetwork) || Object.prototype.hasOwnProperty.call(storedState, 'lastNetwork');
 
   if (needsMigration) {
     await snap.request({
@@ -284,7 +284,7 @@ export async function rememberDucatSession(origin: string): Promise<void> {
 }
 
 /** @param network - Confirmed user-selected network. @returns When the selection is persisted. */
-export async function setSelectedNetwork(network: DucatNetwork): Promise<void> {
+export async function setSelectedNetwork(network: DeploymentId): Promise<void> {
   const state = await getState();
 
   await snap.request({

@@ -40,7 +40,7 @@ function context(fetchImpl: typeof fetch = jest.fn() as unknown as typeof fetch)
   return new PsbtVerificationContext('signet', {
     fetchImpl,
     inventory: inventory(),
-    profile: { id: 'signet', label: 'Signet', validator_base_url: 'https://validator.example', esplora_base_url: 'https://esplora.example' },
+    profile: { id: 'signet', label: 'Signet', bitcoin_network: 'signet', validator_base_url: 'https://validator.example', esplora_base_url: 'https://esplora.example' },
   });
 }
 

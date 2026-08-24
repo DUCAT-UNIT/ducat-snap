@@ -2,15 +2,16 @@
 import { UserInputEventType, type InterfaceContext, type OnUserInputHandler } from '@metamask/snaps-sdk';
 
 import {
+  effectiveNetworkProfile,
   normalizeNetworkEndpointUrl,
-  type NetworkProfile,
+  type DeploymentProfile,
 } from './network-profiles';
-import { verifyNetworkEndpointIdentity, type EndpointKind } from './network-endpoint-policy';
+import { verifyDeploymentEndpointIdentity, type EndpointKind } from './network-endpoint-policy';
 import { updateHomeInterface } from './home';
 import { getSelectedNetwork } from './network-selection';
-import { normalizeNetwork } from './networks';
+import { normalizeDeploymentId } from './networks';
 import { getState } from './state';
-import type { DucatNetwork, DucatSnapState, NetworkEndpointOverride, NetworkEndpointOverrides } from './types';
+import type { DeploymentId, DucatSnapState, NetworkEndpointOverride, NetworkEndpointOverrides } from './types';
 import { invalidateWalletInventory } from './wallet-inventory';
 import {
   uiBanner,
@@ -33,10 +34,10 @@ export type NetworkEndpointStatus =
 
 export type NetworkEndpointContext = InterfaceContext & {
   screen?: 'network-endpoints';
-  network?: DucatNetwork;
+  network?: DeploymentId;
 };
 
-export function networkEndpointContext(network: DucatNetwork): NetworkEndpointContext {
+export function networkEndpointContext(network: DeploymentId): NetworkEndpointContext {
   return { screen: 'network-endpoints', network };
 }
 
@@ -45,9 +46,9 @@ export function isEndpointOverrideEvent(name: string): boolean {
 }
 
 export function renderNetworkEndpointContent(params: {
-  network: DucatNetwork;
-  profile: NetworkProfile;
-  defaultProfile: NetworkProfile;
+  network: DeploymentId;
+  profile: DeploymentProfile;
+  defaultProfile: DeploymentProfile;
   editingEndpoint: EndpointKind | null;
   endpoint?: EndpointKind;
   status: NetworkEndpointStatus;
@@ -71,13 +72,13 @@ function endpointField(kind: EndpointKind): EndpointUrlField {
   return kind === 'validator' ? 'validator_base_url' : 'esplora_base_url';
 }
 
-function endpointUrl(profile: NetworkProfile, kind: EndpointKind): string {
+function endpointUrl(profile: DeploymentProfile, kind: EndpointKind): string {
   return kind === 'validator' ? profile.validator_base_url : profile.esplora_base_url;
 }
 
 function endpointRows(params: {
-  profile: NetworkProfile;
-  defaultProfile: NetworkProfile;
+  profile: DeploymentProfile;
+  defaultProfile: DeploymentProfile;
   editingEndpoint: EndpointKind | null;
 }, kind: EndpointKind): SnapElement[] {
   const label = endpointLabel(kind);
@@ -108,7 +109,7 @@ function stringField(value: unknown): string {
 
 function stateWithEndpointOverride(
   state: DucatSnapState,
-  network: DucatNetwork,
+  network: DeploymentId,
   override: NetworkEndpointOverride | null,
 ): DucatSnapState {
   const current: NetworkEndpointOverrides = { ...(state.networkEndpointOverrides ?? {}) };
@@ -148,7 +149,7 @@ function endpointOverrideWithField(
   return override;
 }
 
-async function saveEndpointOverride(network: DucatNetwork, override: NetworkEndpointOverride | null): Promise<void> {
+async function saveEndpointOverride(network: DeploymentId, override: NetworkEndpointOverride | null): Promise<void> {
   const state = await getState();
   await snap.request({
     method: 'snap_manageState',
@@ -161,7 +162,7 @@ async function saveEndpointOverride(network: DucatNetwork, override: NetworkEndp
 
 async function updateEndpointInterface(
   id: string,
-  network: DucatNetwork,
+  network: DeploymentId,
   status: NetworkEndpointStatus,
   screenEndpoint: EndpointKind,
   editingEndpoint: EndpointKind | null = null,
@@ -170,7 +171,7 @@ async function updateEndpointInterface(
 }
 
 export const handleEndpointOverrideInput: OnUserInputHandler = async ({ id, context, event }) => {
-  const network = normalizeNetwork(typeof context?.network === 'string' ? context.network : 'mutinynet');
+  const network = normalizeDeploymentId(typeof context?.network === 'string' ? context.network : 'mutinynet');
 
   if (!('name' in event) || typeof event.name !== 'string' || !isEndpointOverrideEvent(event.name)) {
     return;
@@ -215,8 +216,13 @@ export const handleEndpointOverrideInput: OnUserInputHandler = async ({ id, cont
       return;
     }
 
-    const endpointUrl = normalizeNetworkEndpointUrl(stringField(event.value.endpointUrl), endpointField(endpointInput), network);
-    await verifyNetworkEndpointIdentity(network, endpointInput, endpointUrl);
+    const profile = effectiveNetworkProfile(network, state.networkEndpointOverrides ?? {});
+    const endpointUrl = normalizeNetworkEndpointUrl(
+      stringField(event.value.endpointUrl),
+      endpointField(endpointInput),
+      profile.bitcoin_network,
+    );
+    await verifyDeploymentEndpointIdentity(network, profile.bitcoin_network, endpointInput, endpointUrl);
     const override = endpointOverrideWithField(currentOverride, endpointInput, endpointUrl);
     await saveEndpointOverride(network, override);
     invalidateWalletInventory(network);

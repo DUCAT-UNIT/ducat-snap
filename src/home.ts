@@ -11,7 +11,7 @@ import { assertSelectedNetwork, getSelectedNetwork } from './network-selection';
 import { effectiveNetworkProfile, networkProfile } from './network-profiles';
 import { ducatAppUrl } from './networks';
 import { getState } from './state';
-import type { DucatAccount, DucatNetwork, RecentAction } from './types';
+import type { DeploymentId, DucatAccount, RecentAction } from './types';
 import { getWalletInventory } from './wallet-inventory';
 import {
   uiBanner,
@@ -35,7 +35,7 @@ export type HomeScreen = 'overview' | 'key' | EndpointKind;
  * @remarks Remote balances and vault data are informational and are not authoritative for signing policy.
  */
 export async function getHomeState(networkInput: unknown): Promise<{
-  network: DucatNetwork;
+  network: DeploymentId;
   appUrl: string;
   accounts: {
     sats: string;

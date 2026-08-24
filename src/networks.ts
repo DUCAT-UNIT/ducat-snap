@@ -2,7 +2,7 @@
 import { networks, type Network } from 'bitcoinjs-lib';
 
 import { ducatError } from './errors';
-import type { DucatNetwork } from './types';
+import type { BitcoinNetwork, DeploymentId } from './types';
 
 export const DUCAT_APP_URL = 'https://app.ducatprotocol.com';
 
@@ -29,7 +29,57 @@ export const DUCAT_DEV_ALLOWED_ORIGINS: readonly string[] = (process.env.DUCAT_S
   .map((origin) => origin.trim())
   .filter((origin) => origin.length > 0);
 
-export const DUCAT_SUPPORTED_NETWORKS = ['regtest', 'signet', 'mutinynet', 'testnet4', 'mainnet'] as const satisfies readonly DucatNetwork[];
+export const DUCAT_SUPPORTED_DEPLOYMENTS = ['regtest', 'signet', 'mutinynet', 'testnet4', 'mainnet'] as const satisfies readonly DeploymentId[];
+
+export const ALL_DEPLOYMENT_IDS = [
+  'regtest',
+  'signet',
+  'mutinynet',
+  'testnet4',
+  'alpha-mainnet',
+  'mainnet',
+] as const satisfies readonly DeploymentId[];
+
+/**
+ * Normalizes only documented deployment aliases while preserving deployment identity.
+ * @param deployment - Untrusted deployment identifier.
+ * @returns Canonical deployment identifier.
+ * @throws When the value is not a canonical deployment or documented alias.
+ */
+export function normalizeDeploymentId(deployment: unknown): DeploymentId {
+  if (deployment === 'main') {
+    return 'mainnet';
+  }
+
+  if (deployment === 'mutiny') {
+    return 'mutinynet';
+  }
+
+  if (typeof deployment === 'string' && (ALL_DEPLOYMENT_IDS as readonly string[]).includes(deployment)) {
+    return deployment as DeploymentId;
+  }
+
+  throw ducatError('INVALID_NETWORK', `Ducat Snap supports ${supportedNetworksSentence()} only.`, {
+    requestedNetwork: deployment,
+  });
+}
+
+/**
+ * Maps deployment identity to Bitcoin chain mechanics without erasing the deployment identifier.
+ * @param deployment - Canonical deployment identifier.
+ * @returns Bitcoin network used for address, transaction, transport, and genesis mechanics.
+ */
+export function bitcoinNetworkForDeployment(deployment: DeploymentId): BitcoinNetwork {
+  if (deployment === 'alpha-mainnet' || deployment === 'mainnet') {
+    return 'mainnet';
+  }
+
+  if (deployment === 'mutinynet') {
+    return 'signet';
+  }
+
+  return deployment;
+}
 
 /**
  * Known Ducat guardian (cosigner) x-only public keys, lowercase hex (64 chars), per network.
@@ -40,8 +90,10 @@ export const DUCAT_SUPPORTED_NETWORKS = ['regtest', 'signet', 'mutinynet', 'test
  * Populate these with the production guardian keys to enforce the cosigner identity.
  */
 // Mainnet remains fail-closed until guardian ops provisions a key that is not used by a test network.
-export const DUCAT_GUARDIAN_PUBKEYS: Record<DucatNetwork, readonly string[]> = {
+export const DUCAT_GUARDIAN_PUBKEYS: Record<DeploymentId, readonly string[]> = {
   mainnet: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],
+  // Reserved until the reviewed alpha deployment record supplies distinct custody material.
+  'alpha-mainnet': [],
   signet: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],
   testnet4: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],
   // BitVM own-quorum FROST group key (2-of-2) for the DUCAT•FROST•UNIT Mutinynet deploy,
@@ -54,7 +106,7 @@ export const DUCAT_GUARDIAN_PUBKEYS: Record<DucatNetwork, readonly string[]> = {
   // pinned. The Snap still signs the 2-of-2 cosign leaf but surfaces the cosigner
   // key in the confirmation dialog for the user to verify.
   regtest: [],
-} as Record<DucatNetwork, readonly string[]>;
+} as Record<DeploymentId, readonly string[]>;
 
 /**
  * Checks whether a guardian key satisfies the selected network's launch policy.
@@ -62,14 +114,14 @@ export const DUCAT_GUARDIAN_PUBKEYS: Record<DucatNetwork, readonly string[]> = {
  * @param guardPubkeyHex - Candidate x-only guardian public key.
  * @returns Whether the key is allowlisted and the network policy is ready.
  */
-export function isKnownGuardianPubkey(network: DucatNetwork, guardPubkeyHex: string): boolean {
+export function isKnownGuardianPubkey(network: DeploymentId, guardPubkeyHex: string): boolean {
   const guardians = DUCAT_GUARDIAN_PUBKEYS[network] ?? [];
 
   return guardianKeyPolicyReady(network) && (guardians.length === 0 || guardians.includes(guardPubkeyHex.toLowerCase()));
 }
 
 /** @param network - Ducat network. @returns Whether at least one guardian key is pinned. */
-export function guardianAllowlistEnforced(network: DucatNetwork): boolean {
+export function guardianAllowlistEnforced(network: DeploymentId): boolean {
   return (DUCAT_GUARDIAN_PUBKEYS[network]?.length ?? 0) > 0;
 }
 
@@ -78,11 +130,12 @@ export function guardianAllowlistEnforced(network: DucatNetwork): boolean {
  * @param network - Ducat network.
  * @returns False for absent keys and for mainnet keys reused by any test network.
  */
-export function guardianKeyPolicyReady(network: DucatNetwork): boolean {
+export function guardianKeyPolicyReady(network: DeploymentId): boolean {
+  if (network === 'alpha-mainnet') return false;
   if (network !== 'mainnet') return true;
 
   const testKeys = new Set(
-    DUCAT_SUPPORTED_NETWORKS
+    DUCAT_SUPPORTED_DEPLOYMENTS
       .filter((candidate) => candidate !== 'mainnet')
       .flatMap((candidate) => [...DUCAT_GUARDIAN_PUBKEYS[candidate]]),
   );
@@ -96,34 +149,8 @@ export function guardianKeyPolicyReady(network: DucatNetwork): boolean {
  * @returns Canonical Ducat network.
  * @throws When the value is not an explicitly supported network or alias.
  */
-export function normalizeNetwork(network: unknown): DucatNetwork {
-  if (network === 'main' || network === 'mainnet' || network === 'alpha-mainnet') {
-    return 'mainnet';
-  }
-
-  if (network === 'signet') {
-    return 'signet';
-  }
-
-  if (network === 'testnet4') {
-    return 'testnet4';
-  }
-
-  if (network === 'mutiny' || network === 'mutinynet') {
-    return 'mutinynet';
-  }
-
-  if (network === 'regtest') {
-    return 'regtest';
-  }
-
-  throw ducatError('INVALID_NETWORK', `Ducat Snap supports ${supportedNetworksSentence()} only.`, {
-    requestedNetwork: network,
-  });
-}
-
 function supportedNetworksSentence(): string {
-  const names = [...DUCAT_SUPPORTED_NETWORKS];
+  const names = [...DUCAT_SUPPORTED_DEPLOYMENTS];
 
   if (names.length <= 1) {
     return names.join('');
@@ -137,7 +164,7 @@ function supportedNetworksSentence(): string {
  * @param network - Canonical Ducat network.
  * @returns Bitcoin mainnet, testnet-family, or regtest parameters.
  */
-export function bitcoinNetwork(network: DucatNetwork): Network {
+export function bitcoinNetwork(network: BitcoinNetwork): Network {
   if (network === 'mainnet') {
     return networks.bitcoin;
   }

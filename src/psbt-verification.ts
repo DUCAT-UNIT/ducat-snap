@@ -3,8 +3,8 @@ import { Transaction, type Psbt } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
 import { ducatError } from './errors';
-import { getEffectiveNetworkProfile, type NetworkProfile } from './network-profiles';
-import type { DucatNetwork, PsbtSummary, WalletInventoryResponse } from './types';
+import { getEffectiveNetworkProfile, type DeploymentProfile } from './network-profiles';
+import type { DeploymentId, PsbtSummary, WalletInventoryResponse } from './types';
 import { getWalletInventory } from './wallet-inventory';
 
 const FETCH_TIMEOUT_MS = 12_000;
@@ -21,7 +21,7 @@ type VerifiedPrevout = {
 type VerificationDependencies = {
   fetchImpl?: typeof fetch;
   inventory?: WalletInventoryResponse;
-  profile?: NetworkProfile;
+  profile?: DeploymentProfile;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -71,14 +71,14 @@ function assertUnspent(value: unknown, txid: string, vout: number): void {
 }
 
 export class PsbtVerificationContext {
-  readonly #network: DucatNetwork;
+  readonly #network: DeploymentId;
   readonly #inventory: WalletInventoryResponse;
-  readonly #profile: NetworkProfile;
+  readonly #profile: DeploymentProfile;
   readonly #fetch: typeof fetch;
   readonly #prevouts = new Map<string, Promise<VerifiedPrevout>>();
   readonly #batchPrevouts = new Map<string, VerifiedPrevout>();
 
-  constructor(network: DucatNetwork, dependencies: Required<VerificationDependencies>) {
+  constructor(network: DeploymentId, dependencies: Required<VerificationDependencies>) {
     this.#network = network;
     this.#inventory = dependencies.inventory;
     this.#profile = dependencies.profile;
@@ -178,7 +178,7 @@ export class PsbtVerificationContext {
 }
 
 export async function createPsbtVerificationContext(
-  network: DucatNetwork,
+  network: DeploymentId,
   dependencies: VerificationDependencies = {},
 ): Promise<PsbtVerificationContext> {
   const [inventory, profile] = await Promise.all([

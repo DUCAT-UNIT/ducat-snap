@@ -1,14 +1,14 @@
 import { Buffer } from 'buffer';
 
 import { handleRpcRequest } from '../rpc';
-import type { DucatNetwork, DucatSnapState } from '../types';
+import type { DeploymentId, DucatSnapState } from '../types';
 
 const ORIGIN = 'https://app.ducatprotocol.com';
 
 type MockOptions = {
   dialogResult?: boolean;
   failUpdate?: boolean;
-  selectedNetwork?: DucatNetwork;
+  selectedNetwork?: DeploymentId;
 };
 
 type SnapRequestArgs = {

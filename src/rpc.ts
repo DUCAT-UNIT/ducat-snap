@@ -9,12 +9,12 @@ import { ducatError } from './errors';
 import { getActiveAccountKeySet } from './key-overrides';
 import { signBip322SimpleMessage } from './message';
 import { assertSelectedNetwork, getSelectedNetwork, requestNetworkSwitch } from './network-selection';
-import { DUCAT_ALLOWED_ORIGINS, DUCAT_DEV_ALLOWED_ORIGINS, DUCAT_SUPPORTED_NETWORKS, normalizeNetwork } from './networks';
+import { DUCAT_ALLOWED_ORIGINS, DUCAT_DEV_ALLOWED_ORIGINS, DUCAT_SUPPORTED_DEPLOYMENTS, normalizeDeploymentId } from './networks';
 import { notifyAction, notifyActionFailure } from './notifications';
 import { assertUniqueBatchOutpoints, preparePsbtForSigning, signPreparedPsbt } from './psbt';
 import { createPsbtVerificationContext } from './psbt-verification';
 import { appendRecentAction, rememberDucatSession } from './state';
-import type { DucatActionContext, DucatNetwork, SignInputs } from './types';
+import type { DeploymentId, DucatActionContext, SignInputs } from './types';
 import { getWalletInventory, invalidateWalletInventory } from './wallet-inventory';
 import packageJson from '../package.json';
 
@@ -64,7 +64,7 @@ type SignBatchResponse = {
 type CapabilitiesResponse = {
   snap: string;
   version: string;
-  networks: DucatNetwork[];
+  networks: DeploymentId[];
   methods: string[];
   features: {
     batchSigning: boolean;
@@ -257,7 +257,7 @@ function assertExactParams(rawParams: unknown, allowed: readonly string[]): Reco
 async function signMessage(origin: string, rawParams: unknown): Promise<SignMessageResponse> {
   const params = assertExactParams(rawParams, ['network', 'address', 'message', 'context']) as SignMessageParams;
 
-  const network = normalizeNetwork(params.network);
+  const network = normalizeDeploymentId(params.network);
   const address = typeof params.address === 'string' ? params.address : '';
   const message = typeof params.message === 'string' ? params.message : '';
   const context = optionalContext(params.context);
@@ -321,7 +321,7 @@ async function signMessage(origin: string, rawParams: unknown): Promise<SignMess
 // dead-code-eliminated from production (see DEV_UNPROMPTED_ENABLED).
 async function signPsbt(origin: string, rawParams: unknown, confirm = true): Promise<SignPsbtResponse> {
   const params = assertExactParams(rawParams, ['network', 'psbt', 'signInputs', 'context']) as SignPsbtParams;
-  const network = normalizeNetwork(params.network);
+  const network = normalizeDeploymentId(params.network);
 
   if (typeof params.psbt !== 'string') {
     throw ducatError('INVALID_PARAMS', 'Ducat transaction signing requires a PSBT.');
@@ -403,7 +403,7 @@ function parseBatchEntries(value: unknown): ParsedBatchEntry[] {
   });
 }
 
-function assertSingleNetwork(summaries: { network: DucatNetwork }[]): void {
+function assertSingleNetwork(summaries: { network: DeploymentId }[]): void {
   const firstNetwork = summaries[0]?.network;
 
   if (firstNetwork && summaries.some((summary) => summary.network !== firstNetwork)) {
@@ -415,7 +415,7 @@ function capabilities(): CapabilitiesResponse {
   return {
     snap: '@ducat-unit/wallet-snap',
     version: packageJson.version,
-    networks: [...DUCAT_SUPPORTED_NETWORKS],
+    networks: [...DUCAT_SUPPORTED_DEPLOYMENTS],
     methods: [
       'ducat_getCapabilities',
       'ducat_getNetwork',
@@ -459,7 +459,7 @@ async function assertRequestNetwork(method: string, paramsInput: unknown): Promi
 async function signBatch(origin: string, rawParams: unknown): Promise<SignBatchResponse> {
   const params = assertExactParams(rawParams, ['network', 'entries', 'context']) as SignBatchParams;
 
-  const network = normalizeNetwork(params.network);
+  const network = normalizeDeploymentId(params.network);
   const context = optionalContext(params.context);
   const entries = parseBatchEntries(params.entries);
   snapDebug('signBatch: enter', {
@@ -556,7 +556,7 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest):
   switch (request.method) {
     case 'ducat_getAccounts': {
       const params = assertExactParams(request.params, ['network']);
-      const network = normalizeNetwork(params.network);
+      const network = normalizeDeploymentId(params.network);
       const account = await getActiveAccountKeySet(network);
       await rememberDucatSession(origin);
 
@@ -593,7 +593,7 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest):
         throw ducatError('METHOD_NOT_FOUND', 'The Ducat Snap does not support this RPC method.', { method: request.method });
       }
 
-      if (normalizeNetwork(paramsObject(request.params).network) === 'mainnet') {
+      if (normalizeDeploymentId(paramsObject(request.params).network) === 'mainnet') {
         throw ducatError('UNPROMPTED_MAINNET_FORBIDDEN', 'Unprompted signing is never permitted on mainnet.');
       }
 

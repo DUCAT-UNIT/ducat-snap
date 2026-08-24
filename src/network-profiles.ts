@@ -1,13 +1,18 @@
 /** @fileoverview Validates bundled endpoint profiles and overlays sanitized state-held endpoint overrides. */
 import bundledProfiles from './network-profiles.json';
 import { normalizeNetworkEndpointUrl } from './network-endpoint-policy';
-import { DUCAT_SUPPORTED_NETWORKS, normalizeNetwork } from './networks';
+import {
+  bitcoinNetworkForDeployment,
+  DUCAT_SUPPORTED_DEPLOYMENTS,
+  normalizeDeploymentId,
+} from './networks';
 import { getState } from './state';
-import type { DucatNetwork, NetworkEndpointOverrides } from './types';
+import type { BitcoinNetwork, DeploymentId, NetworkEndpointOverrides } from './types';
 
-export type NetworkProfile = {
-  id: DucatNetwork;
+export type DeploymentProfile = {
+  id: DeploymentId;
   label: string;
+  bitcoin_network: BitcoinNetwork;
   validator_base_url: string;
   esplora_base_url: string;
 };
@@ -18,12 +23,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function normalizeProfileId(value: unknown): DucatNetwork {
-  if (value === 'regtest') {
-    return 'regtest';
+function parseBitcoinNetwork(value: unknown): BitcoinNetwork {
+  if (value === 'regtest' || value === 'signet' || value === 'testnet4' || value === 'mainnet') {
+    return value;
   }
 
-  return normalizeNetwork(value);
+  throw new Error(`invalid Bitcoin network: ${String(value)}`);
 }
 
 /**
@@ -32,21 +37,21 @@ function normalizeProfileId(value: unknown): DucatNetwork {
  * @returns Supported profiles with canonical IDs and transport-validated URLs.
  * @throws When the document or any supported profile is invalid.
  */
-export function validateNetworkProfiles(raw: unknown): NetworkProfile[] {
+export function validateNetworkProfiles(raw: unknown): DeploymentProfile[] {
   if (!isRecord(raw) || !Array.isArray(raw.networks)) {
     throw new Error('network profiles must include a networks array');
   }
 
   const seen = new Set<string>();
-  const supported = new Set(DUCAT_SUPPORTED_NETWORKS);
-  const profiles: NetworkProfile[] = [];
+  const supported = new Set<string>(DUCAT_SUPPORTED_DEPLOYMENTS);
+  const profiles: DeploymentProfile[] = [];
 
   for (const entry of raw.networks) {
     if (!isRecord(entry)) {
       throw new Error('network profile entries must be objects');
     }
     const candidate = entry;
-    const id = normalizeProfileId(candidate.id);
+    const id = normalizeDeploymentId(candidate.id);
     if (seen.has(id)) {
       throw new Error(`duplicate network profile: ${id}`);
     }
@@ -56,11 +61,18 @@ export function validateNetworkProfiles(raw: unknown): NetworkProfile[] {
       continue;
     }
 
+    const bitcoinNetwork = parseBitcoinNetwork(candidate.bitcoin_network);
+    const expectedBitcoinNetwork = bitcoinNetworkForDeployment(id);
+    if (bitcoinNetwork !== expectedBitcoinNetwork) {
+      throw new Error(`network profile ${id} must map to Bitcoin ${expectedBitcoinNetwork}`);
+    }
+
     profiles.push({
       id,
       label: typeof candidate.label === 'string' && candidate.label.trim() ? candidate.label.trim() : id,
-      validator_base_url: normalizeNetworkEndpointUrl(candidate.validator_base_url, 'validator_base_url', id),
-      esplora_base_url: normalizeNetworkEndpointUrl(candidate.esplora_base_url, 'esplora_base_url', id),
+      bitcoin_network: bitcoinNetwork,
+      validator_base_url: normalizeNetworkEndpointUrl(candidate.validator_base_url, 'validator_base_url', bitcoinNetwork),
+      esplora_base_url: normalizeNetworkEndpointUrl(candidate.esplora_base_url, 'esplora_base_url', bitcoinNetwork),
     });
   }
 
@@ -70,7 +82,7 @@ export function validateNetworkProfiles(raw: unknown): NetworkProfile[] {
 const PROFILES = validateNetworkProfiles(bundledProfiles);
 
 /** @returns The validated bundled network profile list. */
-export function networkProfiles(): NetworkProfile[] {
+export function networkProfiles(): DeploymentProfile[] {
   return PROFILES;
 }
 
@@ -80,8 +92,8 @@ export function networkProfiles(): NetworkProfile[] {
  * @returns Matching canonical profile.
  * @throws When the network is unsupported or has no bundled profile.
  */
-export function networkProfile(networkInput: unknown): NetworkProfile {
-  const network = normalizeNetwork(networkInput);
+export function networkProfile(networkInput: unknown): DeploymentProfile {
+  const network = normalizeDeploymentId(networkInput);
   const profile = PROFILES.find((candidate) => candidate.id === network);
   if (!profile) {
     throw new Error(`network profile not found: ${network}`);
@@ -95,14 +107,14 @@ export function networkProfile(networkInput: unknown): NetworkProfile {
  * @param overrides - Sanitized state-held endpoint overrides.
  * @returns Effective network profile used by wallet operations.
  */
-export function effectiveNetworkProfile(networkInput: unknown, overrides: NetworkEndpointOverrides = {}): NetworkProfile {
+export function effectiveNetworkProfile(networkInput: unknown, overrides: NetworkEndpointOverrides = {}): DeploymentProfile {
   const profile = networkProfile(networkInput);
   const override = overrides[profile.id] ?? {};
 
   return {
     ...profile,
-    validator_base_url: override.validator_base_url ? normalizeNetworkEndpointUrl(override.validator_base_url, 'validator_base_url', profile.id) : profile.validator_base_url,
-    esplora_base_url: override.esplora_base_url ? normalizeNetworkEndpointUrl(override.esplora_base_url, 'esplora_base_url', profile.id) : profile.esplora_base_url,
+    validator_base_url: override.validator_base_url ? normalizeNetworkEndpointUrl(override.validator_base_url, 'validator_base_url', profile.bitcoin_network) : profile.validator_base_url,
+    esplora_base_url: override.esplora_base_url ? normalizeNetworkEndpointUrl(override.esplora_base_url, 'esplora_base_url', profile.bitcoin_network) : profile.esplora_base_url,
   };
 }
 
@@ -111,7 +123,7 @@ export function effectiveNetworkProfile(networkInput: unknown, overrides: Networ
  * @param networkInput - Untrusted network identifier.
  * @returns Effective profile with verified persisted overrides.
  */
-export async function getEffectiveNetworkProfile(networkInput: unknown): Promise<NetworkProfile> {
+export async function getEffectiveNetworkProfile(networkInput: unknown): Promise<DeploymentProfile> {
   const state = await getState();
   return effectiveNetworkProfile(networkInput, state.networkEndpointOverrides ?? {});
 }

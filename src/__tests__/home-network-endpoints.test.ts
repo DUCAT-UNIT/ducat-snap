@@ -63,12 +63,14 @@ describe('Snap Home network endpoint override UI', () => {
       profile: {
         id: 'signet',
         label: 'Signet',
+        bitcoin_network: 'signet',
         validator_base_url: 'https://validator-testnet4.dev.ducatprotocol.com',
         esplora_base_url: 'https://mempool.space/signet/api',
       },
       defaultProfile: {
         id: 'signet',
         label: 'Signet',
+        bitcoin_network: 'signet',
         validator_base_url: 'https://validator-testnet4.dev.ducatprotocol.com',
         esplora_base_url: 'https://mempool.space/signet/api',
       },
@@ -95,12 +97,14 @@ describe('Snap Home network endpoint override UI', () => {
       profile: {
         id: 'signet',
         label: 'Signet',
+        bitcoin_network: 'signet',
         validator_base_url: 'https://validator-override.example',
         esplora_base_url: 'https://mempool.space/signet/api',
       },
       defaultProfile: {
         id: 'signet',
         label: 'Signet',
+        bitcoin_network: 'signet',
         validator_base_url: 'https://validator-testnet4.dev.ducatprotocol.com',
         esplora_base_url: 'https://mempool.space/signet/api',
       },
