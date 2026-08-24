@@ -2,6 +2,7 @@ import {
   effectiveNetworkProfile,
   networkProfile,
   networkProfiles,
+  normalizeNetworkEndpointUrl,
   validateNetworkProfiles,
 } from '../network-profiles';
 import { verifyDeploymentEndpointIdentity } from '../network-endpoint-policy';
@@ -30,6 +31,7 @@ describe('deployment and Bitcoin identity', () => {
 
 describe('network profiles', () => {
   it('carries an explicit, correct Bitcoin network for every bundled deployment', () => {
+    expect(networkProfiles().map((profile) => profile.id)).toEqual(['mainnet', 'signet', 'mutinynet', 'testnet4']);
     for (const profile of networkProfiles()) {
       expect(profile.bitcoin_network).toBe(bitcoinNetworkForDeployment(profile.id));
     }
@@ -115,16 +117,22 @@ describe('network profiles', () => {
   });
 
   it('allows plaintext HTTP only for regtest loopback endpoints', () => {
-    expect(() => effectiveNetworkProfile('signet', {
-      signet: { validator_base_url: 'http://validator.example' },
-    })).toThrow('validator_base_url must use HTTPS outside regtest loopback development');
-    expect(() => effectiveNetworkProfile('regtest', {
-      regtest: { validator_base_url: 'http://validator.example' },
-    })).toThrow('validator_base_url must use HTTPS outside regtest loopback development');
+    expect(() => normalizeNetworkEndpointUrl(
+      'http://validator.example',
+      'validator_base_url',
+      'signet',
+    )).toThrow('validator_base_url must use HTTPS outside regtest loopback development');
+    expect(() => normalizeNetworkEndpointUrl(
+      'http://validator.example',
+      'validator_base_url',
+      'regtest',
+    )).toThrow('validator_base_url must use HTTPS outside regtest loopback development');
 
-    expect(effectiveNetworkProfile('regtest', {
-      regtest: { validator_base_url: 'http://127.0.0.1:8083/' },
-    }).validator_base_url).toBe('http://127.0.0.1:8083');
+    expect(normalizeNetworkEndpointUrl(
+      'http://127.0.0.1:8083/',
+      'validator_base_url',
+      'regtest',
+    )).toBe('http://127.0.0.1:8083');
   });
 
   it('verifies validator and Esplora network identity', async () => {

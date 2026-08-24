@@ -1,4 +1,5 @@
 /** @fileoverview Owns explicit Ducat network selection, mismatch policy, and confirmed switching. */
+import { assertDeploymentAvailable } from './artifact-policy';
 import { networkLabel } from './display';
 import { ducatError } from './errors';
 import { effectiveNetworkProfile } from './network-profiles';
@@ -73,6 +74,7 @@ export async function requestNetworkSwitch(
   requestingOrigin: string,
 ): Promise<NetworkSwitchResponse> {
   const network = parseSwitchParams(paramsInput);
+  assertDeploymentAvailable(network);
   const state = await getState();
 
   if (network === state.selectedNetwork) {

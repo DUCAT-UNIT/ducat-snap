@@ -8,8 +8,9 @@ complete wallet inventory and PSBT signing. The web app drives everything the us
 repay, withdraw, and so on — and the snap handles account discovery and the MetaMask
 confirmation prompts.
 
-> Mainnet, signet, and mutinynet are supported. Local development against regtest needs a
-> dev build (see below).
+The production artifact supports the `mainnet`, `signet`, `mutinynet`, and
+`testnet4` deployments. Local regtest work uses the separate development
+artifact described below.
 
 ## What are snaps?
 
@@ -30,20 +31,20 @@ ducat_signBatch({ network, entries, context })
 ducat_switchNetwork({ network })
 ```
 
-The Snap owns one explicit Bitcoin network selection. New installations default to
+The Snap owns one explicit deployment selection. New production installations default to
 `mutinynet`. `ducat_getNetwork()` returns that selection; `ducat_switchNetwork()`
 changes it only after a MetaMask-owned confirmation showing the requesting origin,
 the From and To networks, the effective validator and Esplora origins, and the
 signing-context warning. A same-network switch is a confirmation-free no-op.
 
-Every network-sensitive method must exactly match the selected network. A mismatch
+Every deployment-sensitive method must exactly match the selected deployment. A mismatch
 fails before account derivation, endpoint access, notifications, signing prompts, or
 state mutation with `NETWORK_MISMATCH` details containing only `selectedNetwork` and
 `requestedNetwork`. `features.explicitNetworkSelection` advertises this contract.
 Legacy state with `lastNetwork` is migrated once to `selectedNetwork`; recent actions,
 keys, endpoint overrides, and origin metadata are preserved.
 
-Only the Ducat app origins below are allowed to call these:
+The production artifact allows exactly these Ducat app origins:
 
 ```
 https://app.ducatprotocol.com
@@ -51,17 +52,20 @@ https://dev.app.ducatprotocol.com
 https://staging.app.ducatprotocol.com
 ```
 
-`localhost` and preview deployments are intentionally not in the published manifest — a local
-process or a hijacked preview subdomain should never be able to drive mainnet signing. For
-local QA, build with the dev origins flag (`DUCAT_SNAP_DEV_ORIGINS`); those origins
-are stripped from the published build. The infra `compose/ducat-snap.yml` default
-dev origins include `http://localhost:3000` for the frontend and
-`http://localhost:8075` for `ducat-admin`.
+`localhost` and preview deployments are intentionally absent from the published
+manifest. The development artifact replaces this list with the exact generated
+`DUCAT_SNAP_DEV_ORIGINS` set; it does not inherit production origins. It allows
+`regtest`, `signet`, `mutinynet`, and `testnet4`, and refuses every deployment
+mapped to Bitcoin mainnet before wallet state, endpoints, entropy, prompts, or
+signing are touched. The canonical `alpha-mainnet` artifact policy remains
+reserved and unimplemented.
 
 ## Network Profiles and Endpoint Overrides
 
 The Snap ships bundled network profiles in [`src/network-profiles.json`](src/network-profiles.json).
-Each profile contains public validator and Esplora endpoints for one Bitcoin network.
+Each profile carries a distinct deployment ID plus the Bitcoin network used for
+address, transaction, transport, and genesis mechanics. `alpha-mainnet` therefore
+remains a distinct deployment identity even though it maps to Bitcoin mainnet.
 
 Users can set validator and Esplora endpoint overrides from Snap Home. Overrides are
 stored in Snap state and apply to complete wallet inventory and signing verification.
@@ -87,7 +91,9 @@ npm run serve        # serve the snap at http://localhost:8080
 The `ducat-infra` local stack uses `make snap-build` / `make snap-serve` to
 generate and serve `.snap/dev`. Localhost origins and the development bundle
 shasum are written only to that ignored runtime; the tracked manifest remains
-the production HTTPS policy.
+the production HTTPS policy. Development preparation rejects missing, duplicate,
+credential-bearing, path-bearing, query-bearing, fragment-bearing, and malformed
+origin entries instead of extending the production list.
 
 Before opening a PR:
 
@@ -105,7 +111,7 @@ or at the published package with `NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wal
 Keys, child keys, WIFs, and raw entropy never leave the snap. Only derived Ducat accounts are
 signed for (with a Snap Home imported-key override taking precedence when present), only the
 explicit `signInputs` indexes are signed, and every signing path requires a
-MetaMask confirmation. Frontend-supplied context is treated as untrusted display metadata — the
+MetaMask confirmation in the production artifact. Frontend-supplied context is treated as untrusted display metadata — the
 parsed PSBT plus fresh Snap-owned wallet/prevout evidence is the source of truth for what's actually
 signed. Websites construct and broadcast transactions. Taproot vault inputs must carry a
 Ducat cosign tapleaf whose control block recomputes to the prevout output key.

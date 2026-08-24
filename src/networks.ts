@@ -6,29 +6,6 @@ import type { BitcoinNetwork, DeploymentId } from './types';
 
 export const DUCAT_APP_URL = 'https://app.ducatprotocol.com';
 
-// Only stable, org-controlled HTTPS Ducat origins are trusted to drive mainnet signing. Local
-// dev (http://localhost) and ephemeral, re-registerable preview deployments (*.vercel.app) are
-// deliberately excluded from the published mainnet build: a local process or a taken-over preview
-// subdomain must never be an authorized signing origin. Use a separate, unpublished dev manifest
-// for local development.
-export const DUCAT_ALLOWED_ORIGINS = [
-  'https://app.ducatprotocol.com',
-  'https://dev.app.ducatprotocol.com',
-  'https://staging.app.ducatprotocol.com',
-] as const;
-
-// Dev-only origin allowlist. mm-snap/webpack inlines `DUCAT_SNAP_DEV_ORIGINS` as a
-// string literal at build time (snap.config.ts defaults it to ''), so the
-// published/audited mainnet build resolves this to an EMPTY list and never
-// authorizes a localhost / non-Ducat origin. A separate, unpublished dev build
-// injects local origins, e.g. for the regtest stack's frontend:
-//   DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000 mm-snap build
-// The value is a comma-separated list of full origins (scheme + host + port).
-export const DUCAT_DEV_ALLOWED_ORIGINS: readonly string[] = (process.env.DUCAT_SNAP_DEV_ORIGINS ?? '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter((origin) => origin.length > 0);
-
 export const DUCAT_SUPPORTED_DEPLOYMENTS = ['regtest', 'signet', 'mutinynet', 'testnet4', 'mainnet'] as const satisfies readonly DeploymentId[];
 
 export const ALL_DEPLOYMENT_IDS = [

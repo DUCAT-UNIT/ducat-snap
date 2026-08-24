@@ -65,7 +65,7 @@ describe('Snap Home network selector', () => {
     expect(json).toContain('Network');
     expect(json).toContain('"name":"homeNetwork"');
     expect(json).toContain('"value":"signet"');
-    expect(json).toContain('regtest');
+    expect(json).not.toContain('regtest');
     expect(json).toContain('signet');
     expect(json).toContain('mutinynet');
     expect(json).toContain('testnet4');

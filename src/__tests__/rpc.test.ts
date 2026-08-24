@@ -27,6 +27,16 @@ jest.mock('../wallet-inventory', () => ({
 }));
 
 const ORIGIN = 'https://app.ducatprotocol.com';
+const DEV_ORIGIN = 'http://localhost:3000';
+
+const REGISTERED_NETWORK_METHODS = [
+  'ducat_getAccounts',
+  'ducat_getWalletInventory',
+  'ducat_switchNetwork',
+  'ducat_signMessage',
+  'ducat_signPsbt',
+  'ducat_signBatch',
+] as const;
 
 type SnapRequestArgs = {
   method: string;
@@ -127,6 +137,34 @@ function setSnapMock(dialogResult = true, initialState: unknown = null): SnapReq
   (globalThis as unknown as { snap: { request: typeof request } }).snap = { request };
 
   return request;
+}
+
+function loadDevelopmentRpc(): typeof import('../rpc') {
+  const previous = {
+    policy: process.env.DUCAT_SNAP_ARTIFACT_POLICY,
+    origins: process.env.DUCAT_SNAP_DEV_ORIGINS,
+    unprompted: process.env.DUCAT_SNAP_DEV_UNPROMPTED,
+    debug: process.env.DUCAT_SNAP_DEBUG,
+  };
+  process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
+  process.env.DUCAT_SNAP_DEV_ORIGINS = DEV_ORIGIN;
+  process.env.DUCAT_SNAP_DEV_UNPROMPTED = 'true';
+  process.env.DUCAT_SNAP_DEBUG = 'false';
+
+  jest.resetModules();
+  const module = require('../rpc') as typeof import('../rpc');
+
+  for (const [name, value] of [
+    ['DUCAT_SNAP_ARTIFACT_POLICY', previous.policy],
+    ['DUCAT_SNAP_DEV_ORIGINS', previous.origins],
+    ['DUCAT_SNAP_DEV_UNPROMPTED', previous.unprompted],
+    ['DUCAT_SNAP_DEBUG', previous.debug],
+  ] as const) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+  jest.resetModules();
+  return module;
 }
 
 function makePsbt(value: number, seed: number) {
@@ -351,21 +389,34 @@ describe('RPC router', () => {
     });
   });
 
-  it('merges DUCAT_SNAP_DEV_ORIGINS into the allowlist for a dev build', () => {
+  it('derives exact origins, profiles, and capabilities for a dev build', async () => {
+    let developmentRpc!: typeof import('../rpc');
     try {
       jest.isolateModules(() => {
+        process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
         process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000, http://localhost:8075, http://frontend:3000, http://ducat-admin:8075';
-        const { ALLOWED_ORIGINS: dev } = require('../rpc');
+        developmentRpc = require('../rpc') as typeof import('../rpc');
+        const { ALLOWED_ORIGINS: dev } = developmentRpc;
+        const { networkProfiles: developmentProfiles } = require('../network-profiles') as typeof import('../network-profiles');
         expect(dev.has('http://localhost:3000')).toBe(true);
         expect(dev.has('http://localhost:8075')).toBe(true);
         expect(dev.has('http://frontend:3000')).toBe(true);
         expect(dev.has('http://ducat-admin:8075')).toBe(true);
-        expect(dev.has('https://app.ducatprotocol.com')).toBe(true);
+        expect(dev.has('https://app.ducatprotocol.com')).toBe(false);
         expect(dev.has('https://evil.example')).toBe(false);
+        expect(developmentProfiles().map((profile) => profile.id)).toEqual(['signet', 'mutinynet', 'testnet4', 'regtest']);
       });
     } finally {
+      process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'production';
       delete process.env.DUCAT_SNAP_DEV_ORIGINS;
     }
+
+    await expect(developmentRpc.handleRpcRequest('http://localhost:3000', {
+      method: 'ducat_getCapabilities',
+    })).resolves.toEqual(expect.objectContaining({
+      networks: ['regtest', 'signet', 'mutinynet', 'testnet4'],
+      features: expect.objectContaining({ mainnet: false }),
+    }));
   });
 
   it('returns Snap capabilities', async () => {
@@ -374,7 +425,7 @@ describe('RPC router', () => {
     expect(result).toEqual({
       snap: '@ducat-unit/wallet-snap',
       version: packageJson.version,
-      networks: ['regtest', 'signet', 'mutinynet', 'testnet4', 'mainnet'],
+      networks: ['mainnet', 'signet', 'mutinynet', 'testnet4'],
       methods: [
         'ducat_getCapabilities',
         'ducat_getNetwork',
@@ -407,6 +458,86 @@ describe('RPC router', () => {
     });
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
+  it.each(['regtest', 'alpha-mainnet'] as const)(
+    'production rejects every registered wallet method on unavailable deployment %s before side effects',
+    async (deployment) => {
+      const originalFetch = globalThis.fetch;
+      const fetchMock = jest.fn();
+      globalThis.fetch = fetchMock as typeof fetch;
+      try {
+        for (const method of REGISTERED_NETWORK_METHODS) {
+          const request = setSnapMock();
+          await expect(handleRpcRequest(ORIGIN, {
+            method,
+            params: { network: deployment },
+          })).rejects.toMatchObject({
+            code: 'DEPLOYMENT_NOT_AVAILABLE',
+            details: { artifactPolicy: 'production', deploymentId: deployment },
+          });
+          expect(request).not.toHaveBeenCalled();
+          expect(fetchMock).not.toHaveBeenCalled();
+        }
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
+
+  it('production keeps the unprompted method absent before deployment parsing or side effects', async () => {
+    const request = setSnapMock();
+
+    await expect(handleRpcRequest(ORIGIN, {
+      method: 'ducat_signPsbtUnprompted',
+      params: { network: 'alpha-mainnet' },
+    })).rejects.toMatchObject({ code: 'METHOD_NOT_FOUND' });
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('development rejects all mainnet-backed wallet methods before side effects', async () => {
+    const development = loadDevelopmentRpc();
+    const originalFetch = globalThis.fetch;
+    const fetchMock = jest.fn();
+    globalThis.fetch = fetchMock as typeof fetch;
+    try {
+      for (const deployment of ['mainnet', 'alpha-mainnet'] as const) {
+        for (const method of [...REGISTERED_NETWORK_METHODS, 'ducat_signPsbtUnprompted']) {
+          const request = setSnapMock(true, { recentActions: [], selectedNetwork: deployment });
+          await expect(development.handleRpcRequest(DEV_ORIGIN, {
+            method,
+            params: { network: deployment },
+          })).rejects.toMatchObject({
+            code: 'DEPLOYMENT_NOT_AVAILABLE',
+            details: { artifactPolicy: 'development', deploymentId: deployment },
+          });
+          expect(request).not.toHaveBeenCalled();
+          expect(fetchMock).not.toHaveBeenCalled();
+        }
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('development can diagnose stale mainnet state and switch out, but cannot switch back', async () => {
+    const development = loadDevelopmentRpc();
+    const request = setSnapMock(true, { recentActions: [], selectedNetwork: 'mainnet' });
+
+    await expect(development.handleRpcRequest(DEV_ORIGIN, {
+      method: 'ducat_getNetwork',
+    })).resolves.toEqual({ network: 'mainnet', label: 'mainnet' });
+    await expect(development.handleRpcRequest(DEV_ORIGIN, {
+      method: 'ducat_switchNetwork',
+      params: { network: 'signet' },
+    })).resolves.toEqual({ network: 'signet', changed: true });
+
+    const callCount = request.mock.calls.length;
+    await expect(development.handleRpcRequest(DEV_ORIGIN, {
+      method: 'ducat_switchNetwork',
+      params: { network: 'mainnet' },
+    })).rejects.toMatchObject({ code: 'DEPLOYMENT_NOT_AVAILABLE' });
+    expect(request).toHaveBeenCalledTimes(callCount);
   });
 
   it('returns derived Ducat account records', async () => {
@@ -491,10 +622,11 @@ describe('RPC router', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
-  it('returns regtest account records', async () => {
+  it('returns regtest account records from the development artifact', async () => {
+    const development = loadDevelopmentRpc();
     const request = setSnapMock(true, { recentActions: [], selectedNetwork: 'regtest' });
 
-    const accounts = await handleRpcRequest(ORIGIN, {
+    const accounts = await development.handleRpcRequest(DEV_ORIGIN, {
       method: 'ducat_getAccounts',
       params: { network: 'regtest' },
     });

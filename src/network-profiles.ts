@@ -1,13 +1,27 @@
 /** @fileoverview Validates bundled endpoint profiles and overlays sanitized state-held endpoint overrides. */
 import bundledProfiles from './network-profiles.json';
+import { artifactPolicy } from './artifact-policy';
 import { normalizeNetworkEndpointUrl } from './network-endpoint-policy';
 import {
   bitcoinNetworkForDeployment,
-  DUCAT_SUPPORTED_DEPLOYMENTS,
   normalizeDeploymentId,
 } from './networks';
 import { getState } from './state';
 import type { BitcoinNetwork, DeploymentId, NetworkEndpointOverrides } from './types';
+
+const DEVELOPMENT_PROFILES = process.env.DUCAT_SNAP_ARTIFACT_POLICY === 'development'
+  ? [{
+      id: 'regtest',
+      label: 'regtest',
+      bitcoin_network: 'regtest',
+      validator_base_url: 'http://localhost:8083',
+      esplora_base_url: 'http://localhost:3002',
+    }]
+  : [];
+
+const COMPILED_PROFILES = {
+  networks: [...bundledProfiles.networks, ...DEVELOPMENT_PROFILES],
+};
 
 export type DeploymentProfile = {
   id: DeploymentId;
@@ -43,7 +57,7 @@ export function validateNetworkProfiles(raw: unknown): DeploymentProfile[] {
   }
 
   const seen = new Set<string>();
-  const supported = new Set<string>(DUCAT_SUPPORTED_DEPLOYMENTS);
+  const supported = new Set<string>(artifactPolicy().allowed_deployments);
   const profiles: DeploymentProfile[] = [];
 
   for (const entry of raw.networks) {
@@ -79,7 +93,7 @@ export function validateNetworkProfiles(raw: unknown): DeploymentProfile[] {
   return profiles;
 }
 
-const PROFILES = validateNetworkProfiles(bundledProfiles);
+const PROFILES = validateNetworkProfiles(COMPILED_PROFILES);
 
 /** @returns The validated bundled network profile list. */
 export function networkProfiles(): DeploymentProfile[] {

@@ -2,6 +2,7 @@
 import type { Json } from '@metamask/snaps-sdk';
 
 import { getRoleForAddress } from './accounts';
+import { artifactPolicy, assertDeploymentAvailable } from './artifact-policy';
 import { confirmBatch, confirmMessage, confirmPsbt } from './confirmations';
 import { snapDebug } from './debug';
 import { actionLabel } from './display';
@@ -9,7 +10,7 @@ import { ducatError } from './errors';
 import { getActiveAccountKeySet } from './key-overrides';
 import { signBip322SimpleMessage } from './message';
 import { assertSelectedNetwork, getSelectedNetwork, requestNetworkSwitch } from './network-selection';
-import { DUCAT_ALLOWED_ORIGINS, DUCAT_DEV_ALLOWED_ORIGINS, DUCAT_SUPPORTED_DEPLOYMENTS, normalizeDeploymentId } from './networks';
+import { normalizeDeploymentId } from './networks';
 import { notifyAction, notifyActionFailure } from './notifications';
 import { assertUniqueBatchOutpoints, preparePsbtForSigning, signPreparedPsbt } from './psbt';
 import { createPsbtVerificationContext } from './psbt-verification';
@@ -85,9 +86,9 @@ const MAX_METADATA_KEY_LENGTH = 64;
 const MAX_METADATA_VALUE_LENGTH = 200;
 const MAX_CONTEXT_LABEL_LENGTH = 200;
 
-// Published build: only the HTTPS Ducat origins (DUCAT_DEV_ALLOWED_ORIGINS is
-// empty unless a dev build injected DUCAT_SNAP_DEV_ORIGINS at build time).
-export const ALLOWED_ORIGINS = new Set<string>([...DUCAT_ALLOWED_ORIGINS, ...DUCAT_DEV_ALLOWED_ORIGINS]);
+const ARTIFACT_POLICY = artifactPolicy();
+
+export const ALLOWED_ORIGINS = new Set<string>(ARTIFACT_POLICY.allowed_origins);
 
 // Build-time gate for the dev-only unprompted signing path. mm-snap/webpack replaces
 // `process.env.DUCAT_SNAP_DEV_UNPROMPTED` with a string literal at build time, so when it is
@@ -415,7 +416,7 @@ function capabilities(): CapabilitiesResponse {
   return {
     snap: '@ducat-unit/wallet-snap',
     version: packageJson.version,
-    networks: [...DUCAT_SUPPORTED_DEPLOYMENTS],
+    networks: [...ARTIFACT_POLICY.allowed_deployments],
     methods: [
       'ducat_getCapabilities',
       'ducat_getNetwork',
@@ -432,7 +433,7 @@ function capabilities(): CapabilitiesResponse {
       psbtSigning: true,
       batchSigning: true,
       snapHome: true,
-      mainnet: true,
+      mainnet: ARTIFACT_POLICY.allowed_deployments.includes('mainnet'),
       walletInventory: true,
     },
   };
@@ -441,14 +442,51 @@ function capabilities(): CapabilitiesResponse {
 const NETWORK_SCOPED_METHODS = new Set([
   'ducat_getAccounts',
   'ducat_getWalletInventory',
+  'ducat_switchNetwork',
   'ducat_signMessage',
   'ducat_signPsbt',
-  'ducat_signPsbtUnprompted',
   'ducat_signBatch',
+  ...(DEV_UNPROMPTED_ENABLED ? ['ducat_signPsbtUnprompted'] : []),
 ]);
 
-async function assertRequestNetwork(method: string, paramsInput: unknown): Promise<void> {
+const SELECTED_DEPLOYMENT_METHODS = new Set([
+  'ducat_getAccounts',
+  'ducat_getWalletInventory',
+  'ducat_signMessage',
+  'ducat_signPsbt',
+  'ducat_signBatch',
+  ...(DEV_UNPROMPTED_ENABLED ? ['ducat_signPsbtUnprompted'] : []),
+]);
+
+const REGISTERED_METHODS = new Set([
+  'ducat_getCapabilities',
+  'ducat_getNetwork',
+  'ducat_switchNetwork',
+  'ducat_getAccounts',
+  'ducat_getWalletInventory',
+  'ducat_signMessage',
+  'ducat_signPsbt',
+  'ducat_signBatch',
+  ...(DEV_UNPROMPTED_ENABLED ? ['ducat_signPsbtUnprompted'] : []),
+]);
+
+function assertRegisteredMethod(method: string): void {
+  if (!REGISTERED_METHODS.has(method)) {
+    throw ducatError('METHOD_NOT_FOUND', 'The Ducat Snap does not support this RPC method.', { method });
+  }
+}
+
+function assertRequestDeploymentAvailable(method: string, paramsInput: unknown): void {
   if (!NETWORK_SCOPED_METHODS.has(method)) {
+    return;
+  }
+
+  const params = paramsObject(paramsInput);
+  assertDeploymentAvailable(normalizeDeploymentId(params.network));
+}
+
+async function assertRequestNetwork(method: string, paramsInput: unknown): Promise<void> {
+  if (!SELECTED_DEPLOYMENT_METHODS.has(method)) {
     return;
   }
 
@@ -551,7 +589,15 @@ function actionTitleFromParams(rawParams: unknown, fallback: string): string {
 export async function handleRpcRequest(origin: string, request: JsonRpcRequest): Promise<Json> {
   snapDebug('rpc <-', request.method, 'from', origin);
   assertAllowedOrigin(origin);
+  assertRegisteredMethod(request.method);
+  assertRequestDeploymentAvailable(request.method, request.params);
   await assertRequestNetwork(request.method, request.params);
+
+  if (DEV_UNPROMPTED_ENABLED && request.method === 'ducat_signPsbtUnprompted') {
+    return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat transaction (unprompted)'), async () =>
+      signPsbt(origin, request.params, false),
+    );
+  }
 
   switch (request.method) {
     case 'ducat_getAccounts': {
@@ -585,23 +631,10 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest):
     //   1. DEV_UNPROMPTED_ENABLED is a build-time `false` in the published build, so this
     //      whole branch is dead-code-eliminated — the method does not exist in production.
     //   2. Even if reached, a disabled build reports it as an unknown method (no information leak).
-    //   3. Even in a dev build, mainnet is hard-refused; only signet/mutinynet may skip the prompt.
+    //   3. The compiled development artifact policy refuses every mainnet-backed deployment
+    //      before dispatch; only its allowed deployments may skip the prompt.
     // All other safety checks (origin allowlist, input-ownership policy, sighash allowlists,
     // cosign-leaf validation) still run — only the human confirmation is skipped.
-    case 'ducat_signPsbtUnprompted': {
-      if (!DEV_UNPROMPTED_ENABLED) {
-        throw ducatError('METHOD_NOT_FOUND', 'The Ducat Snap does not support this RPC method.', { method: request.method });
-      }
-
-      if (normalizeDeploymentId(paramsObject(request.params).network) === 'mainnet') {
-        throw ducatError('UNPROMPTED_MAINNET_FORBIDDEN', 'Unprompted signing is never permitted on mainnet.');
-      }
-
-      return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat transaction (unprompted)'), async () =>
-        signPsbt(origin, request.params, false),
-      );
-    }
-
     case 'ducat_signBatch':
       return withFailureNotification(actionTitleFromParams(request.params, 'Sign Ducat batch'), async () => signBatch(origin, request.params));
 

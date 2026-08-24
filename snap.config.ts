@@ -15,6 +15,7 @@ const config: SnapConfig = {
   // (env values from the shell override this default). It must NEVER be 'true' in the
   // published/audited mainnet manifest.
   environment: {
+    DUCAT_SNAP_ARTIFACT_POLICY: 'production',
     DUCAT_SNAP_DEV_UNPROMPTED: process.env.DUCAT_SNAP_DEV_UNPROMPTED ?? 'false',
     // Dev-only debug logging (src/debug.ts). Pinned to 'false' for the DEFAULT/
     // published build so every snapDebug() call dead-code-eliminates; a dev build

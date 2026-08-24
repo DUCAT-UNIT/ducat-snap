@@ -18,6 +18,7 @@ const config: SnapConfig = {
   },
   polyfills: true,
   environment: {
+    DUCAT_SNAP_ARTIFACT_POLICY: 'development',
     DUCAT_SNAP_DEV_UNPROMPTED: process.env.DUCAT_SNAP_DEV_UNPROMPTED ?? 'false',
     DUCAT_SNAP_DEBUG: process.env.DUCAT_SNAP_DEBUG ?? 'false',
     DUCAT_SNAP_DEV_ORIGINS: process.env.DUCAT_SNAP_DEV_ORIGINS ?? '',

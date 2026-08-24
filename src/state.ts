@@ -1,4 +1,5 @@
 /** @fileoverview Sanitizes persisted state and maintains bounded actions, sessions, keys, and endpoint overrides. */
+import { artifactPolicy } from './artifact-policy';
 import { ALL_DEPLOYMENT_IDS, bitcoinNetworkForDeployment } from './networks';
 import { normalizeNetworkEndpointUrl } from './network-endpoint-policy';
 import type {
@@ -29,7 +30,7 @@ function isStoredDeployment(value: unknown): value is DeploymentId {
 let fallbackIdCounter = 0;
 
 function emptyState(): DucatSnapState {
-  return { recentActions: [], selectedNetwork: 'mutinynet' };
+  return { recentActions: [], selectedNetwork: artifactPolicy().default_deployment };
 }
 
 function id(): string {

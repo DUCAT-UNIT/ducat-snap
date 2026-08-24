@@ -27,13 +27,6 @@
       "bitcoin_network": "testnet4",
       "validator_base_url": "https://validator-testnet4.dev.ducatprotocol.com",
       "esplora_base_url": "https://mempool.space/testnet4/api"
-    },
-    {
-      "id": "regtest",
-      "label": "regtest",
-      "bitcoin_network": "regtest",
-      "validator_base_url": "http://localhost:8083",
-      "esplora_base_url": "http://localhost:3002"
     }
   ]
 }

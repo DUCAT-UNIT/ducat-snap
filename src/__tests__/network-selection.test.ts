@@ -79,16 +79,16 @@ describe('explicit Snap network selection', () => {
 
     await expect(handleRpcRequest(ORIGIN, {
       method: 'ducat_switchNetwork',
-      params: { network: 'regtest' },
-    })).resolves.toEqual({ network: 'regtest', changed: true });
+      params: { network: 'testnet4' },
+    })).resolves.toEqual({ network: 'testnet4', changed: true });
 
-    expect(state().selectedNetwork).toBe('regtest');
+    expect(state().selectedNetwork).toBe('testnet4');
     expect(dialogText(request)).toContain('Switch Ducat network');
     expect(dialogText(request)).toContain(ORIGIN);
     expect(dialogText(request)).toContain('mutinynet');
-    expect(dialogText(request)).toContain('regtest');
-    expect(dialogText(request)).toContain('http://localhost:8083');
-    expect(dialogText(request)).toContain('http://localhost:3002');
+    expect(dialogText(request)).toContain('testnet4');
+    expect(dialogText(request)).toContain('https://validator-testnet4.dev.ducatprotocol.com');
+    expect(dialogText(request)).toContain('https://mempool.space');
     expect(dialogText(request)).toContain('signing context');
   });
 
@@ -146,7 +146,6 @@ describe('explicit Snap network selection', () => {
     'ducat_getWalletInventory',
     'ducat_signMessage',
     'ducat_signPsbt',
-    'ducat_signPsbtUnprompted',
     'ducat_signBatch',
   ])('rejects %s before entropy, network, notification, dialog, or state-write side effects', async (method) => {
     const { request, state } = setSnapMock({ selectedNetwork: 'regtest' });

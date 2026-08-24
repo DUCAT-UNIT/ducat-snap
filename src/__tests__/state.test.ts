@@ -96,6 +96,19 @@ describe('Snap state', () => {
     expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'regtest' });
   });
 
+  it('preserves alpha-mainnet state as a distinct deployment identity', async () => {
+    const { getStoredState } = setStateMock({
+      recentActions: [],
+      selectedNetwork: 'alpha-mainnet',
+    });
+
+    await expect(getState()).resolves.toEqual({
+      recentActions: [],
+      selectedNetwork: 'alpha-mainnet',
+    });
+    expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'alpha-mainnet' });
+  });
+
   it('defaults corrupt explicit and legacy selections to Mutinynet', async () => {
     const { getStoredState } = setStateMock({ recentActions: [], selectedNetwork: 'bad', lastNetwork: 'also-bad' });
 
