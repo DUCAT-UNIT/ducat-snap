@@ -1,6 +1,7 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/src/__tests__/setup-artifact-policy.ts'],
   testMatch: ['<rootDir>/src/**/__tests__/**/*.test.ts'],
   moduleNameMapper: {
     '^@ducat-unit/core/lib$': '<rootDir>/src/__tests__/__mocks__/core-lib.cjs',

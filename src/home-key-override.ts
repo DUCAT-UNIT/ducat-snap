@@ -4,8 +4,8 @@ import { UserInputEventType, type InterfaceContext, type OnUserInputHandler } fr
 import { updateHomeInterface } from './home';
 import { importPrivateKeyFromSnapHome, removeKeyOverrideFromSnapHome } from './key-overrides';
 import { getSelectedNetwork } from './network-selection';
-import { normalizeNetwork } from './networks';
-import type { DucatAccount, DucatNetwork, PrivateKeyOverrideRecord } from './types';
+import { normalizeDeploymentId } from './networks';
+import type { DeploymentId, DucatAccount, PrivateKeyOverrideRecord } from './types';
 import { invalidateWalletInventory } from './wallet-inventory';
 import {
   uiBanner,
@@ -27,11 +27,11 @@ export type KeyOverrideStatus =
 
 export type KeyOverrideContext = InterfaceContext & {
   screen?: 'key-override';
-  network?: DucatNetwork;
+  network?: DeploymentId;
 };
 
 export function renderKeyOverrideContent(params: {
-  network: DucatNetwork;
+  network: DeploymentId;
   override: PrivateKeyOverrideRecord | null;
   effective: {
     source: 'derived' | 'imported';
@@ -78,12 +78,12 @@ function stringField(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
-async function updateKeyOverrideInterface(id: string, network: DucatNetwork, status: KeyOverrideStatus): Promise<void> {
+async function updateKeyOverrideInterface(id: string, network: DeploymentId, status: KeyOverrideStatus): Promise<void> {
   await updateHomeInterface(id, network, { keyOverride: status }, 'key');
 }
 
 export const handleHomeUserInput: OnUserInputHandler = async ({ id, context, event }) => {
-  const network = normalizeNetwork(typeof context?.network === 'string' ? context.network : 'mutinynet');
+  const network = normalizeDeploymentId(typeof context?.network === 'string' ? context.network : 'mutinynet');
 
   if (event.type !== UserInputEventType.FormSubmitEvent) {
     return;

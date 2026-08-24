@@ -25,7 +25,7 @@ import { VISIBLE_OUTPUT_FOLD } from './psbt';
 import type {
   DucatActionContext,
   DucatAddressRole,
-  DucatNetwork,
+  DeploymentId,
   DucatVaultReturnData,
   PsbtOutputSummary,
   PsbtSummary,
@@ -465,7 +465,7 @@ function timeoutInputsSection(timeoutInputs: PsbtSummary['signedInputs']): SnapE
  */
 export async function confirmMessage(params: {
   origin: string;
-  network: DucatNetwork;
+  network: DeploymentId;
   address: string;
   role: DucatAddressRole;
   message: string;

@@ -1,22 +1,13 @@
 /** @fileoverview Enforces transport and Bitcoin-network identity for user-configured remote endpoints. */
-import type { DucatNetwork } from './types';
+import type { BitcoinNetwork, DeploymentId } from './types';
 
 export type EndpointKind = 'validator' | 'esplora';
 
-const GENESIS_HASHES: Record<DucatNetwork, string> = {
+const GENESIS_HASHES: Record<BitcoinNetwork, string> = {
   mainnet: '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f',
   signet: '00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6',
-  mutinynet: '00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6',
   testnet4: '00000000da84f2bafbbc53dee25a72ae507ff4914b867c565be350b0da8bf043',
   regtest: '0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206',
-};
-
-const VALIDATOR_NETWORK_NAMES: Record<DucatNetwork, readonly string[]> = {
-  mainnet: ['main', 'mainnet', 'alpha-mainnet'],
-  signet: ['signet'],
-  mutinynet: ['mutiny', 'mutinynet'],
-  testnet4: ['testnet4'],
-  regtest: ['regtest'],
 };
 
 function isLoopback(hostname: string): boolean {
@@ -31,7 +22,7 @@ function isLoopback(hostname: string): boolean {
  * @returns Credential-free canonical HTTP(S) URL without a trailing slash.
  * @throws When URL shape or transport policy is invalid.
  */
-export function normalizeNetworkEndpointUrl(value: unknown, field: string, network: DucatNetwork): string {
+export function normalizeNetworkEndpointUrl(value: unknown, field: string, network: BitcoinNetwork): string {
   if (typeof value !== 'string') {
     throw new Error(`${field} must be an HTTP(S) URL`);
   }
@@ -58,15 +49,17 @@ export function normalizeNetworkEndpointUrl(value: unknown, field: string, netwo
 
 /**
  * Probes an endpoint and verifies its validator network or Esplora genesis before persistence.
- * @param network - Expected Ducat network.
+ * @param deployment - Expected exact Ducat deployment identity.
+ * @param bitcoinNetwork - Expected Bitcoin genesis and transport identity.
  * @param kind - Validator or Esplora identity protocol.
  * @param endpoint - Transport-validated endpoint base URL.
  * @param fetchImpl - Injectable HTTP client.
  * @returns When the endpoint proves the expected network identity.
  * @throws On HTTP failure, malformed identity data, or network mismatch.
  */
-export async function verifyNetworkEndpointIdentity(
-  network: DucatNetwork,
+export async function verifyDeploymentEndpointIdentity(
+  deployment: DeploymentId,
+  bitcoinNetwork: BitcoinNetwork,
   kind: EndpointKind,
   endpoint: string,
   fetchImpl: typeof fetch = fetch,
@@ -79,8 +72,8 @@ export async function verifyNetworkEndpointIdentity(
 
   if (kind === 'esplora') {
     const genesisHash = (await response.text()).trim().toLowerCase();
-    if (genesisHash !== GENESIS_HASHES[network]) {
-      throw new Error(`esplora endpoint is not on ${network}`);
+    if (genesisHash !== GENESIS_HASHES[bitcoinNetwork]) {
+      throw new Error(`esplora endpoint is not on ${bitcoinNetwork}`);
     }
     return;
   }
@@ -90,7 +83,7 @@ export async function verifyNetworkEndpointIdentity(
     typeof body.chain_network === 'string'
     ? body.chain_network.toLowerCase()
     : '';
-  if (!VALIDATOR_NETWORK_NAMES[network].includes(chainNetwork)) {
-    throw new Error(`validator endpoint is not on ${network}`);
+  if (chainNetwork !== deployment) {
+    throw new Error(`validator endpoint is not on ${deployment}`);
   }
 }

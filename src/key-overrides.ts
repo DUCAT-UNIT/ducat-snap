@@ -12,11 +12,12 @@ import {
 } from './accounts';
 import { DucatKeyNode } from './bip32';
 import { ducatError } from './errors';
-import { normalizeNetwork } from './networks';
+import { bitcoinNetworkForDeployment, normalizeDeploymentId } from './networks';
 import { getState } from './state';
 import type {
   DucatAccount,
-  DucatNetwork,
+  BitcoinNetwork,
+  DeploymentId,
   DucatSnapState,
   PrivateKeyOverrideRecord,
   PublicDucatAccountRecord,
@@ -31,7 +32,7 @@ let fallbackIdCounter = 0;
 export type SelectedAccountKeySet = {
   id: string;
   source: 'derived' | 'imported';
-  network: DucatNetwork;
+  network: DeploymentId;
   record: WalletAccountRecord;
   satsNode: DucatKeyNode;
   runesNode: DucatKeyNode;
@@ -110,7 +111,7 @@ function doubleSha256(bytes: Buffer): Buffer {
   return Buffer.from(sha256(sha256(bytes)));
 }
 
-function decodeWif(value: string, network: DucatNetwork): Buffer {
+function decodeWif(value: string, network: BitcoinNetwork): Buffer {
   const decoded = base58Decode(value);
   if (decoded.length !== 37 && decoded.length !== 38) {
     throw ducatError('INVALID_PARAMS', 'Imported WIF private key has an invalid length.');
@@ -135,7 +136,7 @@ function decodeWif(value: string, network: DucatNetwork): Buffer {
   return body.subarray(1, 33);
 }
 
-function privateKeyFromInput(value: unknown, network: DucatNetwork): Buffer {
+function privateKeyFromInput(value: unknown, network: DeploymentId): Buffer {
   if (typeof value !== 'string' || !value.trim()) {
     throw ducatError('INVALID_PARAMS', 'Imported private key must be WIF or 32-byte hex.');
   }
@@ -145,7 +146,7 @@ function privateKeyFromInput(value: unknown, network: DucatNetwork): Buffer {
     return Buffer.from(trimHexPrefix(input), 'hex');
   }
 
-  return decodeWif(input, network);
+  return decodeWif(input, bitcoinNetworkForDeployment(network));
 }
 
 function assertPrivateKey(privateKey: Buffer): void {
@@ -158,7 +159,7 @@ function importedNode(privateKey: Buffer): DucatKeyNode {
   return DucatKeyNode.fromPrivateKey(privateKey, ZERO_CHAIN_CODE);
 }
 
-function makeKeyOverride(network: DucatNetwork, privateKey: Buffer): PrivateKeyOverrideRecord {
+function makeKeyOverride(network: DeploymentId, privateKey: Buffer): PrivateKeyOverrideRecord {
   assertPrivateKey(privateKey);
   const node = importedNode(privateKey);
   const publicKey = Buffer.from(node.publicKey);
@@ -191,7 +192,7 @@ function publicKeyOverride(account: PrivateKeyOverrideRecord): PublicDucatAccoun
   return publicAccount;
 }
 
-function accountNetworkFilter(network: DucatNetwork) {
+function accountNetworkFilter(network: DeploymentId) {
   return (account: PrivateKeyOverrideRecord) => account.network === network;
 }
 
@@ -201,7 +202,7 @@ function accountNetworkFilter(network: DucatNetwork) {
  * @param network - Network whose active key is requested.
  * @returns Effective override or null when derived entropy remains active.
  */
-export function effectiveKeyOverride(keyOverrides: PrivateKeyOverrideRecord[], network: DucatNetwork): PrivateKeyOverrideRecord | null {
+export function effectiveKeyOverride(keyOverrides: PrivateKeyOverrideRecord[], network: DeploymentId): PrivateKeyOverrideRecord | null {
   return keyOverrides
     .filter(accountNetworkFilter(network))
     .reduce<PrivateKeyOverrideRecord | null>((latest, account) => {
@@ -219,7 +220,7 @@ function replaceKeyOverride(keyOverrides: PrivateKeyOverrideRecord[], account: P
   ];
 }
 
-function keyOverridesWithoutNetwork(keyOverrides: PrivateKeyOverrideRecord[], network: DucatNetwork): PrivateKeyOverrideRecord[] {
+function keyOverridesWithoutNetwork(keyOverrides: PrivateKeyOverrideRecord[], network: DeploymentId): PrivateKeyOverrideRecord[] {
   return keyOverrides.filter((candidate) => candidate.network !== network);
 }
 
@@ -227,11 +228,11 @@ async function prepareKeyOverride(params: {
   network: unknown;
   privateKey: unknown;
 }): Promise<{
-  network: DucatNetwork;
+  network: DeploymentId;
   keyOverrides: PrivateKeyOverrideRecord[];
   account: PrivateKeyOverrideRecord;
 }> {
-  const network = normalizeNetwork(params.network);
+  const network = normalizeDeploymentId(params.network);
   const privateKey = privateKeyFromInput(params.privateKey, network);
   const state = await getState();
   const keyOverrides = state.keyOverrides ?? [];
@@ -248,7 +249,7 @@ async function findKeyOverrideForRemoval(params: {
   keyOverrides: PrivateKeyOverrideRecord[];
   account: PrivateKeyOverrideRecord;
 }> {
-  const network = normalizeNetwork(params.network);
+  const network = normalizeDeploymentId(params.network);
   const accountId = typeof params.accountId === 'string' ? params.accountId : '';
   if (accountId.startsWith('derived:')) {
     throw ducatError('INVALID_PARAMS', 'Only an imported key override can be removed.');
@@ -299,7 +300,7 @@ export async function removeKeyOverrideFromSnapHome(params: {
 }
 
 function overrideKeySet(account: PrivateKeyOverrideRecord): SelectedAccountKeySet {
-  const network = normalizeNetwork(account.network);
+  const network = normalizeDeploymentId(account.network);
   const privateKey = Buffer.from(account.private_key, 'hex');
   const node = importedNode(privateKey);
   const publicKey = Buffer.from(node.publicKey);
@@ -345,7 +346,7 @@ function overrideKeySet(account: PrivateKeyOverrideRecord): SelectedAccountKeySe
  * @returns Active private key set plus its internal metadata.
  */
 export async function getActiveAccountKeySet(networkInput: unknown): Promise<SelectedAccountKeySet> {
-  const network = normalizeNetwork(networkInput);
+  const network = normalizeDeploymentId(networkInput);
   const state = await getState();
   const importedOverride = effectiveKeyOverride(state.keyOverrides ?? [], network);
 

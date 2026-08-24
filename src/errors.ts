@@ -1,7 +1,10 @@
 /** @fileoverview Defines stable typed error codes and helpers for structured Snap RPC failures. */
 export type DucatSnapErrorCode =
+  | 'ARTIFACT_POLICY_INVALID'
+  | 'ARTIFACT_POLICY_NOT_IMPLEMENTED'
   | 'BATCH_ENTRY_INVALID'
   | 'BROADCAST_FAILED'
+  | 'DEPLOYMENT_NOT_AVAILABLE'
   | 'INSUFFICIENT_FUNDS'
   | 'INVALID_NETWORK'
   | 'INVALID_PARAMS'
@@ -22,7 +25,6 @@ export type DucatSnapErrorCode =
   | 'PSBT_TOO_LARGE'
   | 'PSBT_TOO_MANY_RECIPIENTS'
   | 'UNMANAGED_ADDRESS'
-  | 'UNPROMPTED_MAINNET_FORBIDDEN'
   | 'USER_REJECTED'
   | 'WALLET_DATA_MISMATCH'
   | 'WALLET_DATA_UNAVAILABLE';

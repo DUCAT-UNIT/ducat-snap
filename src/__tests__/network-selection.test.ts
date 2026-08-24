@@ -1,14 +1,14 @@
 import { Buffer } from 'buffer';
 
 import { handleRpcRequest } from '../rpc';
-import type { DucatNetwork, DucatSnapState } from '../types';
+import type { DeploymentId, DucatSnapState } from '../types';
 
 const ORIGIN = 'https://app.ducatprotocol.com';
 
 type MockOptions = {
   dialogResult?: boolean;
   failUpdate?: boolean;
-  selectedNetwork?: DucatNetwork;
+  selectedNetwork?: DeploymentId;
 };
 
 type SnapRequestArgs = {
@@ -54,11 +54,11 @@ function dialogText(request: jest.Mock): string {
 
 describe('explicit Snap network selection', () => {
   it('returns the selected network without side effects', async () => {
-    const { request } = setSnapMock({ selectedNetwork: 'regtest' });
+    const { request } = setSnapMock({ selectedNetwork: 'signet' });
 
     await expect(handleRpcRequest(ORIGIN, { method: 'ducat_getNetwork' })).resolves.toEqual({
-      network: 'regtest',
-      label: 'regtest',
+      network: 'signet',
+      label: 'signet',
     });
     expect(request.mock.calls.map(([args]) => args.method)).toEqual(['snap_manageState']);
   });
@@ -79,16 +79,16 @@ describe('explicit Snap network selection', () => {
 
     await expect(handleRpcRequest(ORIGIN, {
       method: 'ducat_switchNetwork',
-      params: { network: 'regtest' },
-    })).resolves.toEqual({ network: 'regtest', changed: true });
+      params: { network: 'testnet4' },
+    })).resolves.toEqual({ network: 'testnet4', changed: true });
 
-    expect(state().selectedNetwork).toBe('regtest');
+    expect(state().selectedNetwork).toBe('testnet4');
     expect(dialogText(request)).toContain('Switch Ducat network');
     expect(dialogText(request)).toContain(ORIGIN);
     expect(dialogText(request)).toContain('mutinynet');
-    expect(dialogText(request)).toContain('regtest');
-    expect(dialogText(request)).toContain('http://localhost:8083');
-    expect(dialogText(request)).toContain('http://localhost:3002');
+    expect(dialogText(request)).toContain('testnet4');
+    expect(dialogText(request)).toContain('https://validator-testnet4.dev.ducatprotocol.com');
+    expect(dialogText(request)).toContain('https://mempool.space');
     expect(dialogText(request)).toContain('signing context');
   });
 
@@ -146,10 +146,9 @@ describe('explicit Snap network selection', () => {
     'ducat_getWalletInventory',
     'ducat_signMessage',
     'ducat_signPsbt',
-    'ducat_signPsbtUnprompted',
     'ducat_signBatch',
   ])('rejects %s before entropy, network, notification, dialog, or state-write side effects', async (method) => {
-    const { request, state } = setSnapMock({ selectedNetwork: 'regtest' });
+    const { request, state } = setSnapMock({ selectedNetwork: 'mutinynet' });
     const originalFetch = globalThis.fetch;
     const fetchMock = jest.fn();
     globalThis.fetch = fetchMock as typeof fetch;
@@ -160,13 +159,13 @@ describe('explicit Snap network selection', () => {
         params: { network: 'signet' },
       })).rejects.toMatchObject({
         code: 'NETWORK_MISMATCH',
-        details: { selectedNetwork: 'regtest', requestedNetwork: 'signet' },
+        details: { selectedNetwork: 'mutinynet', requestedNetwork: 'signet' },
       });
     } finally {
       globalThis.fetch = originalFetch;
     }
 
-    expect(state().selectedNetwork).toBe('regtest');
+    expect(state().selectedNetwork).toBe('mutinynet');
     expect(fetchMock).not.toHaveBeenCalled();
     expect(request.mock.calls.map(([args]) => args.method)).toEqual(['snap_manageState']);
   });

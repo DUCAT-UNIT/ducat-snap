@@ -9,14 +9,27 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parseDevelopmentOrigins } from './dev-origin-policy.mjs';
+
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const devRoot = join(root, '.snap', 'dev');
+
+if (process.env.DUCAT_SNAP_ARTIFACT_POLICY !== 'development') {
+  throw new Error('prepare-dev-build requires DUCAT_SNAP_ARTIFACT_POLICY=development');
+}
+
+const manifest = JSON.parse(readFileSync(join(root, 'snap.manifest.json'), 'utf8'));
+const rpc = manifest.initialPermissions?.['endowment:rpc'];
+if (!rpc || !Array.isArray(rpc.allowedOrigins)) {
+  throw new Error('tracked snap.manifest.json has no RPC origin policy');
+}
+rpc.allowedOrigins = parseDevelopmentOrigins(process.env.DUCAT_SNAP_DEV_ORIGINS ?? '');
 
 rmSync(devRoot, { recursive: true, force: true });
 mkdirSync(join(devRoot, 'images'), { recursive: true });
 writeFileSync(
   join(devRoot, 'snap.manifest.json'),
-  readFileSync(join(root, 'snap.manifest.json')),
+  `${JSON.stringify(manifest, null, 2)}\n`,
   { mode: 0o644 },
 );
 writeFileSync(

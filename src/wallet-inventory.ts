@@ -3,11 +3,11 @@ import { get_vault_terms } from '@ducat-unit/core/lib';
 
 import { ducatError, isDucatSnapError } from './errors';
 import { getActiveAccountKeySet, type SelectedAccountKeySet } from './key-overrides';
-import { verifyNetworkEndpointIdentity } from './network-endpoint-policy';
-import { getEffectiveNetworkProfile, type NetworkProfile } from './network-profiles';
-import { normalizeNetwork } from './networks';
+import { verifyDeploymentEndpointIdentity } from './network-endpoint-policy';
+import { getEffectiveNetworkProfile, type DeploymentProfile } from './network-profiles';
+import { normalizeDeploymentId } from './networks';
 import type {
-  DucatNetwork,
+  DeploymentId,
   WalletBtcUtxo,
   WalletInventoryResponse,
   WalletUnitUtxo,
@@ -25,9 +25,9 @@ const ASSET_ID_PATTERN = /^[0-9]+:[0-9]+$/u;
 type InventoryDependencies = {
   fetchImpl?: typeof fetch;
   now?: () => number;
-  resolveAccount?: (network: DucatNetwork) => Promise<SelectedAccountKeySet>;
-  resolveProfile?: (network: DucatNetwork) => Promise<NetworkProfile>;
-  verifyEndpoint?: typeof verifyNetworkEndpointIdentity;
+  resolveAccount?: (network: DeploymentId) => Promise<SelectedAccountKeySet>;
+  resolveProfile?: (network: DeploymentId) => Promise<DeploymentProfile>;
+  verifyEndpoint?: typeof verifyDeploymentEndpointIdentity;
 };
 
 type CacheEntry = {
@@ -178,7 +178,7 @@ function parseUnitRows(value: unknown, assetId: string, expectedScript: string):
   });
 }
 
-function identity(network: DucatNetwork, account: SelectedAccountKeySet, profile: NetworkProfile): string {
+function identity(network: DeploymentId, account: SelectedAccountKeySet, profile: DeploymentProfile): string {
   return [network, account.record.sats.address, account.record.runes.address, profile.validator_base_url, profile.esplora_base_url].join('|');
 }
 
@@ -208,10 +208,10 @@ function totals(rows: WalletUnitUtxo[]): WalletInventoryResponse['balances'] {
 export class WalletInventoryService {
   readonly #fetch: typeof fetch;
   readonly #now: () => number;
-  readonly #resolveAccount: (network: DucatNetwork) => Promise<SelectedAccountKeySet>;
-  readonly #resolveProfile: (network: DucatNetwork) => Promise<NetworkProfile>;
-  readonly #verifyEndpoint: typeof verifyNetworkEndpointIdentity;
-  readonly #cache = new Map<DucatNetwork, CacheEntry>();
+  readonly #resolveAccount: (network: DeploymentId) => Promise<SelectedAccountKeySet>;
+  readonly #resolveProfile: (network: DeploymentId) => Promise<DeploymentProfile>;
+  readonly #verifyEndpoint: typeof verifyDeploymentEndpointIdentity;
+  readonly #cache = new Map<DeploymentId, CacheEntry>();
   readonly #inFlight = new Map<string, Promise<WalletInventoryResponse>>();
 
   constructor(dependencies: InventoryDependencies = {}) {
@@ -219,16 +219,16 @@ export class WalletInventoryService {
     this.#now = dependencies.now ?? Date.now;
     this.#resolveAccount = dependencies.resolveAccount ?? getActiveAccountKeySet;
     this.#resolveProfile = dependencies.resolveProfile ?? getEffectiveNetworkProfile;
-    this.#verifyEndpoint = dependencies.verifyEndpoint ?? verifyNetworkEndpointIdentity;
+    this.#verifyEndpoint = dependencies.verifyEndpoint ?? verifyDeploymentEndpointIdentity;
   }
 
-  invalidate(network?: DucatNetwork): void {
+  invalidate(network?: DeploymentId): void {
     if (network) this.#cache.delete(network);
     else this.#cache.clear();
   }
 
   async get(networkInput: unknown, options: { fresh?: boolean } = {}): Promise<WalletInventoryResponse> {
-    const network = normalizeNetwork(networkInput);
+    const network = normalizeDeploymentId(networkInput);
     const [account, profile] = await Promise.all([this.#resolveAccount(network), this.#resolveProfile(network)]);
     const cacheIdentity = identity(network, account, profile);
     const now = this.#now();
@@ -248,15 +248,15 @@ export class WalletInventoryService {
   }
 
   async #refresh(
-    network: DucatNetwork,
+    network: DeploymentId,
     account: SelectedAccountKeySet,
-    profile: NetworkProfile,
+    profile: DeploymentProfile,
     cacheIdentity: string,
   ): Promise<WalletInventoryResponse> {
     try {
       await Promise.all([
-        this.#verifyEndpoint(network, 'validator', profile.validator_base_url, this.#fetch),
-        this.#verifyEndpoint(network, 'esplora', profile.esplora_base_url, this.#fetch),
+        this.#verifyEndpoint(network, profile.bitcoin_network, 'validator', profile.validator_base_url, this.#fetch),
+        this.#verifyEndpoint(network, profile.bitcoin_network, 'esplora', profile.esplora_base_url, this.#fetch),
       ]);
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : '';
@@ -295,7 +295,7 @@ export class WalletInventoryService {
 
 export const walletInventoryService = new WalletInventoryService();
 
-export function invalidateWalletInventory(network?: DucatNetwork): void {
+export function invalidateWalletInventory(network?: DeploymentId): void {
   walletInventoryService.invalidate(network);
 }
 

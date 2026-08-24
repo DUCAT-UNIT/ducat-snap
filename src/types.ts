@@ -1,5 +1,7 @@
 /** @fileoverview Defines shared network, account, signing, PSBT, action, endpoint, and state contracts. */
-export type DucatNetwork = 'mainnet' | 'signet' | 'mutinynet' | 'testnet4' | 'regtest';
+export type DeploymentId = 'regtest' | 'signet' | 'mutinynet' | 'testnet4' | 'alpha-mainnet' | 'mainnet';
+
+export type BitcoinNetwork = 'regtest' | 'signet' | 'testnet4' | 'mainnet';
 
 export type DucatAddressRole = 'sats' | 'runes' | 'vault';
 
@@ -42,7 +44,7 @@ export type WalletUnitUtxo = {
 };
 
 export type WalletInventoryResponse = {
-  network: DucatNetwork;
+  network: DeploymentId;
   observedAt: number;
   expiresAt: number;
   assetId: string;
@@ -64,13 +66,13 @@ export type DucatAccountSource = 'derived' | 'imported';
 export type DerivedDucatAccountRecord = WalletAccountRecord & {
   id: string;
   source: 'derived';
-  network: DucatNetwork;
+  network: DeploymentId;
 };
 
 export type PrivateKeyOverrideRecord = {
   id: string;
   source: 'imported';
-  network: DucatNetwork;
+  network: DeploymentId;
   created_at: number;
   fingerprint: string;
   private_key: string;
@@ -86,7 +88,7 @@ export type NetworkEndpointOverride = {
   network_identity_verified?: true;
 };
 
-export type NetworkEndpointOverrides = Partial<Record<DucatNetwork, NetworkEndpointOverride>>;
+export type NetworkEndpointOverrides = Partial<Record<DeploymentId, NetworkEndpointOverride>>;
 
 export type SignInputs = Record<string, number[]>;
 
@@ -167,7 +169,7 @@ export type PsbtInputSummary = {
 };
 
 export type PsbtSummary = {
-  network: DucatNetwork;
+  network: DeploymentId;
   inputCount: number;
   signedInputIndexes: number[];
   signedInputs: PsbtInputSummary[];
@@ -190,7 +192,7 @@ export type RecentAction = {
   id: string;
   actionType: string;
   title?: string;
-  network: DucatNetwork;
+  network: DeploymentId;
   origin: string;
   timestamp: number;
   status?: RecentActionStatus;
@@ -203,7 +205,7 @@ export type RecentAction = {
 
 export type DucatSnapState = {
   recentActions: RecentAction[];
-  selectedNetwork: DucatNetwork;
+  selectedNetwork: DeploymentId;
   lastOrigin?: string;
   keyOverrides?: PrivateKeyOverrideRecord[];
   networkEndpointOverrides?: NetworkEndpointOverrides;

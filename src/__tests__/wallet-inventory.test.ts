@@ -72,6 +72,7 @@ function fixture(now: () => number) {
     resolveProfile: async () => ({
       id: 'signet',
       label: 'Signet',
+      bitcoin_network: 'signet',
       validator_base_url: 'https://validator.example',
       esplora_base_url: 'https://esplora.example',
     }),
@@ -138,7 +139,7 @@ describe('WalletInventoryService', () => {
       fetchImpl: jest.fn(async () => { throw new Error('secret https://bad.example/token'); }) as unknown as typeof fetch,
       resolveAccount: async () => active,
       resolveProfile: async () => ({
-        id: 'signet', label: 'Signet', validator_base_url: 'https://bad.example', esplora_base_url: 'https://bad.example',
+        id: 'signet', label: 'Signet', bitcoin_network: 'signet', validator_base_url: 'https://bad.example', esplora_base_url: 'https://bad.example',
       }),
       verifyEndpoint: async () => { throw new Error('secret https://bad.example/token'); },
     });
