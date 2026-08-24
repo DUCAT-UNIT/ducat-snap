@@ -60,6 +60,41 @@ describe('network profiles', () => {
     ]);
   });
 
+  it('compiles exactly one alpha profile from required build inputs', () => {
+    const previous = {
+      policy: process.env.DUCAT_SNAP_ARTIFACT_POLICY,
+      validator: process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL,
+      esplora: process.env.ALPHA_MAINNET_ESPLORA_BASE_URL,
+      origin: process.env.DUCAT_SNAP_ALPHA_ORIGIN,
+    };
+    try {
+      jest.isolateModules(() => {
+        process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'alpha-mainnet';
+        process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL = 'https://validator.invalid';
+        process.env.ALPHA_MAINNET_ESPLORA_BASE_URL = 'https://esplora.invalid';
+        process.env.DUCAT_SNAP_ALPHA_ORIGIN = 'http://localhost:8075';
+        const alpha = require('../network-profiles.alpha') as typeof import('../network-profiles');
+        expect(alpha.networkProfiles()).toEqual([{
+          id: 'alpha-mainnet',
+          label: 'alpha-mainnet',
+          bitcoin_network: 'mainnet',
+          validator_base_url: 'https://validator.invalid',
+          esplora_base_url: 'https://esplora.invalid',
+        }]);
+      });
+    } finally {
+      for (const [name, value] of [
+        ['DUCAT_SNAP_ARTIFACT_POLICY', previous.policy],
+        ['ALPHA_MAINNET_VALIDATOR_BASE_URL', previous.validator],
+        ['ALPHA_MAINNET_ESPLORA_BASE_URL', previous.esplora],
+        ['DUCAT_SNAP_ALPHA_ORIGIN', previous.origin],
+      ] as const) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  });
+
   it('rejects duplicate network ids', () => {
     expect(() => validateNetworkProfiles({
       networks: [

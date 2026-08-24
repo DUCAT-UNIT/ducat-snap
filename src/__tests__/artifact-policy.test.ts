@@ -5,6 +5,7 @@ const POLICY_ENV = [
   'DUCAT_SNAP_DEV_ORIGINS',
   'DUCAT_SNAP_DEV_UNPROMPTED',
   'DUCAT_SNAP_DEBUG',
+  'DUCAT_SNAP_ALPHA_ORIGIN',
 ] as const;
 
 const RETIRED_REGTEST_FLAG = ['DUCAT', 'SNAP', 'DEV', 'REGTEST'].join('_');
@@ -23,7 +24,9 @@ function loadPolicy(environment: Partial<Record<(typeof POLICY_ENV)[number], str
     }
   }
   jest.resetModules();
-  return require('../artifact-policy') as PolicyModule;
+  return (environment.DUCAT_SNAP_ARTIFACT_POLICY === 'alpha-mainnet'
+    ? require('../artifact-policy.alpha')
+    : require('../artifact-policy')) as PolicyModule;
 }
 
 beforeEach(() => {
@@ -104,14 +107,41 @@ describe('compiled Snap artifact policy', () => {
     }
   });
 
-  it('recognizes the reserved alpha selector before parsing any other policy evidence', () => {
+  it('defines the exact alpha-mainnet authority', () => {
+    const { artifactPolicy, assertDeploymentAvailable } = loadPolicy({
+      DUCAT_SNAP_ARTIFACT_POLICY: 'alpha-mainnet',
+      DUCAT_SNAP_ALPHA_ORIGIN: 'http://localhost:8075',
+    });
+
+    expect(artifactPolicy()).toEqual({
+      policy: 'alpha-mainnet',
+      allowed_origins: ['http://localhost:8075'],
+      allowed_deployments: ['alpha-mainnet'],
+      default_deployment: 'alpha-mainnet',
+      debug_enabled: false,
+      unprompted_enabled: false,
+    });
+    expect(() => assertDeploymentAvailable('alpha-mainnet')).not.toThrow();
+    for (const deployment of ['mainnet', 'regtest', 'signet', 'mutinynet', 'testnet4'] satisfies DeploymentId[]) {
+      expect(() => assertDeploymentAvailable(deployment)).toThrow(expect.objectContaining({
+        code: 'DEPLOYMENT_NOT_AVAILABLE',
+      }));
+    }
+  });
+
+  it.each([
+    ['DUCAT_SNAP_DEV_ORIGINS', 'http://localhost:8075'],
+    ['DUCAT_SNAP_DEBUG', 'true'],
+    ['DUCAT_SNAP_DEV_UNPROMPTED', 'true'],
+  ] as const)('rejects development-only input %s under alpha policy', (name, value) => {
     const module = loadPolicy({
       DUCAT_SNAP_ARTIFACT_POLICY: 'alpha-mainnet',
-      DUCAT_SNAP_DEV_ORIGINS: 'not a valid origin',
+      DUCAT_SNAP_ALPHA_ORIGIN: 'http://localhost:8075',
+      [name]: value,
     });
 
     expect(() => module.artifactPolicy()).toThrow(expect.objectContaining({
-      code: 'ARTIFACT_POLICY_NOT_IMPLEMENTED',
+      code: 'ARTIFACT_POLICY_INVALID',
     }));
   });
 

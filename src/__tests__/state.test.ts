@@ -32,6 +32,25 @@ function setStateMock(initialState: unknown = null) {
   };
 }
 
+function loadAlphaState(): typeof import('../state') {
+  const previous = {
+    policy: process.env.DUCAT_SNAP_ARTIFACT_POLICY,
+    origin: process.env.DUCAT_SNAP_ALPHA_ORIGIN,
+  };
+  process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'alpha-mainnet';
+  process.env.DUCAT_SNAP_ALPHA_ORIGIN = 'http://localhost:8075';
+  jest.resetModules();
+  jest.doMock('../artifact-policy', () => require('../artifact-policy.alpha'));
+  const module = require('../state') as typeof import('../state');
+  if (previous.policy === undefined) delete process.env.DUCAT_SNAP_ARTIFACT_POLICY;
+  else process.env.DUCAT_SNAP_ARTIFACT_POLICY = previous.policy;
+  if (previous.origin === undefined) delete process.env.DUCAT_SNAP_ALPHA_ORIGIN;
+  else process.env.DUCAT_SNAP_ALPHA_ORIGIN = previous.origin;
+  jest.resetModules();
+  jest.dontMock('../artifact-policy');
+  return module;
+}
+
 const keyOverride: PrivateKeyOverrideRecord = {
   id: 'imported-signet-1',
   source: 'imported',
@@ -86,27 +105,41 @@ describe('Snap state', () => {
   it('prefers a valid explicit selection over conflicting legacy state', async () => {
     const { getStoredState } = setStateMock({
       recentActions: [],
-      selectedNetwork: 'regtest',
+      selectedNetwork: 'signet',
       lastNetwork: 'mainnet',
     });
 
     const state = await getState();
 
-    expect(state.selectedNetwork).toBe('regtest');
-    expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'regtest' });
+    expect(state.selectedNetwork).toBe('signet');
+    expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'signet' });
   });
 
-  it('preserves alpha-mainnet state as a distinct deployment identity', async () => {
+  it('preserves a recognized deployment selection in the production artifact', async () => {
     const { getStoredState } = setStateMock({
       recentActions: [],
       selectedNetwork: 'alpha-mainnet',
     });
 
-    await expect(getState()).resolves.toEqual({
+    await expect(getState()).resolves.toMatchObject({
       recentActions: [],
       selectedNetwork: 'alpha-mainnet',
     });
-    expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'alpha-mainnet' });
+    expect(getStoredState()).toMatchObject({ recentActions: [], selectedNetwork: 'alpha-mainnet' });
+  });
+
+  it('defaults and repairs persisted selection to alpha-mainnet in the alpha artifact', async () => {
+    const alphaState = loadAlphaState();
+    const { getStoredState } = setStateMock({
+      recentActions: [],
+      selectedNetwork: 'mutinynet',
+    });
+
+    await expect(alphaState.getState()).resolves.toMatchObject({
+      recentActions: [],
+      selectedNetwork: 'alpha-mainnet',
+    });
+    expect(getStoredState()).toMatchObject({ recentActions: [], selectedNetwork: 'alpha-mainnet' });
   });
 
   it('defaults corrupt explicit and legacy selections to Mutinynet', async () => {
@@ -200,13 +233,13 @@ describe('Snap state', () => {
   });
 
   it('remembers the current Ducat origin without changing recent actions or selection', async () => {
-    const { getStoredState } = setStateMock({ recentActions: [], selectedNetwork: 'regtest' });
+    const { getStoredState } = setStateMock({ recentActions: [], selectedNetwork: 'signet' });
 
     await rememberDucatSession('https://dev.app.ducatprotocol.com');
 
     expect(getStoredState()).toEqual({
       recentActions: [],
-      selectedNetwork: 'regtest',
+      selectedNetwork: 'signet',
       lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
   });

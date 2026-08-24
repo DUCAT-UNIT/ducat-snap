@@ -94,7 +94,7 @@ test('rejects manifest and runtime policy disagreement', () => {
   );
 });
 
-test('accepts strict alpha identity decoder evidence without active alpha authority', () => {
+test('accepts strict alpha identity evidence when the production artifact keeps alpha unavailable', () => {
   const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} strict decoder alpha-mainnet DEPLOYMENT_NOT_AVAILABLE`;
   assert.doesNotThrow(() => assertProductionBundle(bundle));
 });

@@ -69,7 +69,8 @@ export function bitcoinNetworkForDeployment(deployment: DeploymentId): BitcoinNe
 // Mainnet remains fail-closed until guardian ops provisions a key that is not used by a test network.
 export const DUCAT_GUARDIAN_PUBKEYS: Record<DeploymentId, readonly string[]> = {
   mainnet: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],
-  // Reserved until the reviewed alpha deployment record supplies distinct custody material.
+  // Phase 2 alpha issuance uses imported key-path inputs. Guardian-backed vault signing
+  // stays fail-closed until a separately reviewed custody policy is available.
   'alpha-mainnet': [],
   signet: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],
   testnet4: ['ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e'],

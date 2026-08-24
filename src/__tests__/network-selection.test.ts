@@ -54,11 +54,11 @@ function dialogText(request: jest.Mock): string {
 
 describe('explicit Snap network selection', () => {
   it('returns the selected network without side effects', async () => {
-    const { request } = setSnapMock({ selectedNetwork: 'regtest' });
+    const { request } = setSnapMock({ selectedNetwork: 'signet' });
 
     await expect(handleRpcRequest(ORIGIN, { method: 'ducat_getNetwork' })).resolves.toEqual({
-      network: 'regtest',
-      label: 'regtest',
+      network: 'signet',
+      label: 'signet',
     });
     expect(request.mock.calls.map(([args]) => args.method)).toEqual(['snap_manageState']);
   });
@@ -148,7 +148,7 @@ describe('explicit Snap network selection', () => {
     'ducat_signPsbt',
     'ducat_signBatch',
   ])('rejects %s before entropy, network, notification, dialog, or state-write side effects', async (method) => {
-    const { request, state } = setSnapMock({ selectedNetwork: 'regtest' });
+    const { request, state } = setSnapMock({ selectedNetwork: 'mutinynet' });
     const originalFetch = globalThis.fetch;
     const fetchMock = jest.fn();
     globalThis.fetch = fetchMock as typeof fetch;
@@ -159,13 +159,13 @@ describe('explicit Snap network selection', () => {
         params: { network: 'signet' },
       })).rejects.toMatchObject({
         code: 'NETWORK_MISMATCH',
-        details: { selectedNetwork: 'regtest', requestedNetwork: 'signet' },
+        details: { selectedNetwork: 'mutinynet', requestedNetwork: 'signet' },
       });
     } finally {
       globalThis.fetch = originalFetch;
     }
 
-    expect(state().selectedNetwork).toBe('regtest');
+    expect(state().selectedNetwork).toBe('mutinynet');
     expect(fetchMock).not.toHaveBeenCalled();
     expect(request.mock.calls.map(([args]) => args.method)).toEqual(['snap_manageState']);
   });

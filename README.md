@@ -57,8 +57,22 @@ manifest. The development artifact replaces this list with the exact generated
 `DUCAT_SNAP_DEV_ORIGINS` set; it does not inherit production origins. It allows
 `regtest`, `signet`, `mutinynet`, and `testnet4`, and refuses every deployment
 mapped to Bitcoin mainnet before wallet state, endpoints, entropy, prompts, or
-signing are touched. The canonical `alpha-mainnet` artifact policy remains
-reserved and unimplemented.
+signing are touched.
+
+The separate alpha artifact is built into ignored `.snap/alpha` with
+`DUCAT_SNAP_ARTIFACT_POLICY=alpha-mainnet`. It allows only the
+`alpha-mainnet` deployment, accepts requests only from
+`http://localhost:8075`, disables debug and unprompted signing, and requires
+explicit validator and Esplora HTTPS build inputs. Infra serves it only after
+separate approval at `local:http://localhost:8090`; the tracked production
+manifest and npm package remain unchanged.
+
+From `ducat-infra`, `make snap-alpha-check` performs the isolated non-serving
+build/eval/manifest gate. Serving remains guarded and is normally owned by
+`make ducat-admin-alpha-up APPROVE_ALPHA_MAINNET_START=1`; do not invoke it as
+authorization for install, key import, signing, or broadcast. The complete
+operator sequence and private-key handling rules are in
+[`../../dev/runbooks/DUCAT_ADMIN_ALPHA_MAINNET.md`](../../dev/runbooks/DUCAT_ADMIN_ALPHA_MAINNET.md).
 
 ## Network Profiles and Endpoint Overrides
 

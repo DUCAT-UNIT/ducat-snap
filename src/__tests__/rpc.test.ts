@@ -28,6 +28,7 @@ jest.mock('../wallet-inventory', () => ({
 
 const ORIGIN = 'https://app.ducatprotocol.com';
 const DEV_ORIGIN = 'http://localhost:3000';
+const ALPHA_ORIGIN = 'http://localhost:8075';
 
 const REGISTERED_NETWORK_METHODS = [
   'ducat_getAccounts',
@@ -419,6 +420,54 @@ describe('RPC router', () => {
     }));
   });
 
+  it('derives exact origin, profile, and prompted capabilities for an alpha build', async () => {
+    let alphaRpc!: typeof import('../rpc');
+    const previous = {
+      policy: process.env.DUCAT_SNAP_ARTIFACT_POLICY,
+      validator: process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL,
+      esplora: process.env.ALPHA_MAINNET_ESPLORA_BASE_URL,
+      origin: process.env.DUCAT_SNAP_ALPHA_ORIGIN,
+    };
+    try {
+      jest.isolateModules(() => {
+        process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'alpha-mainnet';
+        process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL = 'https://validator.invalid';
+        process.env.ALPHA_MAINNET_ESPLORA_BASE_URL = 'https://esplora.invalid';
+        process.env.DUCAT_SNAP_ALPHA_ORIGIN = ALPHA_ORIGIN;
+        jest.doMock('../artifact-policy', () => require('../artifact-policy.alpha'));
+        jest.doMock('../network-profiles', () => require('../network-profiles.alpha'));
+        alphaRpc = require('../rpc') as typeof import('../rpc');
+        const { networkProfiles: alphaProfiles } = require('../network-profiles.alpha') as typeof import('../network-profiles');
+        expect([...alphaRpc.ALLOWED_ORIGINS]).toEqual([ALPHA_ORIGIN]);
+        expect(alphaProfiles().map((profile) => profile.id)).toEqual(['alpha-mainnet']);
+      });
+    } finally {
+      jest.dontMock('../artifact-policy');
+      jest.dontMock('../network-profiles');
+      for (const [name, value] of [
+        ['DUCAT_SNAP_ARTIFACT_POLICY', previous.policy],
+        ['ALPHA_MAINNET_VALIDATOR_BASE_URL', previous.validator],
+        ['ALPHA_MAINNET_ESPLORA_BASE_URL', previous.esplora],
+        ['DUCAT_SNAP_ALPHA_ORIGIN', previous.origin],
+      ] as const) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+
+    await expect(alphaRpc.handleRpcRequest(ALPHA_ORIGIN, {
+      method: 'ducat_getCapabilities',
+    })).resolves.toEqual(expect.objectContaining({
+      networks: ['alpha-mainnet'],
+      methods: expect.arrayContaining(['ducat_getAccounts', 'ducat_getWalletInventory', 'ducat_signPsbt']),
+      features: expect.objectContaining({ mainnet: false }),
+    }));
+    await expect(alphaRpc.handleRpcRequest(ALPHA_ORIGIN, {
+      method: 'ducat_signPsbtUnprompted',
+      params: { network: 'alpha-mainnet' },
+    })).rejects.toMatchObject({ code: 'METHOD_NOT_FOUND' });
+  });
+
   it('returns Snap capabilities', async () => {
     const result = await handleRpcRequest(ORIGIN, { method: 'ducat_getCapabilities' });
 
@@ -520,13 +569,13 @@ describe('RPC router', () => {
     }
   });
 
-  it('development can diagnose stale mainnet state and switch out, but cannot switch back', async () => {
+  it('development repairs stale mainnet state and cannot switch back', async () => {
     const development = loadDevelopmentRpc();
     const request = setSnapMock(true, { recentActions: [], selectedNetwork: 'mainnet' });
 
     await expect(development.handleRpcRequest(DEV_ORIGIN, {
       method: 'ducat_getNetwork',
-    })).resolves.toEqual({ network: 'mainnet', label: 'mainnet' });
+    })).resolves.toEqual({ network: 'regtest', label: 'regtest' });
     await expect(development.handleRpcRequest(DEV_ORIGIN, {
       method: 'ducat_switchNetwork',
       params: { network: 'signet' },
