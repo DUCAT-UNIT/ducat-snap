@@ -1,15 +1,20 @@
 import { opcodes, Psbt, script as btcScript } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
+import { ComponentOrElementStruct } from '@metamask/snaps-sdk';
+import type { JSXElement } from '@metamask/snaps-sdk/jsx';
+import { getJsonSizeUnsafe, validateJsxElements } from '@metamask/snaps-utils';
 
 import { deriveAccountSetFromBaseNodes, p2trAccount, p2wpkhAccount, toXOnly } from '../accounts';
 import { DucatKeyNode } from '../bip32';
+import { confirmBatch, confirmPsbt } from '../confirmations';
 import { renderHomePage } from '../home';
 import { truncateMiddle } from '../display';
 import { networkProfile } from '../network-profiles';
 import { bitcoinNetwork } from '../networks';
 import { ALLOWED_ORIGINS, handleRpcRequest } from '../rpc';
 import { getWalletInventory, invalidateWalletInventory } from '../wallet-inventory';
-import type { PrivateKeyOverrideRecord } from '../types';
+import { uiBox, uiCopyable } from '../ui';
+import type { PrivateKeyOverrideRecord, PsbtOutputSummary, PsbtSummary } from '../types';
 import packageJson from '../../package.json';
 import manifest from '../../snap.manifest.json';
 
@@ -239,6 +244,49 @@ function makeExternalPsbt(value: number, seed: number) {
   return { keySet, psbt: psbt.toBase64() };
 }
 
+function makeOutputBoundPsbt(outputCount: number, seed: number, recipient: string) {
+  const keySet = testKeySet();
+  const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+  psbt.addInput({
+    hash: Buffer.alloc(32, seed).toString('hex'),
+    index: 0,
+    witnessUtxo: { script: keySet.satsOutputScript, value: outputCount * 1_000 + 1_000 },
+  });
+  for (let index = 0; index < outputCount; index++) {
+    psbt.addOutput({ address: recipient, value: 1_000 });
+  }
+
+  return { keySet, psbt: psbt.toBase64() };
+}
+
+function makeNearMaximumPayloadPsbt(seed: number) {
+  const keySet = testKeySet();
+  const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+  const scripts: string[] = [];
+
+  psbt.addInput({
+    hash: Buffer.alloc(32, seed).toString('hex'),
+    index: 0,
+    witnessUtxo: { script: keySet.satsOutputScript, value: 100_000 },
+  });
+  for (let index = 0; index < 120; index++) {
+    const script = Buffer.alloc(2_140, (seed + index) % 256);
+    script.writeUInt16BE(index, 0);
+    script.writeUInt8(seed, 2);
+    scripts.push(script.toString('hex'));
+    psbt.addOutput({ script, value: 0 });
+  }
+
+  const encoded = psbt.toBase64();
+
+  if (encoded.length <= 340_000 || encoded.length > 350_000) {
+    throw new Error(`Near-maximum PSBT fixture has unexpected base64 length ${encoded.length}.`);
+  }
+
+  return { keySet, psbt: encoded, scripts };
+}
+
 function uint32(value: number): Buffer {
   const buffer = Buffer.alloc(4);
   buffer.writeUInt32BE(value);
@@ -312,6 +360,92 @@ function dialogValues(request: jest.Mock): string[] {
   const dialogCall = request.mock.calls.find(([arg]) => arg.method === 'snap_dialog');
 
   return collectDialogText(dialogCall?.[0].params?.content);
+}
+
+function dialogContent(request: jest.Mock): JSXElement {
+  const dialogCall = request.mock.calls.find(([arg]) => arg.method === 'snap_dialog');
+
+  if (!dialogCall) {
+    throw new Error('Expected a snap_dialog call.');
+  }
+
+  return dialogCall[0].params.content as JSXElement;
+}
+
+function jsxNodes(value: unknown, type: string): Record<string, unknown>[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => jsxNodes(item, type));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+
+  const record = value as { type?: unknown; props?: Record<string, unknown> };
+  const own = record.type === type ? [record as Record<string, unknown>] : [];
+
+  return [...own, ...jsxNodes(record.props?.children, type)];
+}
+
+function collapsibleSection(content: JSXElement, label: string): Record<string, unknown> {
+  const section = jsxNodes(content, 'CollapsibleSection').find((node) => {
+    const props = node.props as Record<string, unknown> | undefined;
+
+    return props?.label === label;
+  });
+
+  if (!section) {
+    throw new Error(`Missing collapsible section: ${label}`);
+  }
+
+  return section;
+}
+
+function copyableValues(value: unknown): string[] {
+  return jsxNodes(value, 'Copyable')
+    .map((node) => (node.props as Record<string, unknown> | undefined)?.value)
+    .filter((item): item is string => typeof item === 'string');
+}
+
+function validateCapturedTree(tree: JSXElement, label: string): number {
+  ComponentOrElementStruct.assert(tree);
+  validateJsxElements(tree, {
+    isOnPhishingList: () => false,
+    getSnap: () => null,
+    getAccountByAddress: () => undefined,
+    hasPermission: () => true,
+  });
+  const jsonLength = getJsonSizeUnsafe(tree);
+
+  expect(jsonLength).toBe(JSON.stringify(tree).length);
+  if (jsonLength > 10_000_000) {
+    throw new Error(`${label} JSON length ${jsonLength} exceeds the 10,000,000-character controller limit.`);
+  }
+
+  return jsonLength;
+}
+
+function summaryWithOutputs(outputs: PsbtOutputSummary[]): PsbtSummary {
+  const externalOutputSats = outputs.filter((output) => !output.isMine).reduce((total, output) => total + output.valueSats, 0);
+  const selfOutputSats = outputs.filter((output) => output.isMine).reduce((total, output) => total + output.valueSats, 0);
+
+  return {
+    network: 'signet',
+    inputCount: 1,
+    signedInputIndexes: [0],
+    signedInputs: [],
+    outputCount: outputs.length,
+    outputs,
+    feeSats: 1_000,
+    inputValueSats: externalOutputSats + selfOutputSats + 1_000,
+    signedInputValueSats: externalOutputSats + selfOutputSats + 1_000,
+    unitInputs: [],
+    outputValueSats: externalOutputSats + selfOutputSats,
+    externalOutputSats,
+    selfOutputSats,
+    vaultUpdates: [],
+    warnings: [],
+  };
 }
 
 function notificationMessages(request: jest.Mock): string[] {
@@ -494,6 +628,7 @@ describe('RPC router', () => {
       features: {
         batchSigning: true,
         bip322MessageSigning: true,
+        completeExternalRecipientVisibility: true,
         explicitNetworkSelection: true,
         mainnet: true,
         psbtSigning: true,
@@ -955,7 +1090,10 @@ describe('RPC router', () => {
         context: {
           actionType: 'deposit',
           metadata: {
-            vault_id: 'vault-alpha',
+            intentId: 'wrap-123',
+            expiresAt: '2026-08-11T20:00:00.000Z',
+            finalAsset: 'wUNIT',
+            evmRecipient: '0x1111111111111111111111111111111111111111',
           },
           vault: {
             effect: 'Adds BTC collateral to your existing vault.',
@@ -1001,8 +1139,16 @@ describe('RPC router', () => {
     expect(rendered).toContain('Input #0');
     expect(rendered).toContain('Inspect outputs');
     expect(rendered).not.toContain('Request details');
-    expect(rendered).not.toContain('Ducat app context');
-    expect(rendered).not.toContain('Vault Id');
+    expect(rendered).toContain('Ducat app context');
+    expect(rendered).toContain('App-provided');
+    expect(rendered).toContain('Intent Id');
+    expect(rendered).toContain('wrap-123');
+    expect(rendered).toContain('Expires At');
+    expect(rendered).toContain('2026-08-11T20:00:00.000Z');
+    expect(rendered).toContain('Final Asset');
+    expect(rendered).toContain('wUNIT');
+    expect(rendered).toContain('Evm Recipient');
+    expect(rendered).toContain('0x1111111111111111111111111111111111111111');
   });
 
   it('renders decoded Ducat vault OP_RETURN facts in PSBT confirmations', async () => {
@@ -1125,7 +1271,7 @@ describe('RPC router', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
-  it('rejects a PSBT with more external recipients than the dialog can display', async () => {
+  it('shows every external recipient when a PSBT has more than the former visible fold', async () => {
     const request = setSnapMock();
     const keySet = testKeySet();
     const psbt = new Psbt({ network: bitcoinNetwork('signet') });
@@ -1135,25 +1281,23 @@ describe('RPC router', () => {
       index: 0,
       witnessUtxo: { script: keySet.satsOutputScript, value: 1_000_000 },
     });
-    // 9 distinct external recipients — the 9th sits past the VISIBLE_OUTPUT_FOLD (8).
+    // Nine distinct recipients prove the former eight-row display limit is gone.
     for (let index = 0; index < 9; index++) {
       const external = deriveAccountSetFromBaseNodes('signet', testNode(20 + index), testNode(40 + index));
       psbt.addOutput({ address: external.record.sats.address, value: 50_000 });
     }
 
-    await expect(
-      handleRpcRequest(ORIGIN, {
-        method: 'ducat_signPsbt',
-        params: { network: 'signet', psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } },
-      }),
-    ).rejects.toMatchObject({
-      code: 'PSBT_TOO_MANY_RECIPIENTS',
-      details: expect.objectContaining({ visibleOutputFold: 8 }),
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signPsbt',
+      params: { network: 'signet', psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } },
     });
-    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+
+    const section = collapsibleSection(dialogContent(request), 'Inspect outputs (9)');
+    expect((section.props as Record<string, unknown>).isExpanded).toBe(true);
+    expect(copyableValues(section)).toHaveLength(9);
   });
 
-  it('rejects a PSBT where change outputs push an external recipient past the visible fold', async () => {
+  it('shows an external recipient after leading change outputs', async () => {
     const request = setSnapMock();
     const keySet = testKeySet();
     const psbt = new Psbt({ network: bitcoinNetwork('signet') });
@@ -1172,15 +1316,131 @@ describe('RPC router', () => {
     const external = deriveAccountSetFromBaseNodes('signet', testNode(31), testNode(32));
     psbt.addOutput({ address: external.record.sats.address, value: 50_000 });
 
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signPsbt',
+      params: { network: 'signet', psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } },
+    });
+
+    const section = collapsibleSection(dialogContent(request), 'Inspect outputs (9)');
+    expect(copyableValues(section)).toContain(external.record.sats.address);
+  });
+
+  it('shows every non-data output in the exact Admin reserve-issuance shape', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+    const guardian = deriveAccountSetFromBaseNodes('signet', testNode(61), testNode(62));
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: Buffer.alloc(32, 63).toString('hex'),
+      index: 0,
+      witnessUtxo: { script: keySet.satsOutputScript, value: 2_000_000 },
+    });
+    psbt.addOutput({ address: keySet.record.runes.address, value: 10_000 });
+    for (let index = 0; index < 10; index++) {
+      psbt.addOutput({ address: guardian.record.runes.address, value: 100_000 });
+    }
+    psbt.addOutput({ script: btcScript.compile([opcodes.OP_RETURN, Buffer.from('RUNE')]), value: 0 });
+    psbt.addOutput({ address: keySet.record.sats.address, value: 989_000 });
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signPsbt',
+      params: { network: 'signet', psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } },
+    });
+
+    const section = collapsibleSection(dialogContent(request), 'Inspect outputs (12)');
+    const values = copyableValues(section);
+    expect((section.props as Record<string, unknown>).isExpanded).toBe(true);
+    expect(values).toEqual([
+      keySet.record.runes.address,
+      ...Array.from({ length: 10 }, () => guardian.record.runes.address),
+      keySet.record.sats.address,
+    ]);
+    expect(dialogValues(request).join('\n')).not.toContain('more outputs');
+  });
+
+  it('itemizes distinct zero-value unknown scripts with full copyable hex', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+    const scripts = Array.from({ length: 5 }, (_, index) => Buffer.from([opcodes.OP_1, index + 1]));
+
+    psbt.addInput({
+      hash: Buffer.alloc(32, 64).toString('hex'),
+      index: 0,
+      witnessUtxo: { script: keySet.satsOutputScript, value: 100_000 },
+    });
+    for (const script of scripts) {
+      psbt.addOutput({ script, value: 0 });
+    }
+    psbt.addOutput({ address: keySet.record.sats.address, value: 99_000 });
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signPsbt',
+      params: { network: 'signet', psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } },
+    });
+
+    const section = collapsibleSection(dialogContent(request), 'Inspect outputs (6)');
+    expect(copyableValues(section)).toEqual([...scripts.map((script) => script.toString('hex')), keySet.record.sats.address]);
+    expect(dialogValues(request).join('\n')).not.toContain('more data outputs');
+  });
+
+  it('validates and measures the complete 120-output confirmation tree', async () => {
+    const request = setSnapMock();
+    const external = deriveAccountSetFromBaseNodes('signet', testNode(65), testNode(66));
+    const fixture = makeOutputBoundPsbt(120, 65, external.record.runes.address);
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signPsbt',
+      params: { network: 'signet', psbt: fixture.psbt, signInputs: { [fixture.keySet.record.sats.address]: [0] } },
+    });
+
+    const content = dialogContent(request);
+    const section = collapsibleSection(content, 'Inspect outputs (120)');
+    const jsonLength = validateCapturedTree(content, '120-output single confirmation');
+    expect(copyableValues(section)).toEqual(Array.from({ length: 120 }, () => external.record.runes.address));
+    expect({ label: '120-output single confirmation', jsonLength }).toEqual({
+      label: '120-output single confirmation',
+      jsonLength: expect.any(Number),
+    });
+  });
+
+  it('retains the 121-output parser rejection before confirmation', async () => {
+    const request = setSnapMock();
+    const external = deriveAccountSetFromBaseNodes('signet', testNode(67), testNode(68));
+    const fixture = makeOutputBoundPsbt(121, 67, external.record.runes.address);
+
     await expect(
       handleRpcRequest(ORIGIN, {
         method: 'ducat_signPsbt',
-        params: { network: 'signet', psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } },
+        params: { network: 'signet', psbt: fixture.psbt, signInputs: { [fixture.keySet.record.sats.address]: [0] } },
       }),
-    ).rejects.toMatchObject({
-      code: 'PSBT_TOO_MANY_RECIPIENTS',
-      details: expect.objectContaining({ hiddenRecipientAddress: external.record.sats.address }),
+    ).rejects.toMatchObject({ code: 'PSBT_TOO_LARGE', details: expect.objectContaining({ maxOutputs: 120, outputCount: 121 }) });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
+  });
+
+  it('rejects structurally valid oversized single confirmation content before snap_dialog', async () => {
+    const request = setSnapMock();
+    const oversizedIdentity = 'ab'.repeat(5_000_001);
+    const structurallyValidOverLimitTree = uiBox([uiCopyable(oversizedIdentity)]);
+
+    ComponentOrElementStruct.assert(structurallyValidOverLimitTree);
+    validateJsxElements(structurallyValidOverLimitTree, {
+      isOnPhishingList: () => false,
+      getSnap: () => null,
+      getAccountByAddress: () => undefined,
+      hasPermission: () => true,
     });
+    expect(getJsonSizeUnsafe(structurallyValidOverLimitTree)).toBeGreaterThan(10_000_000);
+
+    await expect(
+      confirmPsbt({
+        origin: ORIGIN,
+        summary: summaryWithOutputs([
+          { address: 'Unknown script', scriptHex: oversizedIdentity, valueSats: 0, isMine: false, role: 'unknown' },
+        ]),
+      }),
+    ).rejects.toMatchObject({ code: 'CONFIRMATION_UI_TOO_LARGE' });
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
@@ -1205,6 +1465,125 @@ describe('RPC router', () => {
     expect(invalidateWalletInventory).toHaveBeenCalledWith('signet');
     expect(Psbt.fromBase64(result.psbts[0], { network: bitcoinNetwork('signet') }).txOutputs[0].value).toBe(99_000);
     expect(Psbt.fromBase64(result.psbts[1], { network: bitcoinNetwork('signet') }).txOutputs[0].value).toBe(199_000);
+  });
+
+  it('itemizes recipients in batch entries seven through ten', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+    const recipients: string[] = [];
+    const entries = Array.from({ length: 10 }, (_, index) => {
+      const external = deriveAccountSetFromBaseNodes('signet', testNode(70 + index), testNode(90 + index));
+      const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+      recipients.push(external.record.runes.address);
+      psbt.addInput({
+        hash: Buffer.alloc(32, 70 + index).toString('hex'),
+        index: 0,
+        witnessUtxo: { script: keySet.satsOutputScript, value: 100_000 },
+      });
+      psbt.addOutput({ address: external.record.runes.address, value: 99_000 });
+
+      return { psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } };
+    });
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signBatch',
+      params: { network: 'signet', entries },
+    });
+
+    const section = collapsibleSection(dialogContent(request), 'Inspect transactions (10)');
+    expect((section.props as Record<string, unknown>).isExpanded).toBe(true);
+    expect(copyableValues(section)).toEqual(recipients);
+    expect(dialogValues(request).join('\n')).not.toContain('not itemized');
+  });
+
+  it('classifies interleaved batch outputs without hiding external identities', async () => {
+    const request = setSnapMock();
+    const keySet = testKeySet();
+    const external = deriveAccountSetFromBaseNodes('signet', testNode(101), testNode(102));
+    const unknownScript = Buffer.from([opcodes.OP_1, 0x2a]);
+    const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    psbt.addInput({
+      hash: Buffer.alloc(32, 103).toString('hex'),
+      index: 0,
+      witnessUtxo: { script: keySet.satsOutputScript, value: 100_000 },
+    });
+    psbt.addOutput({ address: keySet.record.sats.address, value: 20_000 });
+    psbt.addOutput({ script: btcScript.compile([opcodes.OP_RETURN, Buffer.from('RUNE')]), value: 0 });
+    psbt.addOutput({ address: external.record.runes.address, value: 30_000 });
+    psbt.addOutput({ script: unknownScript, value: 0 });
+
+    await handleRpcRequest(ORIGIN, {
+      method: 'ducat_signBatch',
+      params: {
+        network: 'signet',
+        entries: [{ psbt: psbt.toBase64(), signInputs: { [keySet.record.sats.address]: [0] } }],
+      },
+    });
+
+    const section = collapsibleSection(dialogContent(request), 'Inspect transactions (1)');
+    expect(copyableValues(section)).toEqual([external.record.runes.address, unknownScript.toString('hex')]);
+  });
+
+  it('validates and measures every destination in a ten-by-120 batch tree', async () => {
+    const request = setSnapMock();
+    const recipients: string[] = [];
+    const entries = Array.from({ length: 10 }, (_, index) => {
+      const external = deriveAccountSetFromBaseNodes('signet', testNode(110 + index), testNode(130 + index));
+      const fixture = makeOutputBoundPsbt(120, 110 + index, external.record.runes.address);
+      recipients.push(...Array.from({ length: 120 }, () => external.record.runes.address));
+
+      return { psbt: fixture.psbt, signInputs: { [fixture.keySet.record.sats.address]: [0] } };
+    });
+
+    await handleRpcRequest(ORIGIN, { method: 'ducat_signBatch', params: { network: 'signet', entries } });
+
+    const content = dialogContent(request);
+    const section = collapsibleSection(content, 'Inspect transactions (10)');
+    const jsonLength = validateCapturedTree(content, 'ten-by-120 batch confirmation');
+    expect(copyableValues(section)).toEqual(recipients);
+    expect({ label: 'ten-by-120 batch confirmation', jsonLength }).toEqual({
+      label: 'ten-by-120 batch confirmation',
+      jsonLength: expect.any(Number),
+    });
+  });
+
+  it('validates the complete near-maximum accepted batch payload tree', async () => {
+    const request = setSnapMock();
+    const expectedScripts: string[] = [];
+    const entries = Array.from({ length: 10 }, (_, index) => {
+      const fixture = makeNearMaximumPayloadPsbt(150 + index);
+      expectedScripts.push(...fixture.scripts);
+
+      return { psbt: fixture.psbt, signInputs: { [fixture.keySet.record.sats.address]: [0] } };
+    });
+
+    await handleRpcRequest(ORIGIN, { method: 'ducat_signBatch', params: { network: 'signet', entries } });
+
+    const content = dialogContent(request);
+    const section = collapsibleSection(content, 'Inspect transactions (10)');
+    const jsonLength = validateCapturedTree(content, 'near-maximum ten-PSBT batch confirmation');
+    expect(copyableValues(section)).toEqual(expectedScripts);
+    expect(jsonLength).toBeGreaterThan(5_000_000);
+  });
+
+  it('rejects oversized batch confirmation content before snap_dialog', async () => {
+    const request = setSnapMock();
+    const oversizedIdentity = 'cd'.repeat(5_000_001);
+
+    await expect(
+      confirmBatch({
+        origin: ORIGIN,
+        entries: [
+          {
+            summary: summaryWithOutputs([
+              { address: 'Unknown script', scriptHex: oversizedIdentity, valueSats: 0, isMine: false, role: 'unknown' },
+            ]),
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'CONFIRMATION_UI_TOO_LARGE' });
+    expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
   it('rejects a batch whose entries spend the same outpoint before confirmation', async () => {

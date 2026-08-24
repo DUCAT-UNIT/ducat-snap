@@ -70,6 +70,7 @@ type CapabilitiesResponse = {
   features: {
     batchSigning: boolean;
     bip322MessageSigning: boolean;
+    completeExternalRecipientVisibility: boolean;
     explicitNetworkSelection: boolean;
     mainnet: boolean;
     psbtSigning: boolean;
@@ -429,6 +430,7 @@ function capabilities(): CapabilitiesResponse {
     ],
     features: {
       bip322MessageSigning: true,
+      completeExternalRecipientVisibility: true,
       explicitNetworkSelection: true,
       psbtSigning: true,
       batchSigning: true,
