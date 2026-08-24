@@ -9,8 +9,8 @@ repay, withdraw, and so on — and the snap handles account discovery and the Me
 confirmation prompts.
 
 The production artifact supports the `mainnet`, `signet`, `mutinynet`, and
-`testnet4` deployments. Local regtest work uses the separate development
-artifact described below.
+`testnet4` deployments. The role-neutral local development artifact supports
+those deployments plus `regtest` and `alpha-mainnet`.
 
 ## What are snaps?
 
@@ -53,25 +53,28 @@ https://staging.app.ducatprotocol.com
 ```
 
 `localhost` and preview deployments are intentionally absent from the published
-manifest. The development artifact replaces this list with the exact generated
-`DUCAT_SNAP_DEV_ORIGINS` set; it does not inherit production origins. It allows
-`regtest`, `signet`, `mutinynet`, and `testnet4`, and refuses every deployment
-mapped to Bitcoin mainnet before wallet state, endpoints, entropy, prompts, or
-signing are touched.
+manifest. The development artifact replaces this list with exactly
+`http://localhost:3000`, `http://localhost:8075`, `http://frontend:3000`, and
+`http://ducat-admin:8075`; it does not inherit production origins. It contains
+exactly `regtest`, `signet`, `mutinynet`, `testnet4`, `alpha-mainnet`, and
+`mainnet`, defaults to `mutinynet`, and disables debug and unprompted signing.
+The test-only unprompted method refuses every deployment mapped to Bitcoin
+mainnet before wallet state, endpoints, entropy, prompts, or signing are
+touched. Ordinary signing remains prompted for every admitted deployment.
 
-The separate alpha artifact is built into ignored `.snap/alpha` with
-`DUCAT_SNAP_ARTIFACT_POLICY=alpha-mainnet`. It allows only the
-`alpha-mainnet` deployment, accepts requests only from
-`http://localhost:8075`, disables debug and unprompted signing, and requires
-explicit validator and Esplora HTTPS build inputs. Infra serves it only after
-separate approval at `local:http://localhost:8090`; the tracked production
-manifest and npm package remain unchanged.
+Infra builds the ignored development candidate under `.snap/dev`, gates it
+while no server is running, and serves those frozen bytes only at
+`local:http://localhost:8086`. Frontend and Admin are caller workflows of this
+one local Snap; neither is an artifact-policy class. Production packaging stays
+on the isolated production policy and contains no localhost or
+`alpha-mainnet` authority.
 
-From `ducat-infra`, `make snap-alpha-check` performs the isolated non-serving
-build/eval/manifest gate. Serving remains guarded and is normally owned by
-`make ducat-admin-alpha-up APPROVE_ALPHA_MAINNET_START=1`; do not invoke it as
-authorization for install, key import, signing, or broadcast. The complete
-operator sequence and private-key handling rules are in
+From `ducat-infra`, use `make snap-down`, `make snap-install`, and
+`make snap-check` before `make snap-serve`. Starting the Alpha-configured Admin
+does not build, start, stop, or log the shared Snap. Snap install/update, key
+import, funding, prompting, signing, and broadcast each remain separate
+operator approvals. The complete real-Bitcoin sequence and private-key
+handling rules are in
 [`../../dev/runbooks/DUCAT_ADMIN_ALPHA_MAINNET.md`](../../dev/runbooks/DUCAT_ADMIN_ALPHA_MAINNET.md).
 
 ## Network Profiles and Endpoint Overrides
@@ -102,10 +105,10 @@ npm run manifest     # regenerate the manifest shasum
 npm run serve        # serve the snap at http://localhost:8080
 ```
 
-The `ducat-infra` local stack uses `make snap-build` / `make snap-serve` to
-generate and serve `.snap/dev`. Localhost origins and the development bundle
-shasum are written only to that ignored runtime; the tracked manifest remains
-the production HTTPS policy. Development preparation rejects missing, duplicate,
+The `ducat-infra` local stack uses `make snap-check` to generate and validate
+`.snap/dev`, then `make snap-serve` to serve the unchanged candidate. Localhost
+origins and the development bundle shasum are written only to that ignored
+runtime; the tracked manifest remains the production HTTPS policy. Development preparation rejects missing, duplicate,
 credential-bearing, path-bearing, query-bearing, fragment-bearing, and malformed
 origin entries instead of extending the production list.
 
