@@ -15,9 +15,10 @@ type SnapRequestArgs = {
   method: string;
   params?: {
     content?: unknown;
-    newState?: DucatSnapState;
+    key?: keyof DucatSnapState;
     operation?: string;
     path?: string[];
+    value?: unknown;
   };
 };
 
@@ -29,9 +30,11 @@ function setSnapMock(options: MockOptions = {}) {
   const request = jest.fn(async ({ method, params }: SnapRequestArgs) => {
     if (method === 'snap_manageState') {
       if (params?.operation === 'get') return state;
+    }
+    if (method === 'snap_setState' && params?.key) {
       if (options.failUpdate) throw new Error('state update failed');
-      state = params?.newState ?? state;
-      return undefined;
+      state = { ...state, [params.key]: params.value } as DucatSnapState;
+      return null;
     }
     if (method === 'snap_dialog') return options.dialogResult ?? true;
     if (method === 'snap_getBip32Entropy') {

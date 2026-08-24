@@ -7,9 +7,10 @@ type SnapRequestArgs = {
   method: string;
   params?: {
     id?: unknown;
-    newState?: unknown;
+    key?: keyof DucatSnapState;
     operation?: string;
     ui?: unknown;
+    value?: unknown;
   };
 };
 
@@ -23,8 +24,10 @@ function setSnapStateMock(initialState: DucatSnapState) {
   const request = jest.fn(async ({ method, params }: SnapRequestArgs) => {
     if (method === 'snap_manageState') {
       if (params?.operation === 'get') return managedState;
-      managedState = params?.newState as DucatSnapState;
-      return undefined;
+    }
+    if (method === 'snap_setState' && params?.key) {
+      managedState = { ...managedState, [params.key]: params.value };
+      return null;
     }
     if (method === 'snap_updateInterface') {
       interfaces.set(String(params?.id), params?.ui);

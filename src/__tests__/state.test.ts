@@ -1,27 +1,31 @@
-import { appendRecentAction, clearRecentActions, getState, rememberDucatSession } from '../state';
+import { importPrivateKeyFromSnapHome } from '../key-overrides';
+import { appendRecentAction, clearRecentActions, getState, rememberDucatSession, setSelectedNetwork } from '../state';
 import type { DucatSnapState, PrivateKeyOverrideRecord } from '../types';
 
 type SnapRequestArgs = {
   method: string;
   params?: {
+    key?: keyof DucatSnapState;
     operation?: string;
-    newState?: DucatSnapState;
+    value?: unknown;
   };
 };
 
 function setStateMock(initialState: unknown = null) {
   let managedState = initialState;
   const request = jest.fn(async ({ method, params }: SnapRequestArgs) => {
-    if (method !== 'snap_manageState') {
-      throw new Error(`Unexpected Snap method ${method}`);
-    }
-
-    if (params?.operation === 'get') {
+    if (method === 'snap_manageState' && params?.operation === 'get') {
       return managedState;
     }
+    if (method === 'snap_setState' && params?.key) {
+      const current = managedState && typeof managedState === 'object' && !Array.isArray(managedState)
+        ? managedState
+        : {};
+      managedState = { ...current, [params.key]: params.value };
+      return null;
+    }
 
-    managedState = params?.newState ?? null;
-    return undefined;
+    throw new Error(`Unexpected Snap method ${method}`);
   });
 
   (globalThis as unknown as { snap: { request: typeof request } }).snap = { request };
@@ -76,7 +80,7 @@ describe('Snap state', () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 
-  it('migrates a valid legacy selection once and removes the legacy field', async () => {
+  it('migrates a valid legacy selection once without replacing unrelated state', async () => {
     const { request, getStoredState } = setStateMock({
       recentActions: [],
       lastNetwork: 'signet',
@@ -98,8 +102,8 @@ describe('Snap state', () => {
     expect(first.keyOverrides).toEqual([keyOverride]);
     expect(first.lastOrigin).toBe('https://app.ducatprotocol.com');
     expect(first.networkEndpointOverrides?.signet?.validator_base_url).toBe('https://validator-override.example');
-    expect(getStoredState()).not.toHaveProperty('lastNetwork');
-    expect(request.mock.calls.filter(([args]) => args.params?.operation === 'update')).toHaveLength(1);
+    expect(getStoredState()).toHaveProperty('lastNetwork', 'signet');
+    expect(request.mock.calls.filter(([args]) => args.method === 'snap_setState')).toHaveLength(1);
   });
 
   it('prefers a valid explicit selection over conflicting legacy state', async () => {
@@ -112,7 +116,7 @@ describe('Snap state', () => {
     const state = await getState();
 
     expect(state.selectedNetwork).toBe('signet');
-    expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'signet' });
+    expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'signet', lastNetwork: 'mainnet' });
   });
 
   it('preserves a recognized deployment selection in the production artifact', async () => {
@@ -146,7 +150,11 @@ describe('Snap state', () => {
     const { getStoredState } = setStateMock({ recentActions: [], selectedNetwork: 'bad', lastNetwork: 'also-bad' });
 
     await expect(getState()).resolves.toEqual({ recentActions: [], selectedNetwork: 'mutinynet' });
-    expect(getStoredState()).toEqual({ recentActions: [], selectedNetwork: 'mutinynet' });
+    expect(getStoredState()).toEqual({
+      recentActions: [],
+      selectedNetwork: 'mutinynet',
+      lastNetwork: 'also-bad',
+    });
   });
 
   it('filters corrupt actions, sorts newest first, caps history, and preserves session metadata', async () => {
@@ -242,6 +250,54 @@ describe('Snap state', () => {
       selectedNetwork: 'signet',
       lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
+  });
+
+  it('preserves a newer network and key override when a stale session write finishes last', async () => {
+    let managedState: DucatSnapState = { recentActions: [], selectedNetwork: 'signet' };
+    let releaseStaleUpdate: () => void = () => {
+      throw new Error('Stale update release was not initialized.');
+    };
+    let markStaleUpdateStarted: () => void = () => {
+      throw new Error('Stale update signal was not initialized.');
+    };
+    const staleUpdateRelease = new Promise<void>((resolve) => {
+      releaseStaleUpdate = resolve;
+    });
+    const staleUpdateStarted = new Promise<void>((resolve) => {
+      markStaleUpdateStarted = resolve;
+    });
+    let updateCount = 0;
+    const request = jest.fn(async ({ method, params }: SnapRequestArgs) => {
+      if (method === 'snap_manageState' && params?.operation === 'get') {
+        return structuredClone(managedState);
+      }
+      if (method !== 'snap_setState' || !params?.key) {
+        throw new Error(`Unexpected Snap method ${method}`);
+      }
+
+      updateCount += 1;
+      if (updateCount === 1) {
+        markStaleUpdateStarted();
+        await staleUpdateRelease;
+      }
+      managedState = { ...managedState, [params.key]: params.value };
+      return null;
+    });
+    (globalThis as unknown as { snap: { request: typeof request } }).snap = { request };
+
+    const staleSession = rememberDucatSession('https://stale.example');
+    await staleUpdateStarted;
+    await setSelectedNetwork('mutinynet');
+    await importPrivateKeyFromSnapHome({ network: 'mutinynet', privateKey: '09'.repeat(32) });
+
+    expect(managedState.selectedNetwork).toBe('mutinynet');
+    expect(managedState.keyOverrides).toHaveLength(1);
+
+    releaseStaleUpdate();
+    await staleSession;
+
+    expect(managedState.selectedNetwork).toBe('mutinynet');
+    expect(managedState.keyOverrides).toHaveLength(1);
   });
 
   it('preserves mainnet recent action and session metadata', async () => {

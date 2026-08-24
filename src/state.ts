@@ -24,6 +24,16 @@ type RawStoredState = Partial<DucatSnapState> & {
   selectedNetwork?: unknown;
 };
 
+type StoredStateValue<Key extends keyof DucatSnapState> = Exclude<DucatSnapState[Key], undefined>;
+
+let stateMutationQueue: Promise<void> = Promise.resolve();
+
+async function serializeStateMutation<Result>(mutation: () => Promise<Result>): Promise<Result> {
+  const result = stateMutationQueue.then(mutation, mutation);
+  stateMutationQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
 function isStoredDeployment(value: unknown): value is DeploymentId {
   return typeof value === 'string' && STORED_DEPLOYMENTS.has(value);
 }
@@ -175,6 +185,38 @@ function sanitizedNetworkEndpointOverrides(value: unknown): NetworkEndpointOverr
 }
 
 /**
+ * Persists one state field without replacing unrelated state written by another request.
+ * @param key - Top-level Snap state field.
+ * @param value - JSON-safe value for the field.
+ * @returns When MetaMask has persisted the keyed update.
+ */
+export async function setStateField<Key extends keyof DucatSnapState>(
+  key: Key,
+  value: StoredStateValue<Key>,
+): Promise<void> {
+  await snap.request({
+    method: 'snap_setState',
+    params: { key, value },
+  });
+}
+
+/**
+ * Serializes read-modify-write mutations and persists only their affected field.
+ * @param key - Top-level Snap state field.
+ * @param update - Pure field update computed from the latest sanitized state.
+ * @returns When the mutation has been persisted.
+ */
+export async function updateStateField<Key extends keyof DucatSnapState>(
+  key: Key,
+  update: (state: DucatSnapState) => StoredStateValue<Key>,
+): Promise<void> {
+  await serializeStateMutation(async () => {
+    const state = await getState();
+    await setStateField(key, update(state));
+  });
+}
+
+/**
  * Loads untrusted Snap state and retains only bounded schema-valid records and verified overrides.
  * @returns Sanitized state safe for wallet policy decisions.
  */
@@ -216,17 +258,11 @@ export async function getState(): Promise<DucatSnapState> {
   }, keyOverrides);
   const sanitizedState = networkEndpointOverrides ? { ...state, networkEndpointOverrides } : state;
   const needsMigration = COMPILED_STATE_POLICY === 'alpha-mainnet' || COMPILED_STATE_POLICY === 'development'
-    ? storedState.selectedNetwork !== selectedNetwork || Object.prototype.hasOwnProperty.call(storedState, 'lastNetwork')
-    : !isStoredDeployment(storedState.selectedNetwork) || Object.prototype.hasOwnProperty.call(storedState, 'lastNetwork');
+    ? storedState.selectedNetwork !== selectedNetwork
+    : !isStoredDeployment(storedState.selectedNetwork);
 
   if (needsMigration) {
-    await snap.request({
-      method: 'snap_manageState',
-      params: {
-        operation: 'update',
-        newState: sanitizedState,
-      },
-    });
+    await setStateField('selectedNetwork', selectedNetwork);
   }
 
   return sanitizedState;
@@ -238,42 +274,21 @@ export async function getState(): Promise<DucatSnapState> {
  * @returns When the sanitized state update is persisted.
  */
 export async function appendRecentAction(action: Omit<RecentAction, 'id' | 'timestamp'>): Promise<void> {
-  const state = await getState();
-  const nextState: DucatSnapState = {
-    ...state,
-    recentActions: [
-      {
-        ...action,
-        id: id(),
-        timestamp: Date.now(),
-        status: action.status ?? 'signed',
-      },
-      ...state.recentActions,
-    ].slice(0, MAX_RECENT_ACTIONS),
-    lastOrigin: action.origin,
-  };
-
-  await snap.request({
-    method: 'snap_manageState',
-    params: {
-      operation: 'update',
-      newState: nextState,
+  await updateStateField('recentActions', (state) => [
+    {
+      ...action,
+      id: id(),
+      timestamp: Date.now(),
+      status: action.status ?? 'signed',
     },
-  });
+    ...state.recentActions,
+  ].slice(0, MAX_RECENT_ACTIONS));
+  await setStateField('lastOrigin', action.origin);
 }
 
 /** @returns When action history is cleared without altering keys, endpoints, or session metadata. */
 export async function clearRecentActions(): Promise<void> {
-  const state = await getState();
-  const nextState: DucatSnapState = { ...state, recentActions: [] };
-
-  await snap.request({
-    method: 'snap_manageState',
-    params: {
-      operation: 'update',
-      newState: nextState,
-    },
-  });
+  await updateStateField('recentActions', () => []);
 }
 
 /**
@@ -282,32 +297,10 @@ export async function clearRecentActions(): Promise<void> {
  * @returns When the session metadata is persisted.
  */
 export async function rememberDucatSession(origin: string): Promise<void> {
-  const state = await getState();
-
-  await snap.request({
-    method: 'snap_manageState',
-    params: {
-      operation: 'update',
-      newState: {
-        ...state,
-        lastOrigin: origin,
-      },
-    },
-  });
+  await setStateField('lastOrigin', origin);
 }
 
 /** @param network - Confirmed user-selected network. @returns When the selection is persisted. */
 export async function setSelectedNetwork(network: DeploymentId): Promise<void> {
-  const state = await getState();
-
-  await snap.request({
-    method: 'snap_manageState',
-    params: {
-      operation: 'update',
-      newState: {
-        ...state,
-        selectedNetwork: network,
-      },
-    },
-  });
+  await setStateField('selectedNetwork', network);
 }

@@ -37,7 +37,10 @@ function testKeySet() {
 
 function setSnapMock(dialogResult = true, selectedNetwork: 'signet' | 'mainnet' = 'signet') {
   let managedState: unknown = { recentActions: [], selectedNetwork };
-  const request = jest.fn(async ({ method, params }: { method: string; params?: { operation?: string; path?: string[]; newState?: unknown } }) => {
+  const request = jest.fn(async ({ method, params }: {
+    method: string;
+    params?: { key?: string; operation?: string; path?: string[]; value?: unknown };
+  }) => {
     if (method === 'snap_getBip32Entropy') {
       const byte = params?.path?.[1] === "84'" ? 1 : 2;
       return { privateKey: Buffer.alloc(32, byte).toString('hex'), chainCode: Buffer.alloc(32, byte + 10).toString('hex') };
@@ -49,8 +52,13 @@ function setSnapMock(dialogResult = true, selectedNetwork: 'signet' | 'mainnet' 
       if (params?.operation === 'get') {
         return managedState;
       }
-      managedState = params?.newState ?? null;
-      return undefined;
+    }
+    if (method === 'snap_setState' && params?.key) {
+      const current = managedState && typeof managedState === 'object' && !Array.isArray(managedState)
+        ? managedState
+        : {};
+      managedState = { ...current, [params.key]: params.value };
+      return null;
     }
     if (method === 'snap_notify') {
       return undefined;

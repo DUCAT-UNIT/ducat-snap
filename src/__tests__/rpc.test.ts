@@ -44,12 +44,13 @@ type SnapRequestArgs = {
   params?: {
     context?: unknown;
     id?: unknown;
+    key?: string;
     message?: string;
     operation?: string;
     path?: string[];
-    newState?: unknown;
     type?: string;
     ui?: unknown;
+    value?: unknown;
   };
 };
 
@@ -109,9 +110,14 @@ function setSnapMock(dialogResult = true, initialState: unknown = null): SnapReq
       if (params?.operation === 'get') {
         return managedState;
       }
+    }
 
-      managedState = params?.newState ?? null;
-      return undefined;
+    if (method === 'snap_setState' && params?.key) {
+      const current = managedState && typeof managedState === 'object' && !Array.isArray(managedState)
+        ? managedState
+        : {};
+      managedState = { ...current, [params.key]: params.value };
+      return null;
     }
 
     if (method === 'snap_notify') {
