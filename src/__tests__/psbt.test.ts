@@ -11,24 +11,42 @@ import { Buffer } from 'buffer';
 const sigValidator = (pubkey: Buffer, msghash: Buffer, signature: Buffer): boolean =>
   pubkey.length === 32 ? ecc.verifySchnorr(msghash, pubkey, signature) : ecc.verify(msghash, pubkey, signature);
 
-import { deriveAccountSetFromBaseNodes } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 import { bitcoinNetwork, DUCAT_GUARDIAN_PUBKEYS } from '../networks';
 import { preparePsbtForSigning, signPreparedPsbt } from '../psbt';
 import type { DucatVaultActionFlag } from '../types';
+import { deriveAccountSetFromBaseNodes } from './helpers/accounts';
 
 const UNSPENDABLE_TAPROOT_KEY = Buffer.from('50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0', 'hex');
 // The approved Ducat guardian key (matches DUCAT_GUARDIAN_PUBKEYS in networks.ts).
-const GUARD_TAPROOT_KEY = Buffer.from(DUCAT_GUARDIAN_PUBKEYS.signet[0], 'hex');
+const GUARD_TAPROOT_KEY = Buffer.from(DUCAT_GUARDIAN_PUBKEYS.mutinynet[0], 'hex');
 // A guard key that is NOT on the guardian allowlist, used to assert enforcement.
 const UNAPPROVED_GUARD_TAPROOT_KEY = Buffer.alloc(32, 8);
 
 function makeKeySet() {
   return deriveAccountSetFromBaseNodes(
-    'signet',
+    'mutinynet',
     DucatKeyNode.fromPrivateKey(Buffer.alloc(32, 3), Buffer.alloc(32, 13)),
     DucatKeyNode.fromPrivateKey(Buffer.alloc(32, 4), Buffer.alloc(32, 14)),
   );
+}
+
+function makeSharedTaprootKeySet() {
+  const keySet = makeKeySet();
+
+  return {
+    ...keySet,
+    record: {
+      ...keySet.record,
+      vault: { ...keySet.record.runes },
+    },
+    vaultNode: keySet.runesNode,
+    vaultOutputScript: keySet.runesOutputScript,
+    vaultInternalPubkey: keySet.runesInternalPubkey,
+    taprootNode: keySet.runesNode,
+    taprootOutputScript: keySet.runesOutputScript,
+    taprootInternalPubkey: keySet.runesInternalPubkey,
+  };
 }
 
 function makeScriptPathPayment(xOnlyPubkey: Buffer) {
@@ -90,6 +108,40 @@ function makeBitvm3AssertTimeoutPayment(operatorXOnlyPubkey: Buffer, challengeWi
     output: payment.output,
     timeoutLeaf: timeout,
     controlBlock: payment.witness[payment.witness.length - 1],
+  };
+}
+
+function makeOwnedBitvm3TimeoutPsbt({ sequence = 144, version = 2 }: { sequence?: number; version?: number } = {}) {
+  const keySet = makeKeySet();
+  const assert = makeBitvm3AssertTimeoutPayment(keySet.vaultInternalPubkey);
+  const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+  psbt.setVersion(version);
+  psbt.addInput({
+    hash: '5a'.repeat(32),
+    index: 0,
+    sequence,
+    tapLeafScript: [
+      {
+        controlBlock: assert.controlBlock,
+        leafVersion: 0xc0,
+        script: assert.timeoutLeaf,
+      },
+    ],
+    witnessUtxo: {
+      script: assert.output,
+      value: 10_000,
+    },
+  });
+  psbt.addOutput({
+    address: keySet.record.sats.address,
+    value: 9_000,
+  });
+
+  return {
+    keySet,
+    psbt,
+    signInputs: { [keySet.record.vault.address]: [0] },
   };
 }
 
@@ -224,7 +276,7 @@ describe('PSBT signing', () => {
     });
 
     const signInputs = { [keySet.record.sats.address]: [0] };
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, signInputs);
     const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
 
     expect(signed.data.inputs[0].partialSig).toHaveLength(1);
@@ -247,7 +299,7 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { tb1qunknown: [0] })).toThrow('not managed');
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { tb1qunknown: [0] })).toThrow('not managed');
   });
 
   it('rejects wrong-network signer addresses even when the input script matches the account key', () => {
@@ -275,7 +327,7 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [wrongNetworkAddress]: [0] })).toThrow('not managed');
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [wrongNetworkAddress]: [0] })).toThrow('not managed');
   });
 
   it('rejects signed inputs that omit previous-output value data', () => {
@@ -291,7 +343,7 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] })).toThrow(
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] })).toThrow(
       'missing required input value data',
     );
   });
@@ -314,7 +366,7 @@ describe('PSBT signing', () => {
     });
 
     try {
-      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [1] });
+      preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [1] });
       throw new Error('Expected preparePsbtForSigning to fail.');
     } catch (error) {
       expect(error).toMatchObject({
@@ -345,7 +397,7 @@ describe('PSBT signing', () => {
     });
 
     try {
-      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.runes.address]: [0] });
+      preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.runes.address]: [0] });
       throw new Error('Expected preparePsbtForSigning to fail.');
     } catch (error) {
       expect(error).toMatchObject({
@@ -360,7 +412,7 @@ describe('PSBT signing', () => {
   it('rejects mixed-account PSBTs when any requested input belongs to another account', () => {
     const keySet = makeKeySet();
     const externalKeySet = deriveAccountSetFromBaseNodes(
-      'signet',
+      'mutinynet',
       DucatKeyNode.fromPrivateKey(Buffer.alloc(32, 5), Buffer.alloc(32, 15)),
       DucatKeyNode.fromPrivateKey(Buffer.alloc(32, 6), Buffer.alloc(32, 16)),
     );
@@ -388,7 +440,7 @@ describe('PSBT signing', () => {
     });
 
     try {
-      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0, 1] });
+      preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0, 1] });
       throw new Error('Expected preparePsbtForSigning to fail.');
     } catch (error) {
       expect(error).toMatchObject({
@@ -428,7 +480,7 @@ describe('PSBT signing', () => {
     });
 
     const signInputs = { [keySet.record.vault.address]: [0] };
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, signInputs);
     const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
 
     expect(prepared.summary.warnings).toEqual([]);
@@ -439,6 +491,85 @@ describe('PSBT signing', () => {
     expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
     expect(signed.data.inputs[0].tapScriptSig?.[0].leafHash).toBeDefined();
     expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
+  });
+
+  it('distinguishes runes and vault inputs when both roles share one Taproot key', () => {
+    const keySet = makeSharedTaprootKeySet();
+    const inscriptionSuffix = Buffer.from(
+      '0063036f72640101106170706c69636174696f6e2f6a736f6e010714f04df4c4b30d2b7ac6e1ed2445aeb12a9cb4d2ec000e7b226c626c223a2244656d6f227d68',
+      'hex',
+    );
+    const cosignPrefix = btcScript.compile([
+      keySet.vaultInternalPubkey,
+      opcodes.OP_CHECKSIGVERIFY,
+      GUARD_TAPROOT_KEY,
+      opcodes.OP_CHECKSIG,
+    ]);
+    const scriptPath = makeTaprootScriptPathPayment(Buffer.concat([cosignPrefix, inscriptionSuffix]));
+    const vaultPsbt = new Psbt({ network: bitcoinNetwork('signet') });
+
+    vaultPsbt.addInput({
+      hash: '35'.repeat(32),
+      index: 0,
+      sequence: vaultSequence(161),
+      tapLeafScript: [
+        {
+          controlBlock: scriptPath.controlBlock,
+          leafVersion: 0xc0,
+          script: scriptPath.redeemScript,
+        },
+      ],
+      witnessUtxo: {
+        script: scriptPath.output,
+        value: 10_000,
+      },
+    });
+    vaultPsbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    const sharedAddress = keySet.record.runes.address;
+    const vaultSignInputs = { [sharedAddress]: [0] };
+    const preparedVault = preparePsbtForSigning(vaultPsbt.toBase64(), 'mutinynet', keySet, vaultSignInputs);
+    const signedVault = Psbt.fromBase64(signPreparedPsbt(preparedVault.psbt, keySet, vaultSignInputs), {
+      network: bitcoinNetwork('signet'),
+    });
+
+    expect(preparedVault.summary.signedInputs[0]).toMatchObject({
+      role: 'vault',
+      verification: 'committed-ducat-cosign-leaf',
+    });
+    expect(signedVault.data.inputs[0].tapScriptSig).toHaveLength(1);
+    expect(signedVault.data.inputs[0].tapKeySig).toBeUndefined();
+
+    const runesPsbt = new Psbt({ network: bitcoinNetwork('signet') });
+    runesPsbt.addInput({
+      hash: '36'.repeat(32),
+      index: 0,
+      tapInternalKey: keySet.runesInternalPubkey,
+      witnessUtxo: {
+        script: keySet.runesOutputScript,
+        value: 10_000,
+      },
+    });
+    runesPsbt.addOutput({
+      address: keySet.record.sats.address,
+      value: 9_000,
+    });
+
+    const runesSignInputs = { [sharedAddress]: [0] };
+    const preparedRunes = preparePsbtForSigning(runesPsbt.toBase64(), 'mutinynet', keySet, runesSignInputs);
+    const signedRunes = Psbt.fromBase64(signPreparedPsbt(preparedRunes.psbt, keySet, runesSignInputs), {
+      network: bitcoinNetwork('signet'),
+    });
+
+    expect(preparedRunes.summary.signedInputs[0]).toMatchObject({
+      role: 'runes',
+      verification: 'matched-account-output',
+    });
+    expect(signedRunes.data.inputs[0].tapKeySig).toBeDefined();
+    expect(signedRunes.data.inputs[0].tapScriptSig).toBeUndefined();
   });
 
   it('rejects committed Taproot script-path inputs that are not Ducat cosign leaves', () => {
@@ -466,7 +597,7 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] })).toThrow(
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.vault.address]: [0] })).toThrow(
       'different Ducat Snap account',
     );
   });
@@ -497,7 +628,7 @@ describe('PSBT signing', () => {
     });
 
     try {
-      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] });
+      preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.vault.address]: [0] });
       throw new Error('Expected preparePsbtForSigning to fail.');
     } catch (error) {
       expect(error).toMatchObject({
@@ -537,7 +668,7 @@ describe('PSBT signing', () => {
 
     const signInputs = { [keySet.record.vault.address]: [0] };
 
-    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs)).toThrow('different Ducat Snap account');
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, signInputs)).toThrow('different Ducat Snap account');
   });
 
   it('signs a committed BitVM3 timeout (unilateral-exit reclaim) leaf for the derived vault pubkey', () => {
@@ -569,7 +700,7 @@ describe('PSBT signing', () => {
     });
 
     const signInputs = { [keySet.record.vault.address]: [0] };
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, signInputs);
     const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
 
     expect(prepared.summary.warnings).toEqual([]);
@@ -580,6 +711,30 @@ describe('PSBT signing', () => {
     expect(signed.data.inputs[0].tapScriptSig).toHaveLength(1);
     expect(signed.data.inputs[0].tapScriptSig?.[0].leafHash).toBeDefined();
     expect(signed.data.inputs[0].tapKeySig).toBeUndefined();
+  });
+
+  it('rejects a BitVM3 timeout transaction with version below 2', () => {
+    const { keySet, psbt, signInputs } = makeOwnedBitvm3TimeoutPsbt({ version: 1 });
+
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, signInputs)).toThrow('relative timelock');
+  });
+
+  it('rejects a BitVM3 timeout input with the sequence-disable flag set', () => {
+    const { keySet, psbt, signInputs } = makeOwnedBitvm3TimeoutPsbt({ sequence: 0x80000090 });
+
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, signInputs)).toThrow('relative timelock');
+  });
+
+  it('rejects a BitVM3 block timeout input using time-based sequence units', () => {
+    const { keySet, psbt, signInputs } = makeOwnedBitvm3TimeoutPsbt({ sequence: 0x00400090 });
+
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, signInputs)).toThrow('relative timelock');
+  });
+
+  it('rejects a BitVM3 timeout input whose sequence is below the committed delay', () => {
+    const { keySet, psbt, signInputs } = makeOwnedBitvm3TimeoutPsbt({ sequence: 143 });
+
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, signInputs)).toThrow('relative timelock');
   });
 
   it('rejects a BitVM3 timeout leaf whose operator key is not the derived vault pubkey', () => {
@@ -609,7 +764,7 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] })).toThrow(
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.vault.address]: [0] })).toThrow(
       'different Ducat Snap account',
     );
   });
@@ -642,7 +797,7 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    expect(() => preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] })).toThrow(
+    expect(() => preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.vault.address]: [0] })).toThrow(
       'different Ducat Snap account',
     );
   });
@@ -676,7 +831,7 @@ describe('PSBT signing', () => {
     txInputs[1].index = txInputs[0].index;
 
     try {
-      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+      preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
       throw new Error('Expected preparePsbtForSigning to fail.');
     } catch (error) {
       expect(error).toMatchObject({
@@ -706,7 +861,7 @@ describe('PSBT signing', () => {
     });
 
     try {
-      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+      preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
       throw new Error('Expected preparePsbtForSigning to fail.');
     } catch (error) {
       expect(error).toMatchObject({
@@ -739,7 +894,7 @@ describe('PSBT signing', () => {
     }
 
     try {
-      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+      preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
       throw new Error('Expected preparePsbtForSigning to fail.');
     } catch (error) {
       expect(error).toMatchObject({
@@ -773,7 +928,7 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
 
     expect(prepared.summary.outputs[0]).toMatchObject({
       address: 'OP_RETURN',
@@ -807,7 +962,7 @@ describe('PSBT signing', () => {
       value: 8_000,
     });
 
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
 
     expect(prepared.summary.outputs[0]).toMatchObject({ role: 'op_return', valueSats: 1 });
     expect(prepared.summary.outputs[1]).toMatchObject({ role: 'unknown', valueSats: 0 });
@@ -843,7 +998,7 @@ describe('PSBT signing', () => {
       value: 899_000,
     });
 
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
 
     expect(prepared.summary.vaultUpdates).toHaveLength(1);
     expect(prepared.summary.outputs[1].address).toContain('OP_RETURN OP_8');
@@ -890,7 +1045,7 @@ describe('PSBT signing', () => {
       value: 0,
     });
 
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
 
     expect(prepared.summary.vaultUpdates).toHaveLength(1);
     expect(prepared.summary.outputs[2].vaultData).toMatchObject({
@@ -934,7 +1089,7 @@ describe('PSBT signing', () => {
     });
     addCoreVaultActionPsbtOutputs(psbt, keySet, actionCode, 1_250_000, payload);
 
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
     const vaultData = prepared.summary.vaultUpdates[0];
 
     expect(prepared.summary.vaultUpdates).toHaveLength(1);
@@ -977,7 +1132,7 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
 
     expect(prepared.summary.outputs[0].vaultData).toBeUndefined();
     expect(prepared.summary.warnings).toEqual(['A Ducat-looking OP_RETURN output was present but could not be decoded as vault return data.']);
@@ -1011,7 +1166,7 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
 
     expect(prepared.summary.outputs[0].vaultData).toBeUndefined();
     expect(prepared.summary.warnings).toEqual(['A Ducat-looking OP_RETURN output was present but could not be decoded as vault return data.']);
@@ -1034,7 +1189,7 @@ describe('PSBT signing', () => {
     psbt.addOutput({ address: keySet.record.sats.address, value: 9_500 });
 
     try {
-      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+      preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
       throw new Error('Expected preparePsbtForSigning to fail.');
     } catch (error) {
       expect(error).toMatchObject({
@@ -1065,7 +1220,7 @@ describe('PSBT signing', () => {
     psbt.addOutput({ address: keySet.record.sats.address, value: 99_000 });
 
     const signInputs = { [keySet.record.sats.address]: [0] };
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, signInputs);
     const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
 
     expect(signed.data.inputs[0].partialSig).toHaveLength(1);
@@ -1090,7 +1245,7 @@ describe('PSBT signing', () => {
     });
 
     try {
-      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+      preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
       throw new Error('Expected preparePsbtForSigning to fail.');
     } catch (error) {
       expect(error).toMatchObject({
@@ -1128,7 +1283,7 @@ describe('PSBT signing', () => {
       value: 9_000,
     });
 
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] });
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.vault.address]: [0] });
 
     expect(prepared.summary.signedInputs[0]).toMatchObject({
       role: 'vault',
@@ -1165,7 +1320,7 @@ describe('PSBT signing', () => {
     });
 
     try {
-      preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.vault.address]: [0] });
+      preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.vault.address]: [0] });
       throw new Error('Expected preparePsbtForSigning to fail.');
     } catch (error) {
       expect(error).toMatchObject({
@@ -1213,7 +1368,7 @@ describe('wallet-snap parity', () => {
     psbt.addOutput({ script: btcScript.compile([opcodes.OP_RETURN, opcodes.OP_8, payload]), value: 0 });
     psbt.addOutput({ address: keySet.record.sats.address, value: 899_000 });
 
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, { [keySet.record.sats.address]: [0] });
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, { [keySet.record.sats.address]: [0] });
 
     expect(prepared.summary.vaultUpdates).toHaveLength(1);
     expect(prepared.summary.vaultUpdates[0]).toMatchObject({ actionFlag: flag, actionType });
@@ -1243,7 +1398,7 @@ describe('wallet-snap parity', () => {
       [keySet.record.sats.address]: [0],
       [keySet.record.vault.address]: [1],
     };
-    const prepared = preparePsbtForSigning(psbt.toBase64(), 'signet', keySet, signInputs);
+    const prepared = preparePsbtForSigning(psbt.toBase64(), 'mutinynet', keySet, signInputs);
     const signed = Psbt.fromBase64(signPreparedPsbt(prepared.psbt, keySet, signInputs), { network: bitcoinNetwork('signet') });
 
     expect(signed.data.inputs[0].partialSig).toHaveLength(1); // P2WPKH funds
