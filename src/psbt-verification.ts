@@ -71,7 +71,6 @@ function assertUnspent(value: unknown, txid: string, vout: number): void {
 }
 
 export class PsbtVerificationContext {
-  readonly #network: DeploymentId;
   readonly #inventory: WalletInventoryResponse;
   readonly #profile: DeploymentProfile;
   readonly #fetch: typeof fetch;
@@ -79,7 +78,6 @@ export class PsbtVerificationContext {
   readonly #batchPrevouts = new Map<string, VerifiedPrevout>();
 
   constructor(network: DeploymentId, dependencies: Required<VerificationDependencies>) {
-    this.#network = network;
     this.#inventory = dependencies.inventory;
     this.#profile = dependencies.profile;
     this.#fetch = dependencies.fetchImpl;

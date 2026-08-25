@@ -8,6 +8,27 @@ export const REVIEWED_PRODUCTION_ORIGINS = Object.freeze([
   'https://staging.app.ducatprotocol.com',
 ]);
 
+export const REVIEWED_PRODUCTION_PROFILE_IDS = Object.freeze(['mainnet', 'mutinynet']);
+export const REVIEWED_DERIVATION_PATHS = Object.freeze([
+  Object.freeze({ path: Object.freeze(['m', "84'", "0'", "0'", '0', '0']), curve: 'secp256k1' }),
+  Object.freeze({ path: Object.freeze(['m', "86'", "0'", "0'", '0', '0']), curve: 'secp256k1' }),
+  Object.freeze({ path: Object.freeze(['m', "86'", "0'", "0'", '2', '0']), curve: 'secp256k1' }),
+  Object.freeze({ path: Object.freeze(['m', "84'", "1'", "0'", '0', '0']), curve: 'secp256k1' }),
+  Object.freeze({ path: Object.freeze(['m', "86'", "1'", "0'", '0', '0']), curve: 'secp256k1' }),
+  Object.freeze({ path: Object.freeze(['m', "86'", "1'", "0'", '2', '0']), curve: 'secp256k1' }),
+]);
+export const REVIEWED_VALIDATOR_CHAIN_NETWORKS = Object.freeze({
+  mainnet: 'alpha-mainnet',
+  mutinynet: 'mutiny',
+});
+export const REVIEWED_MAINNET_VALIDATOR_URL = 'https://validator-mainnet.alpha.ducatprotocol.com';
+
+const REQUIRED_PRODUCTION_BUNDLE_EVIDENCE = [
+  REVIEWED_MAINNET_VALIDATOR_URL,
+  REVIEWED_VALIDATOR_CHAIN_NETWORKS.mainnet,
+  REVIEWED_VALIDATOR_CHAIN_NETWORKS.mutinynet,
+];
+
 const FORBIDDEN_PRODUCTION_BUNDLE_EVIDENCE = [
   'http://localhost',
   'http://127.0.0.1',
@@ -16,7 +37,6 @@ const FORBIDDEN_PRODUCTION_BUNDLE_EVIDENCE = [
   'ducat_signPsbtUnprompted',
   '[ducat-snap]',
   '.snap/dev',
-  'https://validator-mainnet.alpha.ducatprotocol.com',
 ];
 
 export function assertReleaseEnvironment(env = process.env) {
@@ -34,11 +54,6 @@ export function assertReleaseEnvironment(env = process.env) {
 
   if ((env.DUCAT_SNAP_DEV_ORIGINS ?? '').trim() !== '') {
     throw new Error('DUCAT_SNAP_DEV_ORIGINS must be unset or empty for a release build.');
-  }
-  for (const name of ['ALPHA_MAINNET_VALIDATOR_BASE_URL', 'ALPHA_MAINNET_ESPLORA_BASE_URL']) {
-    if ((env[name] ?? '').trim() !== '') {
-      throw new Error(`${name} must be unset or empty for a release build.`);
-    }
   }
 }
 
@@ -61,6 +76,29 @@ export function assertProductionManifest(manifest, runtimeOrigins = REVIEWED_PRO
   if (JSON.stringify(runtime) !== JSON.stringify(REVIEWED_PRODUCTION_ORIGINS)) {
     throw new Error('runtime origin policy does not match the reviewed production origins.');
   }
+  if (JSON.stringify(manifest?.initialPermissions?.snap_getBip32Entropy) !== JSON.stringify(REVIEWED_DERIVATION_PATHS)) {
+    throw new Error('manifest must contain the exact reviewed derivation paths in order.');
+  }
+}
+
+export function assertProductionProfiles(profileDocument) {
+  const profiles = profileDocument?.networks;
+  if (!Array.isArray(profiles)) {
+    throw new Error('production network profiles must contain a networks array.');
+  }
+  const ids = profiles.map((profile) => profile?.id);
+  if (JSON.stringify(ids) !== JSON.stringify(REVIEWED_PRODUCTION_PROFILE_IDS)) {
+    throw new Error('production network profiles must contain exactly mainnet and mutinynet in order.');
+  }
+  for (const profile of profiles) {
+    const expected = REVIEWED_VALIDATOR_CHAIN_NETWORKS[profile.id];
+    if (profile.expected_validator_chain_network !== expected) {
+      throw new Error(`production profile ${profile.id} must expect validator chain_network ${expected}.`);
+    }
+  }
+  if (profiles[0]?.validator_base_url !== REVIEWED_MAINNET_VALIDATOR_URL) {
+    throw new Error(`production mainnet profile must use ${REVIEWED_MAINNET_VALIDATOR_URL}.`);
+  }
 }
 
 export function assertProductionBundle(bundle) {
@@ -70,6 +108,11 @@ export function assertProductionBundle(bundle) {
   for (const origin of REVIEWED_PRODUCTION_ORIGINS) {
     if (!bundle.includes(origin)) {
       throw new Error(`production bundle is missing reviewed origin: ${origin}`);
+    }
+  }
+  for (const evidence of REQUIRED_PRODUCTION_BUNDLE_EVIDENCE) {
+    if (!bundle.includes(evidence)) {
+      throw new Error(`production bundle is missing reviewed network evidence: ${evidence}`);
     }
   }
   for (const evidence of FORBIDDEN_PRODUCTION_BUNDLE_EVIDENCE) {
@@ -85,6 +128,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     if (process.argv[2] === '--verify-artifacts') {
       const manifest = JSON.parse(readFileSync('snap.manifest.json', 'utf8'));
       assertProductionManifest(manifest);
+      assertProductionProfiles(JSON.parse(readFileSync('src/network-profiles.json', 'utf8')));
       assertProductionBundle(readFileSync('dist/bundle.js', 'utf8'));
       console.log('release-policy: verified production manifest and bundle evidence');
     }

@@ -15,12 +15,10 @@ import { ducatError } from './errors';
 import { bitcoinNetworkForDeployment, normalizeDeploymentId } from './networks';
 import { getState, updateStateField } from './state';
 import type {
-  DucatAccount,
   BitcoinNetwork,
   DeploymentId,
   PrivateKeyOverrideRecord,
   PublicDucatAccountRecord,
-  WalletAccountRecord,
 } from './types';
 
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -28,22 +26,9 @@ const HEX_KEY_PATTERN = /^(?:0x)?[0-9a-f]{64}$/iu;
 const ZERO_CHAIN_CODE = Buffer.alloc(32);
 let fallbackIdCounter = 0;
 
-export type SelectedAccountKeySet = {
+export type SelectedAccountKeySet = AccountKeySet & {
   id: string;
   source: 'derived' | 'imported';
-  network: DeploymentId;
-  record: WalletAccountRecord;
-  satsNode: DucatKeyNode;
-  runesNode: DucatKeyNode;
-  vaultNode: DucatKeyNode;
-  taprootNode: DucatKeyNode;
-  satsOutputScript: Buffer;
-  runesOutputScript: Buffer;
-  vaultOutputScript: Buffer;
-  taprootOutputScript: Buffer;
-  runesInternalPubkey: Buffer;
-  vaultInternalPubkey: Buffer;
-  taprootInternalPubkey: Buffer;
 };
 
 function id(): string {
@@ -295,14 +280,11 @@ function overrideKeySet(account: PrivateKeyOverrideRecord): SelectedAccountKeySe
     satsNode: node,
     runesNode: node,
     vaultNode: node,
-    taprootNode: node,
     satsOutputScript: sats.output,
     runesOutputScript: runes.output,
     vaultOutputScript: runes.output,
-    taprootOutputScript: runes.output,
     runesInternalPubkey,
     vaultInternalPubkey: runesInternalPubkey,
-    taprootInternalPubkey: runesInternalPubkey,
   };
 }
 

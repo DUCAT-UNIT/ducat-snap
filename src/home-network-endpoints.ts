@@ -1,5 +1,5 @@
 /** @fileoverview Renders and persists validated per-network validator and Esplora endpoint overrides. */
-import { UserInputEventType, type InterfaceContext, type OnUserInputHandler } from '@metamask/snaps-sdk';
+import { UserInputEventType, type OnUserInputHandler } from '@metamask/snaps-sdk';
 
 import {
   effectiveNetworkProfile,
@@ -31,15 +31,6 @@ export type { EndpointKind } from './network-endpoint-policy';
 export type NetworkEndpointStatus =
   | { severity: 'success' | 'warning' | 'danger' | 'info'; title: string; message: string }
   | null;
-
-export type NetworkEndpointContext = InterfaceContext & {
-  screen?: 'network-endpoints';
-  network?: DeploymentId;
-};
-
-export function networkEndpointContext(network: DeploymentId): NetworkEndpointContext {
-  return { screen: 'network-endpoints', network };
-}
 
 export function isEndpointOverrideEvent(name: string): boolean {
   return /^(?:save-endpoint|edit-endpoint|clear-endpoint|cancel-edit-endpoint):(?:validator|esplora)$/u.test(name);

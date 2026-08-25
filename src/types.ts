@@ -61,8 +61,6 @@ export type WalletInventoryResponse = {
   unitUtxos: WalletUnitUtxo[];
 };
 
-export type DucatAccountSource = 'derived' | 'imported';
-
 export type DerivedDucatAccountRecord = WalletAccountRecord & {
   id: string;
   source: 'derived';

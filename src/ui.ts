@@ -78,10 +78,6 @@ export function uiInline(children: SnapElement[]): SnapElement {
   return uiBox(children, { direction: 'horizontal', crossAlignment: 'center' });
 }
 
-export function uiLink(label: string, href: string): SnapElement {
-  return SnapJsx.Link({ children: label, href });
-}
-
 export function uiCard(params: { title: string; value: string; description?: string; extra?: string; image?: string }): SnapElement {
   return SnapJsx.Card(params);
 }
@@ -168,8 +164,4 @@ export function uiInput(
     placeholder,
     value,
   });
-}
-
-export function uiSpinner(): SnapElement {
-  return SnapJsx.Spinner({});
 }

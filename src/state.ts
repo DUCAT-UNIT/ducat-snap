@@ -277,11 +277,6 @@ export async function appendRecentAction(action: Omit<RecentAction, 'id' | 'time
   await setStateField('lastOrigin', action.origin);
 }
 
-/** @returns When action history is cleared without altering keys, endpoints, or session metadata. */
-export async function clearRecentActions(): Promise<void> {
-  await updateStateField('recentActions', () => []);
-}
-
 /**
  * Persists the most recent authorized origin without replacing other state.
  * @param origin - Authorized request origin.
