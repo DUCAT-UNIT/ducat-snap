@@ -1,8 +1,27 @@
-import type { OnHomePageHandler, OnInstallHandler, OnRpcRequestHandler } from '@metamask/snaps-sdk';
+/** @fileoverview Exposes Snap lifecycle and request handlers and routes each event to its owning module. */
+import type { OnHomePageHandler, OnInstallHandler, OnRpcRequestHandler, OnUserInputHandler } from '@metamask/snaps-sdk';
 
-import { renderHomePage } from './home';
+import { artifactPolicy } from './artifact-policy';
+import { handleHomeNavigationInput, isHomeNavigationEvent, renderHomePage } from './home';
+import { handleHomeUserInput } from './home-key-override';
+import { handleHomeNetworkInput, isHomeNetworkEvent } from './home-network';
+import { handleEndpointOverrideInput, isEndpointOverrideEvent } from './home-network-endpoints';
 import { handleRpcRequest } from './rpc';
+import type { DeploymentId } from './types';
 import { uiBanner, uiBox, uiHeading, uiMuted, uiRow, uiSection } from './ui';
+
+const INSTALL_NETWORK_LABELS: Record<DeploymentId, string> = {
+  regtest: 'Regtest',
+  signet: 'Signet',
+  mutinynet: 'Mutinynet',
+  testnet4: 'Testnet4',
+  'alpha-mainnet': 'Alpha Mainnet',
+  mainnet: 'Mainnet',
+};
+
+function installationNetworkSummary(): string {
+  return artifactPolicy().allowed_deployments.map((network) => INSTALL_NETWORK_LABELS[network]).join(' / ');
+}
 
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
   return handleRpcRequest(origin, request);
@@ -10,6 +29,22 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
 
 export const onHomePage: OnHomePageHandler = async () => {
   return renderHomePage();
+};
+
+export const onUserInput: OnUserInputHandler = async (args) => {
+  if ('name' in args.event && typeof args.event.name === 'string' && isHomeNavigationEvent(args.event.name)) {
+    return handleHomeNavigationInput(args);
+  }
+
+  if ('name' in args.event && typeof args.event.name === 'string' && isHomeNetworkEvent(args.event.name)) {
+    return handleHomeNetworkInput(args);
+  }
+
+  if ('name' in args.event && typeof args.event.name === 'string' && isEndpointOverrideEvent(args.event.name)) {
+    return handleEndpointOverrideInput(args);
+  }
+
+  return handleHomeUserInput(args);
 };
 
 export const onInstall: OnInstallHandler = async () => {
@@ -20,11 +55,12 @@ export const onInstall: OnInstallHandler = async () => {
       content: uiBox([
         uiHeading('Ducat installed', 'lg'),
         uiSection([
-          uiRow('Networks', 'Mainnet / Signet / Mutinynet'),
+          uiRow('Ducat deployments', installationNetworkSummary()),
           uiRow('Accounts', 'Bitcoin accounts from MetaMask SRP'),
           uiRow('Keys', 'Stay inside MetaMask'),
           uiRow('Approvals', 'Required for every message, PSBT, batch, and transfer'),
         ]),
+        uiMuted('Bitcoin Testnet account permission covers Regtest, Signet, Mutinynet, and Testnet4.'),
         uiBanner('Mainnet enabled', 'warning', 'Mainnet requests use distinct Bitcoin mainnet derivation paths and require the same MetaMask confirmations.'),
         uiMuted('Use the Ducat web app for create, deposit, borrow, repay, withdraw, swap, and liquidation flows.'),
       ]),

@@ -1,16 +1,17 @@
+/** @fileoverview Validates, summarizes, and signs requested managed PSBT inputs under ownership and fee invariants. */
 import { address as btcAddress, crypto, opcodes, Psbt, script as btcScript, Transaction } from 'bitcoinjs-lib';
 import { rootHashFromPath, tapleafHash, tweakKey } from 'bitcoinjs-lib/src/payments/bip341';
 import { Buffer } from 'buffer';
 
-import { type AccountKeySet, type AccountPublicSet, getNodeForRole, getOutputScriptForRole, getRoleForAddress } from './accounts';
+import { type AccountKeySet, type AccountPublicSet, getNodeForRole, getOutputScriptForRole, getRolesForAddress } from './accounts';
 import type { DucatKeyNode } from './bip32';
 import { matchCosignLeafHex } from './cosign-leaf';
 import { matchTimeoutLeafHex } from './timeout-leaf';
 import { ducatError } from './errors';
-import { bitcoinNetwork, guardianAllowlistEnforced, isKnownGuardianPubkey } from './networks';
+import { bitcoinNetwork, bitcoinNetworkForDeployment, guardianAllowlistEnforced, isKnownGuardianPubkey } from './networks';
 import type {
+  DeploymentId,
   DucatAddressRole,
-  DucatNetwork,
   DucatVaultActionFlag,
   DucatVaultReturnData,
   PsbtInputSummary,
@@ -28,12 +29,6 @@ const ALLOWED_ECDSA_SIGHASH_TYPES = [Transaction.SIGHASH_ALL];
 const ALLOWED_TAPROOT_SIGHASH_TYPES = [Transaction.SIGHASH_DEFAULT, Transaction.SIGHASH_ALL];
 const MAX_PSBT_INPUTS = 80;
 const MAX_PSBT_OUTPUTS = 120;
-// The confirmation dialog itemizes the first VISIBLE_OUTPUT_FOLD non-data outputs in transaction
-// order; we reject any PSBT where an external recipient would fall outside that visible slice
-// rather than silently collapsing it into the hidden-output aggregate (SAY-07), so every
-// destination a user signs over is itemized. confirmations.ts imports this constant to size its
-// own output slice, so validation and display can never drift apart.
-export const VISIBLE_OUTPUT_FOLD = 8;
 const DUCAT_VAULT_RETURN_VERSION = 1;
 const DUCAT_VAULT_RETURN_MIN_SIZE = 14;
 const DUCAT_VAULT_RETURN_LOCKED_SIZE = 38;
@@ -83,6 +78,11 @@ type PsbtSigner = {
   signSchnorr?: (hash: Buffer) => Buffer;
 };
 
+/**
+ * Adapts a bound BIP32-compatible signer to bitcoinjs-lib buffer contracts.
+ * @param node - Signing node with ECDSA and optional Schnorr capability.
+ * @returns Bound signer that preserves the node as its method receiver.
+ */
 export function toSigner(node: SignerLike): PsbtSigner {
   const sign = node.sign.bind(node);
   const signSchnorr = node.signSchnorr?.bind(node);
@@ -94,6 +94,11 @@ export function toSigner(node: SignerLike): PsbtSigner {
   };
 }
 
+/**
+ * Applies the BIP-341 key-path tweak to a managed Taproot signing node.
+ * @param node - Untweaked managed Taproot node.
+ * @returns Tweaked signer for key-path spends.
+ */
 export function taprootSigner(node: DucatKeyNode): PsbtSigner {
   const xOnlyPubkey = Buffer.from(node.publicKey).subarray(1, 33);
   const tweakedNode = node.tweak(crypto.taggedHash('TapTweak', xOnlyPubkey));
@@ -345,14 +350,36 @@ function assertAllowedSighashType(input: Psbt['data']['inputs'][number], index: 
   }
 }
 
+function resolveInputRole(
+  keySet: AccountPublicSet,
+  address: string,
+  input: Psbt['data']['inputs'][number],
+): DucatAddressRole | null {
+  const roles = getRolesForAddress(keySet, address);
+
+  if (roles.length <= 1) {
+    return roles[0] ?? null;
+  }
+
+  if (roles.includes('vault') && (input.tapLeafScript?.length ?? 0) > 0) {
+    return 'vault';
+  }
+
+  if (roles.includes('runes')) {
+    return 'runes';
+  }
+
+  return roles[0] ?? null;
+}
+
 function validateSignedInput(psbt: Psbt, index: number, address: string, keySet: AccountPublicSet): PsbtInputSummary {
-  const role = getRoleForAddress(keySet, address);
+  const input = psbt.data.inputs[index];
+  const role = resolveInputRole(keySet, address, input);
 
   if (!role) {
     throw ducatError('UNMANAGED_ADDRESS', 'This address is not managed by the Ducat Snap.', { address });
   }
 
-  const input = psbt.data.inputs[index];
   const witnessUtxo = input.witnessUtxo;
 
   if (!witnessUtxo) {
@@ -424,47 +451,14 @@ function assertUniqueInputOutpoints(psbt: Psbt): void {
   }
 }
 
-// Mirrors confirmations.ts isDataOutput: OP_RETURN and zero-value unknown scripts are data,
-// not spendable recipients, and are excluded from the itemized recipient list.
-function isSummaryDataOutput(output: PsbtOutputSummary): boolean {
-  return output.role === 'op_return' || (output.role === 'unknown' && output.valueSats === 0);
-}
-
-/**
- * Reject a PSBT where an external recipient would fall outside the dialog's visible output fold.
- *
- * The confirmation itemizes the first VISIBLE_OUTPUT_FOLD *non-data* outputs in transaction order
- * (change + external interleaved), then collapses the rest into a hidden aggregate. Counting only
- * external outputs is not enough (SAY-07 follow-up): change outputs ordered before a recipient
- * still consume visible slots, so a PSBT with several leading change outputs and a couple of later
- * recipients can push a recipient address past the fold even with few external outputs total. We
- * reject when any external output's position *among non-data outputs* is at or beyond the fold, so
- * the cap matches exactly what the user can see.
- */
-function assertAllExternalRecipientsVisible(summary: PsbtSummary): void {
-  let nonDataPosition = 0;
-
-  for (const output of summary.outputs) {
-    if (isSummaryDataOutput(output)) {
-      continue;
-    }
-
-    if (!output.isMine && nonDataPosition >= VISIBLE_OUTPUT_FOLD) {
-      throw ducatError('PSBT_TOO_MANY_RECIPIENTS', 'This PSBT has an external recipient the Ducat confirmation cannot individually display (it falls past the visible output list), so it was rejected rather than hiding the destination.', {
-        hiddenRecipientAddress: output.address,
-        visibleOutputFold: VISIBLE_OUTPUT_FOLD,
-      });
-    }
-
-    nonDataPosition += 1;
-  }
-}
-
 /**
  * Reject a batch where two entries spend the same outpoint. assertUniqueInputOutpoints
  * only deduplicates within a single PSBT, but the batch dialog promises "all-or-nothing"
  * and "signs the full batch in order" — a promise that cannot hold if entries conflict,
  * since two transactions spending the same UTXO can never both confirm (SAY-04).
+ * @param psbts - Prepared batch entries to compare.
+ * @returns Nothing when every outpoint appears in at most one entry.
+ * @throws When two batch entries spend the same previous output.
  */
 export function assertUniqueBatchOutpoints(psbts: Psbt[]): void {
   const seen = new Map<string, number>();
@@ -487,9 +481,9 @@ export function assertUniqueBatchOutpoints(psbts: Psbt[]): void {
   }
 }
 
-function parseOutputAddress(outputScript: Buffer, network: DucatNetwork): string {
+function parseOutputAddress(outputScript: Buffer, network: DeploymentId): string {
   try {
-    return btcAddress.fromOutputScript(outputScript, bitcoinNetwork(network));
+    return btcAddress.fromOutputScript(outputScript, bitcoinNetwork(bitcoinNetworkForDeployment(network)));
   } catch {
     const chunks = btcScript.decompile(outputScript);
     if (chunks?.[0] === opcodes.OP_RETURN) {
@@ -569,7 +563,7 @@ function decodeVaultActionFromSequences(inputs: Psbt['txInputs']): DecodedVaultA
 function inferVaultCollateralSats(
   action: DecodedVaultAction,
   outputs: Psbt['txOutputs'],
-  network: DucatNetwork,
+  network: DeploymentId,
   keySet: AccountPublicSet,
 ): number | undefined {
   const outputIndex = action.vaultOutputIndex;
@@ -621,7 +615,7 @@ function decodeLegacyDucatVaultReturn(
   action: DecodedVaultAction,
   outputIndex: number,
   outputs: Psbt['txOutputs'],
-  network: DucatNetwork,
+  network: DeploymentId,
   keySet: AccountPublicSet,
 ): DucatVaultReturnData | null {
   if (payload.length !== DUCAT_VAULT_RETURN_MIN_SIZE && payload.length !== DUCAT_VAULT_RETURN_LOCKED_SIZE) {
@@ -672,7 +666,7 @@ function decodeCoreDucatVaultReturn(
   action: DecodedVaultAction,
   outputIndex: number,
   outputs: Psbt['txOutputs'],
-  network: DucatNetwork,
+  network: DeploymentId,
   keySet: AccountPublicSet,
 ): DucatVaultReturnData | null {
   if (payload.length < 2 || payload[0] !== DUCAT_VAULT_RETURN_VERSION) {
@@ -760,7 +754,7 @@ function decodeDucatVaultReturn(
   outputScript: Buffer,
   outputIndex: number,
   psbt: Psbt,
-  network: DucatNetwork,
+  network: DeploymentId,
   keySet: AccountPublicSet,
 ): DucatVaultReturnData | null {
   const chunks = btcScript.decompile(outputScript);
@@ -793,7 +787,14 @@ function allSignedInputIndexes(signInputs: SignInputs): number[] {
     .sort((a, b) => a - b);
 }
 
-export function parsePsbt(psbtBase64: string, network: DucatNetwork): Psbt {
+/**
+ * Decodes a size-bounded base64 PSBT and translates parser failures into stable Snap errors.
+ * @param psbtBase64 - Untrusted serialized PSBT.
+ * @param network - Network used for address decoding.
+ * @returns Parsed bitcoinjs-lib PSBT.
+ * @throws On oversized, duplicate-input, or malformed PSBT data.
+ */
+export function parsePsbt(psbtBase64: string, network: DeploymentId): Psbt {
   if (psbtBase64.length > MAX_PSBT_BASE64_LENGTH) {
     throw ducatError('PSBT_TOO_LARGE', 'This PSBT is too large for the Ducat Snap to display and sign safely.', {
       maxBase64Length: MAX_PSBT_BASE64_LENGTH,
@@ -802,7 +803,7 @@ export function parsePsbt(psbtBase64: string, network: DucatNetwork): Psbt {
   }
 
   try {
-    return Psbt.fromBase64(psbtBase64, { network: bitcoinNetwork(network) });
+    return Psbt.fromBase64(psbtBase64, { network: bitcoinNetwork(bitcoinNetworkForDeployment(network)) });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -862,9 +863,19 @@ function buildWarnings(feeSats: number | null, outputs: PsbtOutputSummary[]): st
   return warnings;
 }
 
+/**
+ * Builds the approval summary from verified inputs, visible outputs, fees, and Ducat metadata.
+ * @param psbt - Parsed transaction.
+ * @param network - Network used for address and protocol decoding.
+ * @param keySet - Verified public account ownership set.
+ * @param signInputs - Caller-requested managed input indexes.
+ * @param signedInputs - Inputs already validated for ownership and policy.
+ * @returns Complete user-visible transaction summary.
+ * @throws When transaction values imply a negative fee.
+ */
 export function summarizePsbt(
   psbt: Psbt,
-  network: DucatNetwork,
+  network: DeploymentId,
   keySet: AccountPublicSet,
   signInputs: SignInputs,
   signedInputs: PsbtInputSummary[],
@@ -884,6 +895,7 @@ export function summarizePsbt(
 
     return {
       address: outputAddress,
+      scriptHex: outputScript.toString('hex'),
       valueSats: output.value,
       isMine: role === 'sats' || role === 'runes' || role === 'vault',
       role,
@@ -914,6 +926,7 @@ export function summarizePsbt(
     signedInputValueSats: signedInputs.every((input) => input.valueSats !== null)
       ? signedInputs.reduce((total, input) => total + (input.valueSats ?? 0), 0)
       : null,
+    unitInputs: [],
     outputValueSats,
     externalOutputSats: outputs.filter((output) => !output.isMine).reduce((total, output) => total + output.valueSats, 0),
     selfOutputSats: outputs.filter((output) => output.isMine).reduce((total, output) => total + output.valueSats, 0),
@@ -922,7 +935,16 @@ export function summarizePsbt(
   };
 }
 
-export function preparePsbtForSigning(psbtBase64: string, network: DucatNetwork, keySet: AccountPublicSet, signInputs: SignInputs): {
+/**
+ * Validates PSBT bounds, unique outpoints, requested indexes, ownership, sighash policy, and recipients.
+ * @param psbtBase64 - Untrusted serialized PSBT.
+ * @param network - Selected signing network.
+ * @param keySet - Verified public account ownership set.
+ * @param signInputs - Exact address-to-input authorization map.
+ * @returns Parsed PSBT and complete approval summary.
+ * @throws When any input, output, fee, or visibility invariant fails.
+ */
+export function preparePsbtForSigning(psbtBase64: string, network: DeploymentId, keySet: AccountPublicSet, signInputs: SignInputs): {
   psbt: Psbt;
   summary: PsbtSummary;
 } {
@@ -953,29 +975,35 @@ export function preparePsbtForSigning(psbtBase64: string, network: DucatNetwork,
 
   const summary = summarizePsbt(psbt, network, keySet, signInputs, signedInputs);
 
-  assertAllExternalRecipientsVisible(summary);
-
   return {
     psbt,
     summary,
   };
 }
 
+/**
+ * Signs only authorized managed inputs using role-specific ECDSA or Taproot paths.
+ * @param psbt - Fully prepared PSBT whose policy checks already passed.
+ * @param keySet - Active private signing key set.
+ * @param signInputs - Exact address-to-input authorization map shown for approval.
+ * @returns Partially or fully signed PSBT encoded as base64.
+ * @throws When ownership, internal-key, tapleaf, or sighash policy is violated.
+ */
 export function signPreparedPsbt(psbt: Psbt, keySet: AccountKeySet, signInputs: SignInputs): string {
   for (const [inputAddress, indexes] of Object.entries(signInputs)) {
-    const role = getRoleForAddress(keySet, inputAddress);
-
-    if (!role) {
-      throw ducatError('UNMANAGED_ADDRESS', 'This address is not managed by the Ducat Snap.', { address: inputAddress });
-    }
-
     for (const index of indexes) {
+      const input = psbt.data.inputs[index];
+      const role = resolveInputRole(keySet, inputAddress, input);
+
+      if (!role) {
+        throw ducatError('UNMANAGED_ADDRESS', 'This address is not managed by the Ducat Snap.', { address: inputAddress });
+      }
+
       const node = getNodeForRole(keySet, role);
 
       if (role === 'sats') {
         psbt.signInput(index, toSigner(node), ALLOWED_ECDSA_SIGHASH_TYPES);
       } else {
-        const input = psbt.data.inputs[index];
         const inputScript = input.witnessUtxo ? Buffer.from(input.witnessUtxo.script) : null;
         const expectedScript = getOutputScriptForRole(keySet, role);
         const isKeyPathSpend = !!inputScript && sameScript(inputScript, expectedScript);

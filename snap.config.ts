@@ -15,6 +15,7 @@ const config: SnapConfig = {
   // (env values from the shell override this default). It must NEVER be 'true' in the
   // published/audited mainnet manifest.
   environment: {
+    DUCAT_SNAP_ARTIFACT_POLICY: 'production',
     DUCAT_SNAP_DEV_UNPROMPTED: process.env.DUCAT_SNAP_DEV_UNPROMPTED ?? 'false',
     // Dev-only debug logging (src/debug.ts). Pinned to 'false' for the DEFAULT/
     // published build so every snapDebug() call dead-code-eliminates; a dev build
@@ -26,13 +27,8 @@ const config: SnapConfig = {
     // a dev build sets it explicitly, e.g.:
     //   DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000 mm-snap build
     DUCAT_SNAP_DEV_ORIGINS: process.env.DUCAT_SNAP_DEV_ORIGINS ?? '',
-    // Dev-only `regtest` network (src/networks.ts). Pinned to 'false' for the
-    // DEFAULT/published build so the local DUCAT regtest stack — its `http://localhost`
-    // esplora/validator endpoints and its unpinned-guardian network — is statically
-    // dead-code-eliminated and `regtest` is rejected as an unknown network. A dev
-    // build enables it explicitly, e.g.:
-    //   DUCAT_SNAP_DEV_REGTEST=true mm-snap build
-    DUCAT_SNAP_DEV_REGTEST: process.env.DUCAT_SNAP_DEV_REGTEST ?? 'false',
+    ALPHA_MAINNET_VALIDATOR_BASE_URL: '',
+    ALPHA_MAINNET_ESPLORA_BASE_URL: '',
   },
 };
 

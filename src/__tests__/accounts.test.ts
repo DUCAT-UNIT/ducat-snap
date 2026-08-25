@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 
-import { accountPublicSetFromRecord, deriveAccountSetFromBaseNodes, SATS_BASE_PATHS, TAPROOT_BASE_PATHS } from '../accounts';
+import { accountPublicSetFromRecord, deriveAccountSetFromBaseNodes, getRolesForAddress, SATS_BASE_PATHS, TAPROOT_BASE_PATHS } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 
 function testNode(byte: number) {
@@ -61,6 +61,19 @@ describe('Ducat account derivation', () => {
     expect('runesNode' in publicSet).toBe(false);
     expect('vaultNode' in publicSet).toBe(false);
     expect('taprootNode' in publicSet).toBe(false);
+  });
+
+  it('accepts one Taproot key shared by the runes and vault roles', () => {
+    const keySet = deriveAccountSetFromBaseNodes('mutinynet', testNode(1), testNode(2));
+    const sharedRecord = {
+      ...keySet.record,
+      vault: { ...keySet.record.runes },
+    };
+    const publicSet = accountPublicSetFromRecord('mutinynet', sharedRecord);
+
+    expect(publicSet.vaultInternalPubkey.equals(publicSet.runesInternalPubkey)).toBe(true);
+    expect(publicSet.vaultOutputScript.equals(publicSet.runesOutputScript)).toBe(true);
+    expect(getRolesForAddress(publicSet, sharedRecord.runes.address)).toEqual(['runes', 'vault']);
   });
 
   it('rejects account records whose addresses do not match their public keys', () => {

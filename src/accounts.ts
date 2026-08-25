@@ -1,24 +1,29 @@
+/** @fileoverview Derives and validates network-specific BTC, UNIT, and vault accounts without exposing private nodes. */
 import * as ecc from '@bitcoin-js/tiny-secp256k1-asmjs';
 import { initEccLib, payments } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
 import { DucatKeyNode } from './bip32';
-import { bitcoinNetwork, normalizeNetwork } from './networks';
-import type { DucatAddressRole, DucatNetwork, WalletAccountRecord } from './types';
+import { bitcoinNetwork, bitcoinNetworkForDeployment, normalizeDeploymentId } from './networks';
+import type { DeploymentId, DucatAccount, DucatAddressRole, WalletAccountRecord } from './types';
 
 initEccLib(ecc);
 
-export const SATS_BASE_PATHS: Record<DucatNetwork, string[]> = {
+export const SATS_BASE_PATHS: Record<DeploymentId, string[]> = {
   mainnet: ['m', "84'", "0'"],
+  'alpha-mainnet': ['m', "84'", "0'"],
   signet: ['m', "84'", "1'"],
   mutinynet: ['m', "84'", "1'"],
+  testnet4: ['m', "84'", "1'"],
   // regtest shares the testnet coin type (1'), matching the local DUCAT stack.
   regtest: ['m', "84'", "1'"],
 };
-export const TAPROOT_BASE_PATHS: Record<DucatNetwork, string[]> = {
+export const TAPROOT_BASE_PATHS: Record<DeploymentId, string[]> = {
   mainnet: ['m', "86'", "0'"],
+  'alpha-mainnet': ['m', "86'", "0'"],
   signet: ['m', "86'", "1'"],
   mutinynet: ['m', "86'", "1'"],
+  testnet4: ['m', "86'", "1'"],
   // regtest shares the testnet coin type (1') so vault keys match signet/mutinynet.
   regtest: ['m', "86'", "1'"],
 };
@@ -29,7 +34,7 @@ type SnapBip32Entropy = {
 };
 
 export type AccountPublicSet = {
-  network: DucatNetwork;
+  network: DeploymentId;
   record: WalletAccountRecord;
   satsOutputScript: Buffer;
   runesOutputScript: Buffer;
@@ -68,12 +73,13 @@ function deriveAccountNode(baseNode: DucatKeyNode, index = 0): DucatKeyNode {
   return baseNode.deriveHardened(0).derive(0).derive(index);
 }
 
+/** @param publicKey - Compressed or x-only secp256k1 public key. @returns Its 32-byte x-only form. */
 export function toXOnly(publicKey: Buffer): Buffer {
   return publicKey.length === 32 ? publicKey : publicKey.subarray(1, 33);
 }
 
-function taprootPayment(network: DucatNetwork, label: string, internalPubkey: Buffer): { address: string; output: Buffer } {
-  const net = bitcoinNetwork(network);
+function taprootPayment(network: DeploymentId, label: string, internalPubkey: Buffer): { address: string; output: Buffer } {
+  const net = bitcoinNetwork(bitcoinNetworkForDeployment(network));
   const payment = payments.p2tr({ internalPubkey, network: net });
 
   if (!payment.address || !payment.output) {
@@ -83,8 +89,45 @@ function taprootPayment(network: DucatNetwork, label: string, internalPubkey: Bu
   return { address: payment.address, output: payment.output };
 }
 
-function accountRecordFromNodes(network: DucatNetwork, satsNode: DucatKeyNode, runesNode: DucatKeyNode, vaultNode: DucatKeyNode): AccountKeySet {
-  const net = bitcoinNetwork(network);
+/**
+ * Derives a network-specific native-SegWit account from a compressed public key.
+ * @param network - Ducat network controlling address encoding.
+ * @param publicKey - Compressed secp256k1 public key.
+ * @returns Public account fields and expected scriptPubKey.
+ * @throws When address derivation fails.
+ */
+export function p2wpkhAccount(network: DeploymentId, publicKey: Buffer): DucatAccount & { output: Buffer } {
+  const payment = payments.p2wpkh({ pubkey: publicKey, network: bitcoinNetwork(bitcoinNetworkForDeployment(network)) });
+
+  if (!payment.address || !payment.output) {
+    throw new Error('Failed to derive imported sats account.');
+  }
+
+  return {
+    address: payment.address,
+    pubkey: publicKey.toString('hex'),
+    output: payment.output,
+  };
+}
+
+/**
+ * Derives a key-path Taproot account from an x-only internal key.
+ * @param network - Ducat network controlling address encoding.
+ * @param internalPubkey - Untweaked x-only internal public key.
+ * @returns Public account fields and expected P2TR scriptPubKey.
+ */
+export function p2trAccount(network: DeploymentId, internalPubkey: Buffer): DucatAccount & { output: Buffer } {
+  const payment = taprootPayment(network, 'imported', internalPubkey);
+
+  return {
+    address: payment.address,
+    pubkey: internalPubkey.toString('hex'),
+    output: payment.output,
+  };
+}
+
+function accountRecordFromNodes(network: DeploymentId, satsNode: DucatKeyNode, runesNode: DucatKeyNode, vaultNode: DucatKeyNode): AccountKeySet {
+  const net = bitcoinNetwork(bitcoinNetworkForDeployment(network));
   const satsPubkey = Buffer.from(satsNode.publicKey);
   const runesInternalPubkey = toXOnly(Buffer.from(runesNode.publicKey));
   const vaultInternalPubkey = toXOnly(Buffer.from(vaultNode.publicKey));
@@ -137,9 +180,16 @@ function accountRecordFromNodes(network: DucatNetwork, satsNode: DucatKeyNode, r
   };
 }
 
+/**
+ * Reconstructs scripts from persisted public keys and verifies every stored address and role split.
+ * @param networkInput - Untrusted network identifier.
+ * @param record - Persisted public wallet account record.
+ * @returns Verified public account set with expected scripts.
+ * @throws When an address does not match its corresponding public key.
+ */
 export function accountPublicSetFromRecord(networkInput: unknown, record: WalletAccountRecord): AccountPublicSet {
-  const network = normalizeNetwork(networkInput);
-  const net = bitcoinNetwork(network);
+  const network = normalizeDeploymentId(networkInput);
+  const net = bitcoinNetwork(bitcoinNetworkForDeployment(network));
   const satsPubkey = hexBuffer('sats.pubkey', record.sats.pubkey, 33);
   const runesInternalPubkey = hexBuffer('runes.pubkey', record.runes.pubkey, 32);
   const vaultInternalPubkey = hexBuffer('vault.pubkey', record.vault.pubkey, 32);
@@ -163,10 +213,6 @@ export function accountPublicSetFromRecord(networkInput: unknown, record: Wallet
     throw new Error(`vault address does not match vault.pubkey. Expected ${vaultPayment.address}, got ${record.vault.address}.`);
   }
 
-  if (record.runes.address === record.vault.address || record.runes.pubkey === record.vault.pubkey) {
-    throw new Error('runes and vault accounts must use distinct Taproot keys.');
-  }
-
   return {
     network,
     record,
@@ -180,12 +226,18 @@ export function accountPublicSetFromRecord(networkInput: unknown, record: Wallet
   };
 }
 
+/**
+ * Derives index-0 sats/runes keys and a distinct index-1 vault key from role base nodes.
+ * @param networkInput - Untrusted network identifier.
+ * @param baseNodes - BIP32 nodes isolated by managed address role.
+ * @returns Private key nodes and their verified public account record.
+ */
 export function deriveAccountSetFromBaseNodes(
   networkInput: unknown,
   satsBaseNode: DucatKeyNode,
   taprootBaseNode: DucatKeyNode,
 ): AccountKeySet {
-  const network = normalizeNetwork(networkInput);
+  const network = normalizeDeploymentId(networkInput);
 
   return accountRecordFromNodes(network, deriveAccountNode(satsBaseNode), deriveAccountNode(taprootBaseNode, 0), deriveAccountNode(taprootBaseNode, 1));
 }
@@ -206,30 +258,52 @@ async function getBip32BaseNode(path: string[]): Promise<DucatKeyNode> {
   return DucatKeyNode.fromPrivateKey(Buffer.from(trimHexPrefix(node.privateKey), 'hex'), Buffer.from(trimHexPrefix(node.chainCode), 'hex'));
 }
 
+/**
+ * Requests network-specific BIP32 entropy from MetaMask and derives the managed account set.
+ * @param networkInput - Untrusted network identifier.
+ * @returns Signing nodes retained inside the Snap plus public account metadata.
+ */
 export async function getAccountKeySet(networkInput: unknown): Promise<AccountKeySet> {
-  const network = normalizeNetwork(networkInput);
+  const network = normalizeDeploymentId(networkInput);
   const satsBaseNode = await getBip32BaseNode(SATS_BASE_PATHS[network]);
   const taprootBaseNode = await getBip32BaseNode(TAPROOT_BASE_PATHS[network]);
 
   return deriveAccountSetFromBaseNodes(network, satsBaseNode, taprootBaseNode);
 }
 
-export function getRoleForAddress(keySet: AccountPublicSet, address: string): DucatAddressRole | null {
+/**
+ * Classifies an address against the managed sats, runes, and vault roles.
+ * @param keySet - Verified public account set.
+ * @param address - Candidate Bitcoin address.
+ * @returns Matching role or null when not owned.
+ */
+export function getRolesForAddress(keySet: AccountPublicSet, address: string): DucatAddressRole[] {
+  const roles: DucatAddressRole[] = [];
+
   if (address === keySet.record.sats.address) {
-    return 'sats';
+    roles.push('sats');
   }
 
   if (address === keySet.record.runes.address) {
-    return 'runes';
+    roles.push('runes');
   }
 
   if (address === keySet.record.vault.address) {
-    return 'vault';
+    roles.push('vault');
   }
 
-  return null;
+  return roles;
 }
 
+/**
+ * Resolves an address to one role for APIs that do not carry input context.
+ * PSBT signing must use its input-aware resolver when an address has multiple roles.
+ */
+export function getRoleForAddress(keySet: AccountPublicSet, address: string): DucatAddressRole | null {
+  return getRolesForAddress(keySet, address)[0] ?? null;
+}
+
+/** @param keySet - Verified public account set. @param role - Managed address role. @returns Expected scriptPubKey. */
 export function getOutputScriptForRole(keySet: AccountPublicSet, role: DucatAddressRole): Buffer {
   if (role === 'sats') {
     return keySet.satsOutputScript;
@@ -238,10 +312,12 @@ export function getOutputScriptForRole(keySet: AccountPublicSet, role: DucatAddr
   return role === 'runes' ? keySet.runesOutputScript : keySet.vaultOutputScript;
 }
 
+/** @param keySet - Verified public account set. @param role - Managed Taproot role. @returns X-only internal public key. */
 export function getInternalPubkeyForRole(keySet: AccountPublicSet, role: Exclude<DucatAddressRole, 'sats'>): Buffer {
   return role === 'runes' ? keySet.runesInternalPubkey : keySet.vaultInternalPubkey;
 }
 
+/** @param keySet - Active private account key set. @param role - Managed address role. @returns Private signing node for that role. */
 export function getNodeForRole(keySet: AccountKeySet, role: DucatAddressRole): DucatKeyNode {
   if (role === 'sats') {
     return keySet.satsNode;

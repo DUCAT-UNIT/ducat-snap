@@ -6,8 +6,8 @@
 //      skipped because the path is unreachable.
 //   2. DEV (DUCAT_SNAP_DEV_UNPROMPTED=true): the method signs WITHOUT a snap_dialog confirmation
 //      on non-mainnet networks...
-//   3. ...but mainnet is HARD-REFUSED even in a dev build (UNPROMPTED_MAINNET_FORBIDDEN), and no
-//      signing occurs.
+//   3. ...but every mainnet-backed deployment is normalized and refused at the RPC call site
+//      before state, key, dialog, or signing effects.
 //   4. The normal `ducat_signPsbt` ALWAYS shows the dialog regardless of the build flag.
 //
 // `DEV_UNPROMPTED_ENABLED` is evaluated at module load from process.env, so each scenario loads
@@ -20,7 +20,13 @@ import { deriveAccountSetFromBaseNodes } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 import { bitcoinNetwork } from '../networks';
 
+jest.mock('../psbt-verification', () => ({
+  createPsbtVerificationContext: jest.fn(async () => ({ verify: jest.fn(async () => undefined) })),
+}));
+
 const ORIGIN = 'https://app.ducatprotocol.com';
+const DEV_ORIGIN = 'http://localhost:3000';
+const DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
 
 function testNode(byte: number) {
   return DucatKeyNode.fromPrivateKey(Buffer.alloc(32, byte), Buffer.alloc(32, byte + 10));
@@ -30,9 +36,12 @@ function testKeySet() {
   return deriveAccountSetFromBaseNodes('signet', testNode(1), testNode(2));
 }
 
-function setSnapMock(dialogResult = true) {
-  let managedState: unknown = null;
-  const request = jest.fn(async ({ method, params }: { method: string; params?: { operation?: string; path?: string[]; newState?: unknown } }) => {
+function setSnapMock(dialogResult = true, selectedNetwork: 'signet' | 'mainnet' = 'signet') {
+  let managedState: unknown = { recentActions: [], selectedNetwork };
+  const request = jest.fn(async ({ method, params }: {
+    method: string;
+    params?: { key?: string; operation?: string; path?: string[]; value?: unknown };
+  }) => {
     if (method === 'snap_getBip32Entropy') {
       const byte = params?.path?.[1] === "84'" ? 1 : 2;
       return { privateKey: Buffer.alloc(32, byte).toString('hex'), chainCode: Buffer.alloc(32, byte + 10).toString('hex') };
@@ -44,8 +53,13 @@ function setSnapMock(dialogResult = true) {
       if (params?.operation === 'get') {
         return managedState;
       }
-      managedState = params?.newState ?? null;
-      return undefined;
+    }
+    if (method === 'snap_setState' && params?.key) {
+      const current = managedState && typeof managedState === 'object' && !Array.isArray(managedState)
+        ? managedState
+        : {};
+      managedState = { ...current, [params.key]: params.value };
+      return null;
     }
     if (method === 'snap_notify') {
       return undefined;
@@ -68,30 +82,60 @@ function makeSignablePsbt(value: number, seed: number) {
   return { keySet, psbt: psbt.toBase64() };
 }
 
+function makeUnknownFeePsbt() {
+  const keySet = testKeySet();
+  const psbt = new Psbt({ network: bitcoinNetwork('signet') });
+  psbt.addInput({
+    hash: Buffer.alloc(32, 6).toString('hex'),
+    index: 0,
+    witnessUtxo: { script: keySet.satsOutputScript, value: 100_000 },
+  });
+  psbt.addInput({ hash: Buffer.alloc(32, 7).toString('hex'), index: 0 });
+  psbt.addOutput({ address: keySet.record.sats.address, value: 90_000 });
+  return { keySet, psbt: psbt.toBase64() };
+}
+
 function dialogWasShown(request: ReturnType<typeof setSnapMock>): boolean {
   return request.mock.calls.some(([arg]) => (arg as { method: string }).method === 'snap_dialog');
 }
 
 // Load ../rpc fresh with DUCAT_SNAP_DEV_UNPROMPTED set to the given value (or unset).
 function loadRpcWithFlag(value: 'true' | 'false' | undefined): { handleRpcRequest: typeof import('../rpc').handleRpcRequest; DEV_UNPROMPTED_ENABLED: boolean } {
-  const prev = process.env.DUCAT_SNAP_DEV_UNPROMPTED;
+  const previous = {
+    policy: process.env.DUCAT_SNAP_ARTIFACT_POLICY,
+    origins: process.env.DUCAT_SNAP_DEV_ORIGINS,
+    unprompted: process.env.DUCAT_SNAP_DEV_UNPROMPTED,
+    debug: process.env.DUCAT_SNAP_DEBUG,
+    validator: process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL,
+    esplora: process.env.ALPHA_MAINNET_ESPLORA_BASE_URL,
+  };
+  process.env.DUCAT_SNAP_ARTIFACT_POLICY = value === 'true' ? 'development' : 'production';
+  process.env.DUCAT_SNAP_DEBUG = 'false';
+  process.env.ALPHA_MAINNET_VALIDATOR_BASE_URL = 'https://validator-mainnet.alpha.ducatprotocol.com';
+  process.env.ALPHA_MAINNET_ESPLORA_BASE_URL = 'https://mempool.space/api';
+  if (value === 'true') process.env.DUCAT_SNAP_DEV_ORIGINS = DEV_ORIGINS;
+  else delete process.env.DUCAT_SNAP_DEV_ORIGINS;
   if (value === undefined) {
     delete process.env.DUCAT_SNAP_DEV_UNPROMPTED;
   } else {
     process.env.DUCAT_SNAP_DEV_UNPROMPTED = value;
   }
 
-  let mod!: typeof import('../rpc');
-  jest.isolateModules(() => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    mod = require('../rpc');
-  });
+  jest.resetModules();
+  const mod = require('../rpc') as typeof import('../rpc');
 
-  if (prev === undefined) {
-    delete process.env.DUCAT_SNAP_DEV_UNPROMPTED;
-  } else {
-    process.env.DUCAT_SNAP_DEV_UNPROMPTED = prev;
+  for (const [name, previousValue] of [
+    ['DUCAT_SNAP_ARTIFACT_POLICY', previous.policy],
+    ['DUCAT_SNAP_DEV_ORIGINS', previous.origins],
+    ['DUCAT_SNAP_DEV_UNPROMPTED', previous.unprompted],
+    ['DUCAT_SNAP_DEBUG', previous.debug],
+    ['ALPHA_MAINNET_VALIDATOR_BASE_URL', previous.validator],
+    ['ALPHA_MAINNET_ESPLORA_BASE_URL', previous.esplora],
+  ] as const) {
+    if (previousValue === undefined) delete process.env[name];
+    else process.env[name] = previousValue;
   }
+  jest.resetModules();
   return { handleRpcRequest: mod.handleRpcRequest, DEV_UNPROMPTED_ENABLED: mod.DEV_UNPROMPTED_ENABLED };
 }
 
@@ -138,7 +182,7 @@ describe('unprompted signing — dev build (flag on)', () => {
     const request = setSnapMock();
     const { keySet, psbt } = makeSignablePsbt(100_000, 3);
 
-    const result = (await handleRpcRequest(ORIGIN, {
+    const result = (await handleRpcRequest(DEV_ORIGIN, {
       method: 'ducat_signPsbtUnprompted',
       params: { network: 'signet', psbt, signInputs: { [keySet.record.sats.address]: [0] } },
     })) as { psbt: string };
@@ -150,18 +194,39 @@ describe('unprompted signing — dev build (flag on)', () => {
     expect(dialogWasShown(request)).toBe(false);
   });
 
-  it('HARD-REFUSES mainnet even in a dev build, and does not sign', async () => {
+  it('rejects an unknown miner fee without showing a dialog or signing', async () => {
     const { handleRpcRequest } = loadRpcWithFlag('true');
     const request = setSnapMock();
+    const { keySet, psbt } = makeUnknownFeePsbt();
+
+    await expect(
+      handleRpcRequest(DEV_ORIGIN, {
+        method: 'ducat_signPsbtUnprompted',
+        params: { network: 'signet', psbt, signInputs: { [keySet.record.sats.address]: [0] } },
+      }),
+    ).rejects.toMatchObject({ code: 'PSBT_FEE_UNAVAILABLE' });
+    expect(dialogWasShown(request)).toBe(false);
+  });
+
+  it.each([
+    ['mainnet', 'mainnet'],
+    ['main', 'mainnet'],
+    ['alpha-mainnet', 'alpha-mainnet'],
+  ] as const)('refuses mainnet-backed deployment %s before every wallet effect', async (deployment, canonical) => {
+    const { handleRpcRequest } = loadRpcWithFlag('true');
+    const request = setSnapMock(true, 'mainnet');
     const { keySet, psbt } = makeSignablePsbt(100_000, 4);
 
     await expect(
-      handleRpcRequest(ORIGIN, {
+      handleRpcRequest(DEV_ORIGIN, {
         method: 'ducat_signPsbtUnprompted',
-        params: { network: 'mainnet', psbt, signInputs: { [keySet.record.sats.address]: [0] } },
+        params: { network: deployment, psbt, signInputs: { [keySet.record.sats.address]: [0] } },
       }),
-    ).rejects.toMatchObject({ code: 'UNPROMPTED_MAINNET_FORBIDDEN' });
-    expect(dialogWasShown(request)).toBe(false);
+    ).rejects.toMatchObject({
+      code: 'DEPLOYMENT_NOT_AVAILABLE',
+      details: { artifactPolicy: 'development', deploymentId: canonical },
+    });
+    expect(request).not.toHaveBeenCalled();
   });
 
   it('still requires the dialog for the normal ducat_signPsbt method even when the flag is on', async () => {
@@ -169,7 +234,7 @@ describe('unprompted signing — dev build (flag on)', () => {
     const request = setSnapMock();
     const { keySet, psbt } = makeSignablePsbt(100_000, 5);
 
-    await handleRpcRequest(ORIGIN, {
+    await handleRpcRequest(DEV_ORIGIN, {
       method: 'ducat_signPsbt',
       params: { network: 'signet', psbt, signInputs: { [keySet.record.sats.address]: [0] } },
     });

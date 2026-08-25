@@ -21,8 +21,10 @@ const UNSPENDABLE_TAPROOT_KEY = Buffer.from('50929b74c1a04954b78b4b6035e97a5e078
 // Must be an origin the Snap authorizes (see DUCAT_ALLOWED_ORIGINS). The published allowlist is
 // HTTPS Ducat-only; override with DUCAT_HARNESS_ORIGIN for a local dev manifest if needed.
 const DEFAULT_ORIGIN = 'https://app.ducatprotocol.com';
-const DEFAULT_NETWORK = 'mutinynet';
+const DEFAULT_NETWORK = 'regtest';
 const DEFAULT_SRP = 'test test test test test test test test test test test ball';
+const REGTEST_GENESIS_HASH = '0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206';
+const HARNESS_UNIT_ASSET_ID = '123:45';
 const MIME_TYPES = {
   '.js': 'application/javascript',
   '.json': 'application/json',
@@ -74,6 +76,102 @@ export function serveSnapDirectory(root, port = 0) {
       }
 
       resolveServer({ server, port: address.port });
+    });
+    server.on('error', rejectServer);
+  });
+}
+
+function harnessProtoLatest() {
+  const term = (key, value) => ({ group: 63, key, value: [value] });
+  return {
+    chain_network: 'regtest',
+    proto_terms: [
+      term(241, 0.1), term(242, 1.5), term(243, '11'.repeat(32)), term(244, 546),
+      term(245, 0.01), term(246, 1.1), term(247, HARNESS_UNIT_ASSET_ID), term(248, 1),
+      term(249, 1.5), term(250, 10_000),
+    ],
+  };
+}
+
+/**
+ * Serves the minimum trusted regtest data surface needed by the signing
+ * harness. Fixtures are registered independently before a synthetic PSBT is
+ * submitted, so the production Snap still exercises its full verification
+ * path inside SES.
+ */
+export function serveWalletDataFixture(port = 0) {
+  const walletUtxos = new Map();
+  const prevouts = new Map();
+
+  return new Promise((resolveServer, rejectServer) => {
+    const server = createServer((request, response) => {
+      const url = new URL(request.url ?? '/', 'http://localhost');
+      const json = (body, status = 200) => {
+        response.setHeader('Content-Type', 'application/json');
+        response.writeHead(status);
+        response.end(JSON.stringify(body));
+      };
+
+      if (url.pathname === '/block-height/0') {
+        response.writeHead(200, { 'Content-Type': 'text/plain' });
+        response.end(REGTEST_GENESIS_HASH);
+        return;
+      }
+      if (url.pathname === '/api/proto/latest') {
+        json(harnessProtoLatest());
+        return;
+      }
+      const btcAddressMatch = /^\/address\/([^/]+)\/utxo$/u.exec(url.pathname);
+      if (btcAddressMatch) {
+        json(walletUtxos.get(decodeURIComponent(btcAddressMatch[1])) ?? []);
+        return;
+      }
+      if (/^\/api\/address\/[^/]+$/u.test(url.pathname)) {
+        json({ data: [] });
+        return;
+      }
+      const spendMatch = /^\/tx\/([0-9a-f]{64})\/outspend\/([0-9]+)$/iu.exec(url.pathname);
+      if (spendMatch) {
+        const fixture = prevouts.get(`${spendMatch[1].toLowerCase()}:${Number(spendMatch[2])}`);
+        json({ spent: fixture?.spent ?? false });
+        return;
+      }
+      const txMatch = /^\/tx\/([0-9a-f]{64})$/iu.exec(url.pathname);
+      if (txMatch) {
+        const txid = txMatch[1].toLowerCase();
+        const fixtures = [...prevouts.values()].filter((fixture) => fixture.txid === txid);
+        if (!fixtures.length) {
+          json({ error: 'not found' }, 404);
+          return;
+        }
+        const vout = [];
+        for (const fixture of fixtures) {
+          vout[fixture.vout] = { scriptpubkey: fixture.scriptPubKey, value: fixture.valueSats };
+        }
+        json({ txid, vout });
+        return;
+      }
+      json({ error: 'not found' }, 404);
+    });
+
+    server.listen(port, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        rejectServer(new Error('Unable to resolve wallet-data harness server address.'));
+        return;
+      }
+      resolveServer({
+        server,
+        port: address.port,
+        registerWalletUtxo(addressValue, fixture) {
+          const rows = walletUtxos.get(addressValue) ?? [];
+          rows.push({ txid: fixture.txid, vout: fixture.vout, value: fixture.valueSats });
+          walletUtxos.set(addressValue, rows);
+        },
+        registerPrevout(fixture) {
+          prevouts.set(`${fixture.txid}:${fixture.vout}`, { ...fixture, spent: fixture.spent ?? false });
+        },
+      });
     });
     server.on('error', rejectServer);
   });
@@ -159,12 +257,36 @@ export async function openDucatSnapHarness(options = {}) {
   const network = options.network ?? process.env.DUCAT_NETWORK ?? DEFAULT_NETWORK;
   const secretRecoveryPhrase = options.secretRecoveryPhrase ?? process.env.DUCAT_HARNESS_SRP ?? DEFAULT_SRP;
   const { server, port } = await serveSnapDirectory(root, options.port ?? 0);
+  const walletData = network === 'regtest' ? await serveWalletDataFixture(options.walletDataPort ?? 0) : null;
   const snapId = `local:http://localhost:${port}`;
-  const snap = await installSnap(snapId, {
-    options: {
-      secretRecoveryPhrase,
-    },
-  });
+  let snap;
+  try {
+    const walletDataBaseUrl = walletData ? `http://127.0.0.1:${walletData.port}` : null;
+    snap = await installSnap(snapId, {
+      options: {
+        secretRecoveryPhrase,
+        state: walletDataBaseUrl
+          ? {
+              recentActions: [],
+              selectedNetwork: network,
+              networkEndpointOverrides: {
+                [network]: {
+                  validator_base_url: walletDataBaseUrl,
+                  esplora_base_url: walletDataBaseUrl,
+                  network_identity_verified: true,
+                },
+              },
+            }
+          : undefined,
+      },
+    });
+  } catch (error) {
+    await Promise.all([
+      new Promise((resolveClose) => server.close(() => resolveClose(undefined))),
+      walletData ? new Promise((resolveClose) => walletData.server.close(() => resolveClose(undefined))) : Promise.resolve(),
+    ]);
+    throw error;
+  }
 
   let dialogLock = Promise.resolve();
   const confirmations = [];
@@ -211,18 +333,40 @@ export async function openDucatSnapHarness(options = {}) {
     return unwrapSnapResponse(method, await pending);
   };
 
+  const selected = await invoke('ducat_getNetwork');
+  if (selected?.network !== network) {
+    await invoke('ducat_switchNetwork', { network }, { approveDialog: true });
+  } else {
+    await invoke('ducat_switchNetwork', { network });
+  }
+
   return {
     close: async () => {
       await snap.close?.();
-      await new Promise((resolveClose, rejectClose) => {
-        server.close((error) => (error ? rejectClose(error) : resolveClose(undefined)));
-      });
+      await Promise.all([
+        new Promise((resolveClose, rejectClose) => {
+          server.close((error) => (error ? rejectClose(error) : resolveClose(undefined)));
+        }),
+        walletData
+          ? new Promise((resolveClose, rejectClose) => {
+              walletData.server.close((error) => (error ? rejectClose(error) : resolveClose(undefined)));
+            })
+          : Promise.resolve(),
+      ]);
     },
     getConfirmations: () => [...confirmations],
     getAccounts: () => invoke('ducat_getAccounts', { network }),
     invoke,
     network,
     origin,
+    registerPrevout: (fixture) => {
+      assertHarness(walletData, 'Synthetic prevout fixtures require the regtest harness network.');
+      walletData.registerPrevout(fixture);
+    },
+    registerWalletUtxo: (address, fixture) => {
+      assertHarness(walletData, 'Synthetic wallet fixtures require the regtest harness network.');
+      walletData.registerWalletUtxo(address, fixture);
+    },
     signBatch: (entries, context, entryNetwork = network) =>
       invoke('ducat_signBatch', { network: entryNetwork, entries, context }, { approveDialog: true }),
     signMessage: (address, message, context, messageNetwork = network) =>
@@ -259,9 +403,11 @@ async function runSmokeSigning(harness) {
 
   const inputValueSats = 100_000;
   const bitcoinJsNetwork = bitcoinNetwork(harness.network);
+  const txid = '07'.repeat(32);
+  harness.registerWalletUtxo(satsAddress, { txid, vout: 0, valueSats: inputValueSats });
   const psbt = new Psbt({ network: bitcoinJsNetwork });
   psbt.addInput({
-    hash: Buffer.alloc(32, 7).toString('hex'),
+    hash: txid,
     index: 0,
     witnessUtxo: {
       script: btcAddress.toOutputScript(satsAddress, bitcoinJsNetwork),
@@ -319,10 +465,18 @@ async function runSession(harness, iterations) {
   const bitcoinJsNetwork = bitcoinNetwork(harness.network);
   const legs = [];
   for (let i = 0; i < iterations; i++) {
+    harness.registerWalletUtxo(satsAddress, {
+      txid: Buffer.alloc(32, (i % 250) + 1).toString('hex'),
+      vout: 0,
+      valueSats: 100_000,
+    });
+  }
+  for (let i = 0; i < iterations; i++) {
     // Fresh PSBT per leg (distinct prevout) — mirrors a new action each time.
     const psbt = new Psbt({ network: bitcoinJsNetwork });
+    const txid = Buffer.alloc(32, (i % 250) + 1).toString('hex');
     psbt.addInput({
-      hash: Buffer.alloc(32, (i % 250) + 1).toString('hex'),
+      hash: txid,
       index: 0,
       witnessUtxo: { script: btcAddress.toOutputScript(satsAddress, bitcoinJsNetwork), value: 100_000 },
     });
@@ -405,9 +559,16 @@ async function runBitvm3Reclaim(harness) {
   const assert = buildBitvm3AssertTimeout(vaultPubkey, bitcoinJsNetwork, challengeWindow);
 
   const bondSats = 50_000;
+  const assertTxid = '55'.repeat(32);
+  harness.registerPrevout({
+    txid: assertTxid,
+    vout: 0,
+    valueSats: bondSats,
+    scriptPubKey: assert.output.toString('hex'),
+  });
   const psbt = new Psbt({ network: bitcoinJsNetwork });
   psbt.addInput({
-    hash: Buffer.alloc(32, 0x55).toString('hex'),
+    hash: assertTxid,
     index: 0,
     sequence: challengeWindow, // nSequence = Δ so OP_CSV is satisfiable on-chain.
     tapLeafScript: [{ controlBlock: assert.controlBlock, leafVersion: 0xc0, script: assert.timeoutLeaf }],
@@ -468,10 +629,17 @@ async function runBitvm3ReclaimReject(harness) {
   // A timeout leaf bound to a FOREIGN operator key (not this Snap's vault key).
   const foreignKey = Buffer.alloc(32, 0x07);
   const assert = buildBitvm3AssertTimeout(foreignKey, bitcoinJsNetwork, 144);
+  const assertTxid = '56'.repeat(32);
+  harness.registerPrevout({
+    txid: assertTxid,
+    vout: 0,
+    valueSats: 50_000,
+    scriptPubKey: assert.output.toString('hex'),
+  });
 
   const psbt = new Psbt({ network: bitcoinJsNetwork });
   psbt.addInput({
-    hash: Buffer.alloc(32, 0x56).toString('hex'),
+    hash: assertTxid,
     index: 0,
     sequence: 144,
     tapLeafScript: [{ controlBlock: assert.controlBlock, leafVersion: 0xc0, script: assert.timeoutLeaf }],

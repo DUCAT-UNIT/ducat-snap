@@ -7,11 +7,15 @@ import { actionLabel } from '../display';
 import { handleRpcRequest } from '../rpc';
 import { bitcoinNetwork } from '../networks';
 
+jest.mock('../psbt-verification', () => ({
+  createPsbtVerificationContext: jest.fn(async () => ({ verify: jest.fn(async () => undefined) })),
+}));
+
 const ORIGIN = 'https://app.ducatprotocol.com';
 
 type SnapRequestArgs = {
   method: string;
-  params?: { operation?: string; path?: string[]; newState?: unknown };
+  params?: { key?: string; operation?: string; path?: string[]; value?: unknown };
 };
 
 function testNode(byte: number) {
@@ -23,7 +27,7 @@ function testKeySet() {
 }
 
 function setSnapMock(dialogResult = true) {
-  let managedState: unknown = null;
+  let managedState: unknown = { recentActions: [], selectedNetwork: 'signet' };
   const request = jest.fn(async ({ method, params }: SnapRequestArgs) => {
     if (method === 'snap_getBip32Entropy') {
       const byte = params?.path?.[1] === "84'" ? 1 : 2;
@@ -42,9 +46,14 @@ function setSnapMock(dialogResult = true) {
       if (params?.operation === 'get') {
         return managedState;
       }
+    }
 
-      managedState = params?.newState ?? null;
-      return undefined;
+    if (method === 'snap_setState' && params?.key) {
+      const current = managedState && typeof managedState === 'object' && !Array.isArray(managedState)
+        ? managedState
+        : {};
+      managedState = { ...current, [params.key]: params.value };
+      return null;
     }
 
     if (method === 'snap_notify') {

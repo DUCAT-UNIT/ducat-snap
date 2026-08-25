@@ -1,4 +1,5 @@
-import type { DucatActionContext, DucatAddressRole, DucatNetwork } from './types';
+/** @fileoverview Sanitizes untrusted text and formats action, origin, network, amount, role, and metadata values. */
+import type { DeploymentId, DucatActionContext, DucatAddressRole } from './types';
 
 const ACTION_LABELS: Record<string, string> = {
   borrow: 'Borrow UNIT',
@@ -89,12 +90,8 @@ export function roleLabel(role: DucatAddressRole | null | undefined): string {
   return role ? ROLE_LABELS[role] : 'External account';
 }
 
-export function networkLabel(network: DucatNetwork): string {
-  if (network === 'mainnet') {
-    return 'Bitcoin mainnet';
-  }
-
-  return network === 'mutinynet' ? 'Mutinynet / Signet testnet' : 'Signet testnet';
+export function networkLabel(network: DeploymentId): string {
+  return network;
 }
 
 export function originLabel(origin: string): string {
@@ -154,11 +151,11 @@ export function formatSatsOnly(sats: number): string {
   return `${formatInteger(sats)} sats`;
 }
 
-export function formatSats(sats: number, _network: DucatNetwork): string {
+export function formatSats(sats: number, _network: DeploymentId): string {
   return `${formatSatsOnly(sats)} (${formatBtcValue(sats)})`;
 }
 
-export function formatMaybeSats(sats: number | null, network: DucatNetwork): string {
+export function formatMaybeSats(sats: number | null, network: DeploymentId): string {
   return sats === null ? 'Unavailable' : formatSats(sats, network);
 }
 
