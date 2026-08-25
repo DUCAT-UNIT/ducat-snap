@@ -22,8 +22,6 @@ const config: SnapConfig = {
     DUCAT_SNAP_DEV_UNPROMPTED: 'false',
     DUCAT_SNAP_DEBUG: 'false',
     DUCAT_SNAP_DEV_ORIGINS: process.env.DUCAT_SNAP_DEV_ORIGINS ?? '',
-    ALPHA_MAINNET_VALIDATOR_BASE_URL: 'https://validator-mainnet.alpha.ducatprotocol.com',
-    ALPHA_MAINNET_ESPLORA_BASE_URL: 'https://mempool.space/api',
   },
 };
 
