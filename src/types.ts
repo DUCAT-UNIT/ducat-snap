@@ -1,4 +1,7 @@
-export type DucatNetwork = 'mainnet' | 'signet' | 'mutinynet' | 'regtest';
+/** @fileoverview Defines shared network, account, signing, PSBT, action, endpoint, and state contracts. */
+export type DeploymentId = 'regtest' | 'mutinynet' | 'mainnet';
+
+export type BitcoinNetwork = 'regtest' | 'signet' | 'mainnet';
 
 export type DucatAddressRole = 'sats' | 'runes' | 'vault';
 
@@ -20,6 +23,72 @@ export type WalletAccountRecord = {
   vault: DucatAccount;
   authCandidates: WalletAuthCandidate[];
 };
+
+export type WalletBtcUtxo = {
+  txid: string;
+  vout: number;
+  valueSats: number;
+  scriptPubKey: string;
+};
+
+export type WalletUnitUtxo = {
+  txid: string;
+  vout: number;
+  coinId: string;
+  coinValueSats: number;
+  scriptPubKey: string;
+  assetId: string;
+  activeAmount: string;
+  reservedAmount: string;
+  classification: 'active' | 'reserved' | 'mixed';
+};
+
+export type WalletInventoryResponse = {
+  network: DeploymentId;
+  observedAt: number;
+  expiresAt: number;
+  assetId: string;
+  account: WalletAccountRecord;
+  balances: {
+    btcSats: string;
+    btcUtxos: number;
+    unitActive: string;
+    unitReserved: string;
+    unitMixedActive: string;
+    unitMixedReserved: string;
+  };
+  btcUtxos: WalletBtcUtxo[];
+  unitUtxos: WalletUnitUtxo[];
+};
+
+export type DucatAccountSource = 'derived' | 'imported';
+
+export type DerivedDucatAccountRecord = WalletAccountRecord & {
+  id: string;
+  source: 'derived';
+  network: DeploymentId;
+};
+
+export type PrivateKeyOverrideRecord = {
+  id: string;
+  source: 'imported';
+  network: DeploymentId;
+  created_at: number;
+  fingerprint: string;
+  private_key: string;
+  sats: DucatAccount;
+  runes: DucatAccount;
+};
+
+export type PublicDucatAccountRecord = DerivedDucatAccountRecord | Omit<PrivateKeyOverrideRecord, 'private_key'>;
+
+export type NetworkEndpointOverride = {
+  validator_base_url?: string;
+  esplora_base_url?: string;
+  network_identity_verified?: true;
+};
+
+export type NetworkEndpointOverrides = Partial<Record<DeploymentId, NetworkEndpointOverride>>;
 
 export type SignInputs = Record<string, number[]>;
 
@@ -67,6 +136,7 @@ export type DucatVaultReturnData = {
 
 export type PsbtOutputSummary = {
   address: string;
+  scriptHex: string;
   valueSats: number;
   isMine: boolean;
   role: DucatAddressRole | 'external' | 'op_return' | 'unknown';
@@ -89,10 +159,18 @@ export type PsbtInputSummary = {
   cosignGuardPubkey?: string;
   /** Whether the guard key is in the configured Ducat guardian allowlist (undefined when no allowlist is configured). */
   cosignGuardianKnown?: boolean;
+  unit?: {
+    outpoint: string;
+    coinId: string;
+    assetId: string;
+    activeAmount: string;
+    reservedAmount: string;
+    classification: 'active' | 'reserved' | 'mixed';
+  };
 };
 
 export type PsbtSummary = {
-  network: DucatNetwork;
+  network: DeploymentId;
   inputCount: number;
   signedInputIndexes: number[];
   signedInputs: PsbtInputSummary[];
@@ -101,6 +179,7 @@ export type PsbtSummary = {
   feeSats: number | null;
   inputValueSats: number | null;
   signedInputValueSats: number | null;
+  unitInputs: NonNullable<PsbtInputSummary['unit']>[];
   outputValueSats: number;
   externalOutputSats: number;
   selfOutputSats: number;
@@ -114,7 +193,7 @@ export type RecentAction = {
   id: string;
   actionType: string;
   title?: string;
-  network: DucatNetwork;
+  network: DeploymentId;
   origin: string;
   timestamp: number;
   status?: RecentActionStatus;
@@ -127,6 +206,8 @@ export type RecentAction = {
 
 export type DucatSnapState = {
   recentActions: RecentAction[];
-  lastNetwork?: DucatNetwork;
+  selectedNetwork: DeploymentId;
   lastOrigin?: string;
+  keyOverrides?: PrivateKeyOverrideRecord[];
+  networkEndpointOverrides?: NetworkEndpointOverrides;
 };

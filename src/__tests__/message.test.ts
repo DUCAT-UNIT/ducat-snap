@@ -1,8 +1,8 @@
 import { Buffer } from 'buffer';
 
-import { deriveAccountSetFromBaseNodes } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 import { bip322MessageHash, signBip322SimpleMessage } from '../message';
+import { deriveAccountSetFromBaseNodes } from './helpers/accounts';
 
 describe('BIP322 simple message signing', () => {
   it('creates a base64 witness and the tagged message hash for the derived sats address', () => {

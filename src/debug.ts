@@ -1,3 +1,4 @@
+/** @fileoverview Provides build-time-gated debug logging that is eliminated from release builds. */
 // Build-time debug logging for the snap.
 //
 // `process.env.DUCAT_SNAP_DEBUG` is inlined as a string literal by

@@ -1,17 +1,21 @@
 import { Psbt } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
-import { deriveAccountSetFromBaseNodes } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 import { actionLabel } from '../display';
 import { handleRpcRequest } from '../rpc';
 import { bitcoinNetwork } from '../networks';
+import { deriveAccountSetFromBaseNodes } from './helpers/accounts';
+
+jest.mock('../psbt-verification', () => ({
+  createPsbtVerificationContext: jest.fn(async () => ({ verify: jest.fn(async () => undefined) })),
+}));
 
 const ORIGIN = 'https://app.ducatprotocol.com';
 
 type SnapRequestArgs = {
   method: string;
-  params?: { operation?: string; path?: string[]; newState?: unknown };
+  params?: { key?: string; operation?: string; path?: string[]; value?: unknown };
 };
 
 function testNode(byte: number) {
@@ -19,18 +23,22 @@ function testNode(byte: number) {
 }
 
 function testKeySet() {
-  return deriveAccountSetFromBaseNodes('signet', testNode(1), testNode(2));
+  return deriveAccountSetFromBaseNodes('mutinynet', testNode(1), testNode(2));
 }
 
 function setSnapMock(dialogResult = true) {
-  let managedState: unknown = null;
+  let managedState: unknown = { recentActions: [], selectedNetwork: 'mutinynet' };
   const request = jest.fn(async ({ method, params }: SnapRequestArgs) => {
     if (method === 'snap_getBip32Entropy') {
-      const byte = params?.path?.[1] === "84'" ? 1 : 2;
+      const baseNode = params?.path?.[1] === "84'" ? testNode(1) : testNode(2);
+      const node = baseNode
+        .deriveHardened(Number.parseInt(params?.path?.[3] ?? '', 10))
+        .derive(Number.parseInt(params?.path?.[4] ?? '', 10))
+        .derive(Number.parseInt(params?.path?.[5] ?? '', 10));
 
       return {
-        privateKey: Buffer.alloc(32, byte).toString('hex'),
-        chainCode: Buffer.alloc(32, byte + 10).toString('hex'),
+        privateKey: node.privateKey.toString('hex'),
+        chainCode: node.chainCode.toString('hex'),
       };
     }
 
@@ -42,9 +50,14 @@ function setSnapMock(dialogResult = true) {
       if (params?.operation === 'get') {
         return managedState;
       }
+    }
 
-      managedState = params?.newState ?? null;
-      return undefined;
+    if (method === 'snap_setState' && params?.key) {
+      const current = managedState && typeof managedState === 'object' && !Array.isArray(managedState)
+        ? managedState
+        : {};
+      managedState = { ...current, [params.key]: params.value };
+      return null;
     }
 
     if (method === 'snap_notify') {
@@ -96,7 +109,7 @@ describe('Audit hardening: null-fee hard-stop (finding #1)', () => {
       handleRpcRequest(ORIGIN, {
         method: 'ducat_signPsbt',
         params: {
-          network: 'signet',
+          network: 'mutinynet',
           psbt,
           signInputs: { [keySet.record.sats.address]: [0] },
         },
@@ -115,7 +128,7 @@ describe('Audit hardening: null-fee hard-stop (finding #1)', () => {
       handleRpcRequest(ORIGIN, {
         method: 'ducat_signBatch',
         params: {
-          network: 'signet',
+          network: 'mutinynet',
           entries: [{ psbt, signInputs: { [keySet.record.sats.address]: [0] } }],
         },
       }),

@@ -1,3 +1,4 @@
+/** @fileoverview Parses only the canonical client-and-guardian Taproot cosign leaf and optional inert Ord envelope. */
 const COSIGN_LEAF_PATTERN = /^20(?<client>[0-9a-f]{64})ad20(?<guard>[0-9a-f]{64})ac(?<envelope>[0-9a-f]*)$/u;
 
 const OP_0 = 0x00;
@@ -27,6 +28,11 @@ function hexToBytes(value: string): Uint8Array | null {
   return output;
 }
 
+/**
+ * Validates a complete inert `OP_0 OP_IF "ord" ... OP_ENDIF` push-only envelope.
+ * @param envelopeHex - Candidate script suffix encoded as hex.
+ * @returns Whether the envelope is canonical and consumes every byte.
+ */
 export function isOrdEnvelope(envelopeHex: string): boolean {
   if (!envelopeHex.startsWith(`0063${ORD_TAG_HEX}`) || !envelopeHex.endsWith('68')) {
     return false;
@@ -87,6 +93,11 @@ export function isOrdEnvelope(envelopeHex: string): boolean {
   return false;
 }
 
+/**
+ * Matches the canonical distinct client/guardian CHECKSIGVERIFY leaf and optional Ord envelope.
+ * @param leafHex - Candidate Taproot leaf script encoded as hex.
+ * @returns Parsed client and guardian keys, or null for any noncanonical script.
+ */
 export function matchCosignLeafHex(leafHex: string): CosignLeafMatch | null {
   const match = COSIGN_LEAF_PATTERN.exec(leafHex.toLowerCase());
 

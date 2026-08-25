@@ -1,0 +1,20 @@
+{
+  "networks": [
+    {
+      "id": "mainnet",
+      "label": "Mainnet (Alpha contract)",
+      "bitcoin_network": "mainnet",
+      "expected_validator_chain_network": "alpha-mainnet",
+      "validator_base_url": "https://validator-mainnet.alpha.ducatprotocol.com",
+      "esplora_base_url": "https://mempool.space/api"
+    },
+    {
+      "id": "mutinynet",
+      "label": "Mutinynet",
+      "bitcoin_network": "signet",
+      "expected_validator_chain_network": "mutiny",
+      "validator_base_url": "https://validator-mutinynet.dev.ducatprotocol.com",
+      "esplora_base_url": "https://mutinynet.com/api"
+    }
+  ]
+}
