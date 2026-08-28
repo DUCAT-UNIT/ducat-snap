@@ -48,18 +48,31 @@ and validation surface.
 <details>
 <summary><strong>Does the Snap derive the same Bitcoin account family as MetaMask native Bitcoin?</strong></summary>
 
-Yes. The current Snap requests BIP32 entropy for the BIP84 and BIP86 mainnet and testnet
-coin types: `m/84'/0'`, `m/86'/0'`, `m/84'/1'`, and `m/86'/1'`.
+Yes. The `ducat-snap/v1` scheme requests each complete managed role path
+directly rather than requesting a broader BIP84 or BIP86 parent.
 
 On mainnet, the Snap derives:
 
 ```text
 sats:  m/84'/0'/0'/0/0
 runes: m/86'/0'/0'/0/0
-vault: m/86'/0'/0'/0/1
+vault: m/86'/0'/0'/2/0
 ```
 
-Signet and mutinynet use the corresponding testnet coin type, `1'`.
+Mutinynet and Regtest use the corresponding coin type `1'` paths:
+
+```text
+sats:  m/84'/1'/0'/0/0
+runes: m/86'/1'/0'/0/0
+vault: m/86'/1'/0'/2/0
+```
+
+The direct role-node requests preserve the BTC funds and UNIT addresses. The
+vault role is a deliberate hard cut to role branch `2`; the Snap does not retain
+or request the former `/0/1` vault key. A fresh installation recovered from the
+same MetaMask Secret Recovery Phrase recovers the same corrected managed Ducat
+accounts. A key imported through Snap Home is an explicit account override and
+does not follow this derivation scheme.
 
 This overlap is intentional in the current implementation. The important distinction is
 that the Snap is not a general-purpose Bitcoin wallet replacement. It exposes only
@@ -108,7 +121,8 @@ commit to recognized Ducat cosign or BitVM3 timeout leaves.
 <details>
 <summary><strong>What permissions does the Snap request?</strong></summary>
 
-- `snap_getBip32Entropy` to derive the Ducat Bitcoin accounts inside MetaMask.
+- `snap_getBip32Entropy` at the six complete `ducat-snap/v1` role paths to
+  access the Ducat Bitcoin accounts inside MetaMask.
 - `snap_dialog` to show user confirmations before signing.
 - `snap_manageState` to store non-secret Snap state such as recent activity.
 - `snap_notify`, `endowment:page-home`, `endowment:network-access`, and
@@ -138,8 +152,13 @@ published manifest.
 <details>
 <summary><strong>Which networks are supported?</strong></summary>
 
-The published Snap supports Bitcoin mainnet, signet, and mutinynet. Regtest is available
-only in development builds.
+The published Snap supports Mainnet and Mutinynet. Development builds add Regtest.
+
+Mainnet is one canonical wallet network. It currently connects to the reviewed alpha
+DUCAT contract, whose validator reports `chain_network: alpha-mainnet`, while using
+Bitcoin mainnet mechanics. That response is validator evidence, not a separate network
+you can select in the Snap. Signet, Testnet4, and `alpha-mainnet` are not supported Snap
+network choices.
 
 </details>
 

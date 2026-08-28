@@ -1,2 +1,13 @@
-export const DUCAT_MARK_SVG =
-  '<svg width="64" height="64" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18.6813 36.4113C28.4593 36.4113 36.386 28.4784 36.386 18.6927C36.386 8.90699 28.4593 0.974121 18.6813 0.974121C8.90324 0.974121 0.976562 8.90699 0.976562 18.6927C0.976562 28.4784 8.90324 36.4113 18.6813 36.4113Z" stroke="#DDDDDD" stroke-width="1.94842" stroke-miterlimit="10"/><path d="M18.6684 20.0174C19.3223 20.0174 19.8524 19.4869 19.8524 18.8324C19.8524 18.178 19.3223 17.6475 18.6684 17.6475C18.0145 17.6475 17.4844 18.178 17.4844 18.8324C17.4844 19.4869 18.0145 20.0174 18.6684 20.0174Z" fill="#DDDDDD"/></svg>';
+/** @fileoverview Exposes the inline Ducat brand mark used by Snap Home and confirmation interfaces. */
+import icon from '../images/icon.svg';
+
+/**
+ * Single source of truth for the Ducat mark: the exact SVG the manifest publishes as the Snap
+ * icon (`images/icon.svg`), imported as a string by snaps-cli.
+ *
+ * The SVG carries its own opaque background so it renders identically in light and dark mode.
+ * MetaMask shows both the manifest icon and `Card`/`Image` SVGs inside an `<img>` data URI,
+ * where page CSS and `currentColor` cannot reach and `prefers-color-scheme` follows the OS
+ * theme rather than the MetaMask theme — so theme-adaptive SVG tricks are unreliable there.
+ */
+export const DUCAT_MARK_SVG: string = icon;

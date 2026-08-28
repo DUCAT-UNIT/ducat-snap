@@ -1,5 +1,5 @@
 {
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Ducat Bitcoin accounts, Ducat-aware confirmations, and PSBT/message signing for MetaMask.",
   "proposedName": "Ducat",
   "repository": {
@@ -7,7 +7,7 @@
     "url": "git+https://github.com/DUCAT-UNIT/ducat-snap.git"
   },
   "source": {
-    "shasum": "Z9YYJeUbOlSXvGmppZ2Ogu19wtqE5ZFAd4kieFzWI6Q=",
+    "shasum": "UF0uxQW26LtQZqdRSfULx6AQWWhKMtZO+UFQL33E0a0=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
@@ -27,19 +27,27 @@
     },
     "snap_getBip32Entropy": [
       {
-        "path": ["m", "84'", "0'"],
+        "path": ["m", "84'", "0'", "0'", "0", "0"],
         "curve": "secp256k1"
       },
       {
-        "path": ["m", "86'", "0'"],
+        "path": ["m", "86'", "0'", "0'", "0", "0"],
         "curve": "secp256k1"
       },
       {
-        "path": ["m", "84'", "1'"],
+        "path": ["m", "86'", "0'", "0'", "2", "0"],
         "curve": "secp256k1"
       },
       {
-        "path": ["m", "86'", "1'"],
+        "path": ["m", "84'", "1'", "0'", "0", "0"],
+        "curve": "secp256k1"
+      },
+      {
+        "path": ["m", "86'", "1'", "0'", "0", "0"],
+        "curve": "secp256k1"
+      },
+      {
+        "path": ["m", "86'", "1'", "0'", "2", "0"],
         "curve": "secp256k1"
       }
     ],

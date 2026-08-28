@@ -1,4 +1,5 @@
-import type { DucatActionContext, DucatAddressRole, DucatNetwork } from './types';
+/** @fileoverview Sanitizes untrusted text and formats action, origin, network, amount, role, and metadata values. */
+import type { DeploymentId, DucatActionContext, DucatAddressRole } from './types';
 
 const ACTION_LABELS: Record<string, string> = {
   borrow: 'Borrow UNIT',
@@ -89,23 +90,8 @@ export function roleLabel(role: DucatAddressRole | null | undefined): string {
   return role ? ROLE_LABELS[role] : 'External account';
 }
 
-export function networkLabel(network: DucatNetwork): string {
-  if (network === 'mainnet') {
-    return 'Bitcoin mainnet';
-  }
-
-  return network === 'mutinynet' ? 'Mutinynet / Signet testnet' : 'Signet testnet';
-}
-
-export function originLabel(origin: string): string {
-  try {
-    const url = new URL(origin);
-    const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-
-    return `${isLocalhost ? 'Local Ducat app' : 'Ducat app'} (${url.origin})`;
-  } catch {
-    return origin;
-  }
+export function networkLabel(network: DeploymentId): string {
+  return network;
 }
 
 export function originNameLabel(origin: string): string {
@@ -154,14 +140,6 @@ export function formatSatsOnly(sats: number): string {
   return `${formatInteger(sats)} sats`;
 }
 
-export function formatSats(sats: number, _network: DucatNetwork): string {
-  return `${formatSatsOnly(sats)} (${formatBtcValue(sats)})`;
-}
-
-export function formatMaybeSats(sats: number | null, network: DucatNetwork): string {
-  return sats === null ? 'Unavailable' : formatSats(sats, network);
-}
-
 export function formatMaybeBtcValue(sats: number | null): string {
   return sats === null ? 'Unavailable' : formatBtcValue(sats);
 }
@@ -190,15 +168,4 @@ export function formatMetadataKey(key: string): string {
  */
 export function sanitizeMarkdown(value: string): string {
   return value.replace(/[\\`*_~[\]()<>|]/gu, (char) => `\\${char}`);
-}
-
-export function compactMetadataLines(context?: DucatActionContext): string[] {
-  if (!context?.metadata) {
-    return [];
-  }
-
-  return Object.entries(context.metadata)
-    .filter(([, value]) => value !== undefined && value !== null && value !== '')
-    .map(([key, value]) => `**${formatMetadataKey(key)}:** ${sanitizeMarkdown(String(value).slice(0, 140))}`)
-    .slice(0, 8);
 }
