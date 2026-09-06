@@ -19,15 +19,8 @@ describe('BitVM3 timeout leaf matcher', () => {
     expect(matchTimeoutLeafHex(timeoutLeaf('60'))).toEqual({ operator: OPERATOR, window: 16 });
   });
 
-  it('matches a larger Δ that fits one byte even with the high bit set (Δ = 144 => 0190)', () => {
-    // This is the encoding @vbyte/btc-dev (the client-sdk / front-end) actually
-    // emits for Δ=144: a single-byte push <0x90>. Script-number sign-magnitude
-    // reads 0x90 as 144 here (an unsigned 1-byte sequence). Pinning the real
-    // cross-toolchain encoding so the Snap signs what the front-end builds.
-    expect(matchTimeoutLeafHex(timeoutLeaf('0190'))).toEqual({
-      operator: OPERATOR,
-      window: 144,
-    });
+  it('rejects a negative Script number (0190 encodes -16, not +144)', () => {
+    expect(matchTimeoutLeafHex(timeoutLeaf('0190'))).toBeNull();
   });
 
   it('matches a 2-byte Δ with an explicit sign byte (Δ = 144 => 0x9000)', () => {
@@ -62,6 +55,11 @@ describe('BitVM3 timeout leaf matcher', () => {
 
   it('rejects a Δ = 0 (OP_0) timelock', () => {
     expect(matchTimeoutLeafHex(`00b27520${OPERATOR}ac`)).toBeNull();
+  });
+
+  it('rejects a sequence-disable operand', () => {
+    // Canonical positive Script-number encoding of 0x80000000.
+    expect(matchTimeoutLeafHex(timeoutLeaf('050000008000'))).toBeNull();
   });
 
   it('rejects a non-minimal Δ push (Δ = 5 pushed as <0105> instead of OP_5)', () => {
