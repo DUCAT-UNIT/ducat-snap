@@ -1,52 +1,45 @@
 # Ducat Snap FAQ
 
-The Ducat Snap is a protocol-specific Bitcoin signer for Ducat vault flows. It is not a
-generic Bitcoin wallet replacement.
+The Ducat Snap is a protocol-specific Bitcoin signer for Ducat vault flows. It
+is not a generic Bitcoin wallet replacement.
 
 ## Core questions
 
-<details>
-<summary><strong>What is the Ducat Snap?</strong></summary>
+## What is the Ducat Snap?
 
-The Ducat Snap is a MetaMask Snap that gives the Ducat web app a Bitcoin signing
-interface for Ducat protocol actions. It derives the user's Ducat Bitcoin accounts inside
-MetaMask, returns public account data to the app, and asks the user to approve every
-message, PSBT, batch, or transfer before anything is signed.
+The Ducat Snap is a MetaMask Snap that gives the Ducat web app a Bitcoin
+signing interface for Ducat protocol actions. It derives the user's Ducat
+Bitcoin accounts inside MetaMask, returns public account data to the app, and
+asks the user to approve every message, PSBT, batch, or transfer before
+anything is signed.
 
-</details>
+## Why is a Snap needed if MetaMask already supports Bitcoin?
 
-<details>
-<summary><strong>Why is a Snap needed if MetaMask already supports Bitcoin?</strong></summary>
+MetaMask native Bitcoin is useful for ordinary Bitcoin account management.
+Ducat needs a Ducat-aware signer, not just a generic send-and-receive wallet.
+Vault actions require the signer to understand Ducat account roles, explicit
+PSBT input ownership, Taproot script-path vault inputs, guardian cosign
+leaves, BitVM3 timeout leaves, batch signing, and confirmation text for
+actions such as create, deposit, borrow, repay, withdraw, liquidate, and
+repossess.
 
-MetaMask native Bitcoin is useful for ordinary Bitcoin account management. Ducat needs a
-Ducat-aware signer, not just a generic send-and-receive wallet. Vault actions require the
-signer to understand Ducat account roles, explicit PSBT input ownership, Taproot
-script-path vault inputs, guardian cosign leaves, BitVM3 timeout leaves, batch signing,
-and confirmation text for actions such as create, deposit, borrow, repay, withdraw,
-liquidate, and repossess.
+The Snap provides that Ducat-specific validation and confirmation layer before
+asking MetaMask to sign.
 
-The Snap provides that Ducat-specific validation and confirmation layer before asking
-MetaMask to sign.
+## Can Ducat use MetaMask native Bitcoin or Sats Connect instead?
 
-</details>
-
-<details>
-<summary><strong>Can Ducat use MetaMask native Bitcoin or Sats Connect instead?</strong></summary>
-
-Only if the native interface exposes the full signing surface Ducat requires. In
-practice, Ducat needs usable public keys for the protocol roles, controlled PSBT input
-selection, Taproot script-path signing, validation of Ducat cosign and timeout leaves,
-batch signing, and Ducat-specific confirmation rendering. If MetaMask native Bitcoin later
-provides equivalent APIs, Ducat can reduce or replace the Snap scope. The current Bitcoin
-Snap and other Bitcoin Snaps available today do not provide this Ducat-specific signing
-and validation surface.
-
-</details>
+Only if the native interface exposes the full signing surface Ducat requires.
+In practice, Ducat needs usable public keys for the protocol roles, controlled
+PSBT input selection, Taproot script-path signing, validation of Ducat cosign
+and timeout leaves, batch signing, and Ducat-specific confirmation rendering.
+If MetaMask native Bitcoin later provides equivalent APIs, Ducat can reduce or
+replace the Snap scope. The current Bitcoin Snap and other Bitcoin Snaps
+available today do not provide this Ducat-specific signing and validation
+surface.
 
 ## Accounts and derivation
 
-<details>
-<summary><strong>Does the Snap derive the same Bitcoin account family as MetaMask native Bitcoin?</strong></summary>
+## Does the Snap derive the same Bitcoin account family as MetaMask native Bitcoin?
 
 Yes. The `ducat-snap/v1` scheme requests each complete managed role path
 directly rather than requesting a broader BIP84 or BIP86 parent.
@@ -68,73 +61,63 @@ vault: m/86'/1'/0'/2/0
 ```
 
 The direct role-node requests preserve the BTC funds and UNIT addresses. The
-vault role is a deliberate hard cut to role branch `2`; the Snap does not retain
-or request the former `/0/1` vault key. A fresh installation recovered from the
-same MetaMask Secret Recovery Phrase recovers the same corrected managed Ducat
-accounts. A key imported through Snap Home is an explicit account override and
-does not follow this derivation scheme.
+vault role is a deliberate hard cut to role branch `2`; the Snap does not
+retain or request the former `/0/1` vault key. A fresh installation recovered
+from the same MetaMask Secret Recovery Phrase recovers the same corrected
+managed Ducat accounts. A key imported through Snap Home is an explicit
+account override and does not follow this derivation scheme.
 
-This overlap is intentional in the current implementation. The important distinction is
-that the Snap is not a general-purpose Bitcoin wallet replacement. It exposes only
-Ducat-scoped RPC methods, and it signs only after validating Ducat ownership, PSBT
-structure, network, script commitments, and user-visible confirmations.
+This overlap is intentional in the current implementation. The important
+distinction is that the Snap is not a general-purpose Bitcoin wallet
+replacement. It exposes only Ducat-scoped RPC methods, and it signs only after
+validating Ducat ownership, PSBT structure, network, script commitments, and
+user-visible confirmations.
 
-</details>
+## Why not use an isolated custom derivation path?
 
-<details>
-<summary><strong>Why not use an isolated custom derivation path?</strong></summary>
-
-The current Ducat integration expects stable Bitcoin public keys and addresses for the
-user's sats, runes, and vault roles. The vault account is not just another receive
-address; it is the user key committed into Ducat Taproot vault scripts and timeout flows.
-Changing these paths would be a protocol and migration decision, not a documentation-only
-change, because the frontend, validator fixtures, existing accounts, and transaction
-expectations would all need to agree on the new keys.
-
-</details>
+The current Ducat integration expects stable Bitcoin public keys and addresses
+for the user's sats, runes, and vault roles. The vault account is not just
+another receive address; it is the user key committed into Ducat Taproot vault
+scripts and timeout flows. Changing these paths would be a protocol and
+migration decision, not a documentation-only change, because the frontend,
+validator fixtures, existing accounts, and transaction expectations would all
+need to agree on the new keys.
 
 ## Signing scope
 
-<details>
-<summary><strong>What does the Snap sign?</strong></summary>
+## What does the Snap sign?
 
 - Ducat authentication messages using BIP322-style message signing.
-- PSBT inputs explicitly requested by the Ducat app and owned by a derived Ducat role.
+- PSBT inputs explicitly requested by the Ducat app and owned by a derived
+  Ducat role.
 - Batch PSBT flows used by multi-transaction vault actions.
 - Simple BTC transfers from the derived sats account.
 
-</details>
+## What does the Snap refuse to sign?
 
-<details>
-<summary><strong>What does the Snap refuse to sign?</strong></summary>
-
-The Snap rejects malformed or oversized signing requests, wrong-network PSBTs, unknown
-signing indexes, duplicate previous outputs, missing previous-output data, non-owned
-inputs, mixed or ambiguous ownership, disallowed sighash types, suspicious data outputs,
-malicious or malformed app context, and vault Taproot script-path inputs that do not
-commit to recognized Ducat cosign or BitVM3 timeout leaves.
-
-</details>
+The Snap rejects malformed or oversized signing requests, wrong-network PSBTs,
+unknown signing indexes, duplicate previous outputs, missing previous-output
+data, non-owned inputs, mixed or ambiguous ownership, disallowed sighash
+types, suspicious data outputs, malicious or malformed app context, and vault
+Taproot script-path inputs that do not commit to recognized Ducat cosign or
+BitVM3 timeout leaves.
 
 ## Permissions and availability
 
-<details>
-<summary><strong>What permissions does the Snap request?</strong></summary>
+## What permissions does the Snap request?
 
 - `snap_getBip32Entropy` at the six complete `ducat-snap/v1` role paths to
   access the Ducat Bitcoin accounts inside MetaMask.
 - `snap_dialog` to show user confirmations before signing.
 - `snap_manageState` to store non-secret Snap state such as recent activity.
 - `snap_notify`, `endowment:page-home`, `endowment:network-access`, and
-  `endowment:lifecycle-hooks` for user notifications, the Snap home screen, balance and
-  vault lookups, and lifecycle handling.
+  `endowment:lifecycle-hooks` for user notifications, the Snap home screen,
+  balance and vault lookups, and lifecycle handling.
 
-Private keys, child keys, WIFs, and raw entropy are never returned to the web app.
+Private keys, child keys, WIFs, and raw entropy are never returned to the web
+app.
 
-</details>
-
-<details>
-<summary><strong>Which websites can call the Snap?</strong></summary>
+## Which websites can call the Snap?
 
 The published Snap allows only these HTTPS origins:
 
@@ -144,32 +127,25 @@ https://dev.app.ducatprotocol.com
 https://staging.app.ducatprotocol.com
 ```
 
-Localhost and preview deployments are development-only and are not present in the
-published manifest.
+Localhost and preview deployments are development-only and are not present in
+the published manifest.
 
-</details>
+## Which networks are supported?
 
-<details>
-<summary><strong>Which networks are supported?</strong></summary>
+The published Snap supports Mainnet and Mutinynet. Development builds add
+Regtest.
 
-The published Snap supports Mainnet and Mutinynet. Development builds add Regtest.
-
-Mainnet is one canonical wallet network. It currently connects to the reviewed alpha
-DUCAT contract, whose validator reports `chain_network: alpha-mainnet`, while using
-Bitcoin mainnet mechanics. That response is validator evidence, not a separate network
-you can select in the Snap. Signet, Testnet4, and `alpha-mainnet` are not supported Snap
-network choices.
-
-</details>
+Mainnet is one canonical wallet network. It currently connects to the reviewed
+alpha DUCAT contract, whose validator reports `chain_network: alpha-mainnet`,
+while using Bitcoin mainnet mechanics. That response is validator evidence,
+not a separate network you can select in the Snap. Signet, Testnet4, and
+`alpha-mainnet` are not supported Snap network choices.
 
 ## Review status
 
-<details>
-<summary><strong>How has the Snap been reviewed?</strong></summary>
+## How has the Snap been reviewed?
 
-The Snap includes automated coverage for account derivation, message signing, PSBT
-policy, vault action decoding, Snap home data handling, adversarial PSBT cases, release
-manifest verification, and fixture replay. The third-party Sayfer audit report is
-included in [`docs/audit.pdf`](docs/audit.pdf).
-
-</details>
+The Snap includes automated coverage for account derivation, message signing,
+PSBT policy, vault action decoding, Snap home data handling, adversarial PSBT
+cases, release manifest verification, and fixture replay. The third-party
+Sayfer audit report is included in [`docs/audit.pdf`](docs/audit.pdf).
