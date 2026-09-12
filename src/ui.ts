@@ -1,3 +1,4 @@
+/** @fileoverview Wraps MetaMask Snap JSX constructors behind the typed UI API used across views. */
 import * as SnapJsx from '@metamask/snaps-sdk/jsx';
 import type { JSXElement } from '@metamask/snaps-sdk/jsx';
 
@@ -77,10 +78,6 @@ export function uiInline(children: SnapElement[]): SnapElement {
   return uiBox(children, { direction: 'horizontal', crossAlignment: 'center' });
 }
 
-export function uiLink(label: string, href: string): SnapElement {
-  return SnapJsx.Link({ children: label, href });
-}
-
 export function uiCard(params: { title: string; value: string; description?: string; extra?: string; image?: string }): SnapElement {
   return SnapJsx.Card(params);
 }
@@ -115,5 +112,56 @@ export function uiBanner(title: string, severity: 'danger' | 'info' | 'success' 
     title,
     severity,
     children: uiText(body) as never,
+  });
+}
+
+export function uiButton(
+  value: string,
+  options?: { name?: string; type?: 'button' | 'submit'; variant?: 'primary' | 'destructive' },
+): SnapElement {
+  return SnapJsx.Button({
+    children: value,
+    name: options?.name,
+    type: options?.type,
+    variant: options?.variant,
+  });
+}
+
+export function uiField(label: string, child: SnapElement): SnapElement {
+  return SnapJsx.Field({
+    label,
+    children: child as never,
+  });
+}
+
+export function uiDropdown(name: string, value: string, options: { label: string; value: string }[]): SnapElement {
+  return SnapJsx.Dropdown({
+    name,
+    value,
+    children: options.map((option) => SnapJsx.Option({
+      value: option.value,
+      children: option.label,
+    })),
+  });
+}
+
+export function uiForm(name: string, children: SnapElement[]): SnapElement {
+  return SnapJsx.Form({
+    name,
+    children,
+  });
+}
+
+export function uiInput(
+  name: string,
+  type: 'text' | 'number' | 'password' = 'text',
+  placeholder?: string,
+  value?: string,
+): SnapElement {
+  return SnapJsx.Input({
+    name,
+    type,
+    placeholder,
+    value,
   });
 }

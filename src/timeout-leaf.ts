@@ -1,3 +1,7 @@
+/** @fileoverview Parses minimally encoded BitVM3 CSV timeout leaves and returns the committed reclaim policy. */
+import { script as btcScript } from 'bitcoinjs-lib';
+import { Buffer } from 'buffer';
+
 /**
  * Recognizer for the BitVM3 unilateral-exit TIMEOUT tap-leaf:
  *
@@ -15,10 +19,12 @@
  * is purely to parse the leaf's fixed shape and extract the operator key + Δ;
  * it accepts the leaf shape and rejects anything else.
  *
- * Δ encoding: a minimally-encoded script number. Δ in 1..16 is the single
+ * Δ encoding: a minimally-encoded positive Script number in block units. Δ in 1..16 is the single
  * opcode `OP_1`..`OP_16` (0x51..0x60); Δ==0 would be `OP_0` (0x00) but a zero
  * timelock is nonsensical and rejected; larger Δ is a length-prefixed little-
- * endian push (`<len> <bytes…>`, len in 1..5, BIP-112 allows up to 5 bytes).
+ * endian push (`<len> <bytes…>`, len in 1..5). BIP-68 block delays are limited
+ * to the low 16 bits; time-based, disabled, negative, and reserved-bit operands
+ * are not valid BitVM3 block-timeout policies.
  */
 
 const OP_CSV = 0xb2; // OP_CHECKSEQUENCEVERIFY
@@ -74,24 +80,17 @@ function decodeWindow(bytes: Uint8Array): { window: number; consumed: number } |
       return null;
     }
 
-    const valueBytes = bytes.subarray(1, 1 + length);
+    let window: number;
 
-    // Reject non-minimal encodings: the top byte must be non-zero (allowing the
-    // sign byte), and a value that fits in OP_1..OP_16 must use the opcode form.
-    if (valueBytes[length - 1] === 0x00 && (length === 1 || (valueBytes[length - 2] & 0x80) === 0)) {
+    try {
+      window = btcScript.number.decode(Buffer.from(bytes.subarray(1, 1 + length)), 5, true);
+    } catch {
       return null;
     }
 
-    // Little-endian, sign-magnitude (script numbers). Δ is positive, so the high
-    // bit of the top byte must be the sign bit (0) for a clean positive value.
-    let window = 0;
-
-    for (let index = 0; index < length; index += 1) {
-      window |= bytes[1 + index] << (8 * index);
-    }
-
-    if (window <= 0 || window <= 16) {
-      // <=16 should have used the opcode form; <=0 is not a valid timelock.
+    if (!Number.isSafeInteger(window) || window <= 16 || window > 0xffff) {
+      // <=16 should use OP_N. Values outside 1..65535 are not positive
+      // block-based BIP-68 delays and may carry sign, type, disable, or reserved bits.
       return null;
     }
 
@@ -102,8 +101,9 @@ function decodeWindow(bytes: Uint8Array): { window: number; consumed: number } |
 }
 
 /**
- * Parse a tap-leaf hex against the BitVM3 timeout-leaf shape. Returns the
- * embedded operator key + Δ, or null if the script is not a timeout leaf.
+ * Parses a tap-leaf hex against the BitVM3 timeout-leaf shape.
+ * @param leafHex - Candidate tapscript bytes encoded as hex.
+ * @returns The embedded operator key and timeout window, or null when the script does not match.
  */
 export function matchTimeoutLeafHex(leafHex: string): TimeoutLeafMatch | null {
   const bytes = hexToBytes(leafHex.toLowerCase());

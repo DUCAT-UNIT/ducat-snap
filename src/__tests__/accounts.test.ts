@@ -1,7 +1,8 @@
 import { Buffer } from 'buffer';
 
-import { accountPublicSetFromRecord, deriveAccountSetFromBaseNodes, SATS_BASE_PATHS, TAPROOT_BASE_PATHS } from '../accounts';
+import { accountKeySetFromRoleNodes, accountPublicSetFromRecord, getRolesForAddress, MANAGED_ROLE_PATHS } from '../accounts';
 import { DucatKeyNode } from '../bip32';
+import { deriveAccountSetFromBaseNodes } from './helpers/accounts';
 
 function testNode(byte: number) {
   return DucatKeyNode.fromPrivateKey(Buffer.alloc(32, byte), Buffer.alloc(32, byte + 10));
@@ -38,11 +39,39 @@ describe('Ducat account derivation', () => {
     expect(keySet.record.vault.address).not.toBe(keySet.record.runes.address);
   });
 
-  it('uses Bitcoin mainnet and testnet coin-type base paths', () => {
-    expect(SATS_BASE_PATHS.mainnet).toEqual(['m', "84'", "0'"]);
-    expect(TAPROOT_BASE_PATHS.mainnet).toEqual(['m', "86'", "0'"]);
-    expect(SATS_BASE_PATHS.signet).toEqual(['m', "84'", "1'"]);
-    expect(TAPROOT_BASE_PATHS.mutinynet).toEqual(['m', "86'", "1'"]);
+  it('uses the complete role paths for Bitcoin mainnet and testnet coin types', () => {
+    expect(MANAGED_ROLE_PATHS.mainnet).toEqual({
+      sats: ['m', "84'", "0'", "0'", '0', '0'],
+      runes: ['m', "86'", "0'", "0'", '0', '0'],
+      vault: ['m', "86'", "0'", "0'", '2', '0'],
+    });
+    expect(MANAGED_ROLE_PATHS.mutinynet).toEqual({
+      sats: ['m', "84'", "1'", "0'", '0', '0'],
+      runes: ['m', "86'", "1'", "0'", '0', '0'],
+      vault: ['m', "86'", "1'", "0'", '2', '0'],
+    });
+    expect(MANAGED_ROLE_PATHS.regtest).toEqual(MANAGED_ROLE_PATHS.mutinynet);
+  });
+
+  it.each(['mainnet', 'mutinynet'] as const)('hard-cuts the vault key to role branch 2 on %s', (network) => {
+    const satsBaseNode = testNode(1);
+    const taprootBaseNode = testNode(2);
+    const expected = deriveAccountSetFromBaseNodes(network, satsBaseNode, taprootBaseNode);
+    const oldVaultNode = taprootBaseNode.deriveHardened(0).derive(0).derive(1);
+    const direct = accountKeySetFromRoleNodes(
+      network,
+      satsBaseNode.deriveHardened(0).derive(0).derive(0),
+      taprootBaseNode.deriveHardened(0).derive(0).derive(0),
+      taprootBaseNode.deriveHardened(0).derive(2).derive(0),
+    );
+
+    for (const role of ['satsNode', 'runesNode', 'vaultNode'] as const) {
+      expect(direct[role].privateKey.equals(expected[role].privateKey)).toBe(true);
+      expect(direct[role].chainCode.equals(expected[role].chainCode)).toBe(true);
+      expect(direct[role].publicKey.equals(expected[role].publicKey)).toBe(true);
+    }
+    expect(direct.vaultNode.publicKey.equals(oldVaultNode.publicKey)).toBe(false);
+    expect(direct.record).toEqual(expected.record);
   });
 
   it('reconstructs public account ownership data without private keys', () => {
@@ -55,12 +84,22 @@ describe('Ducat account derivation', () => {
     expect(publicSet.vaultOutputScript.equals(keySet.vaultOutputScript)).toBe(true);
     expect(publicSet.runesInternalPubkey.equals(keySet.runesInternalPubkey)).toBe(true);
     expect(publicSet.vaultInternalPubkey.equals(keySet.vaultInternalPubkey)).toBe(true);
-    expect(publicSet.taprootOutputScript.equals(keySet.taprootOutputScript)).toBe(true);
-    expect(publicSet.taprootInternalPubkey.equals(keySet.taprootInternalPubkey)).toBe(true);
     expect('satsNode' in publicSet).toBe(false);
     expect('runesNode' in publicSet).toBe(false);
     expect('vaultNode' in publicSet).toBe(false);
-    expect('taprootNode' in publicSet).toBe(false);
+  });
+
+  it('accepts one Taproot key shared by the runes and vault roles', () => {
+    const keySet = deriveAccountSetFromBaseNodes('mutinynet', testNode(1), testNode(2));
+    const sharedRecord = {
+      ...keySet.record,
+      vault: { ...keySet.record.runes },
+    };
+    const publicSet = accountPublicSetFromRecord('mutinynet', sharedRecord);
+
+    expect(publicSet.vaultInternalPubkey.equals(publicSet.runesInternalPubkey)).toBe(true);
+    expect(publicSet.vaultOutputScript.equals(publicSet.runesOutputScript)).toBe(true);
+    expect(getRolesForAddress(publicSet, sharedRecord.runes.address)).toEqual(['runes', 'vault']);
   });
 
   it('rejects account records whose addresses do not match their public keys', () => {

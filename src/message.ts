@@ -1,12 +1,13 @@
+/** @fileoverview Constructs and signs BIP-322 simple messages for managed P2WPKH and Taproot roles. */
 import { crypto, opcodes, Psbt, Transaction } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
 import { getInternalPubkeyForRole, getNodeForRole, getOutputScriptForRole, type AccountKeySet } from './accounts';
-import { bitcoinNetwork } from './networks';
+import { bitcoinNetwork, bitcoinNetworkForDeployment } from './networks';
 import { taprootSigner, toSigner } from './psbt';
 import type { DucatAddressRole } from './types';
 
-/** The BIP0322 tagged message digest: sha256(tagHash || tagHash || message). */
+/** @param message - UTF-8 message text. @returns The BIP-322 tagged digest `sha256(tagHash || tagHash || message)`. */
 export function bip322MessageHash(message: string): Buffer {
   const tagHash = crypto.sha256(Buffer.from('BIP0322-signed-message'));
 
@@ -32,7 +33,7 @@ function buildToSignPsbt(params: {
   toSpendTxId: string;
   scriptPubKey: Buffer;
 }): Psbt {
-  const psbt = new Psbt({ network: bitcoinNetwork(params.keySet.network) });
+  const psbt = new Psbt({ network: bitcoinNetwork(bitcoinNetworkForDeployment(params.keySet.network)) });
 
   psbt.setVersion(0);
   psbt.setLocktime(0);
@@ -59,6 +60,12 @@ function buildToSignPsbt(params: {
   return psbt;
 }
 
+/**
+ * Constructs and signs a BIP-322 simple-message witness with a managed role key.
+ * @param params - Message, selected role, network, and active key set.
+ * @returns Base64 BIP-322 witness and signer metadata.
+ * @throws When the selected role cannot sign the requested address form.
+ */
 export function signBip322SimpleMessage(params: {
   keySet: AccountKeySet;
   role: DucatAddressRole;

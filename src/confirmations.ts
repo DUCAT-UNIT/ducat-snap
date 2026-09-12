@@ -1,3 +1,4 @@
+/** @fileoverview Builds fail-closed confirmations from verified facts while separating untrusted app metadata. */
 import { crypto } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
 
@@ -8,7 +9,6 @@ import {
   formatInteger,
   formatMetadataKey,
   formatMaybeBtcValue,
-  formatSats,
   formatSatsOnly,
   formatUnit,
   networkLabel,
@@ -20,11 +20,10 @@ import {
   unverifiedActionLabel,
 } from './display';
 import { ducatError } from './errors';
-import { VISIBLE_OUTPUT_FOLD } from './psbt';
 import type {
   DucatActionContext,
   DucatAddressRole,
-  DucatNetwork,
+  DeploymentId,
   DucatVaultReturnData,
   PsbtOutputSummary,
   PsbtSummary,
@@ -102,7 +101,26 @@ function outputDetailLabel(output: PsbtOutputSummary): string {
 }
 
 function isDataOutput(output: PsbtOutputSummary): boolean {
-  return output.role === 'op_return' || (output.role === 'unknown' && output.valueSats === 0);
+  return output.role === 'op_return';
+}
+
+function outputIdentity(output: PsbtOutputSummary): string {
+  return output.role === 'unknown' ? output.scriptHex : output.address;
+}
+
+const MAX_CONFIRMATION_JSON_LENGTH = 10_000_000;
+
+/** Refuses a confirmation tree that MetaMask cannot safely receive as JSON. */
+export function assert_confirmation_content_fits(content: SnapElement): void {
+  const jsonLength = JSON.stringify(content).length;
+
+  if (jsonLength > MAX_CONFIRMATION_JSON_LENGTH) {
+    throw ducatError(
+      'CONFIRMATION_UI_TOO_LARGE',
+      'This signing request would create a confirmation that is too large to review safely.',
+      { jsonLength, maxJsonLength: MAX_CONFIRMATION_JSON_LENGTH },
+    );
+  }
 }
 
 function compactReviewLine(
@@ -298,6 +316,18 @@ function countCard(title: string, value: string, description: string, extra?: st
   });
 }
 
+function unitEvidenceRows(summary: PsbtSummary): SnapElement[] {
+  return summary.unitInputs.map((input) =>
+    uiRow(
+      truncateMiddle(input.coinId, 12, 8),
+      detailValue(
+        `${input.activeAmount} active / ${input.reservedAmount} reserved`,
+        `${input.classification} - asset ${input.assetId}`,
+      ),
+    ),
+  );
+}
+
 function actionKey(context?: DucatActionContext): string | null {
   const raw = context?.actionType ?? context?.flow ?? context?.title;
 
@@ -342,7 +372,10 @@ function inlineSecurity(message: string, variant: 'success' | 'warning'): SnapEl
   ]);
 }
 
-function contextSection(context?: DucatActionContext, note = 'App labels are shown for context. Parsed PSBT values above are what the Snap signs.'): SnapElement[] {
+function contextSection(
+  context?: DucatActionContext,
+  note = 'App-provided values below are context only. Parsed PSBT values above are what the Snap signs.',
+): SnapElement[] {
   const metadata = Object.entries(context?.metadata ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== '');
 
   if (!metadata.length) {
@@ -378,16 +411,17 @@ function batchEntryRecipientRows(summary: PsbtSummary): SnapElement[] {
     return [uiMuted('Self-transfer only - no external recipient.')];
   }
 
-  // Itemize every external recipient. assertAllExternalRecipientsVisible (psbt.ts) already
-  // rejects any entry whose external recipients exceed the visible fold, so this list is bounded
-  // and never collapses a destination the user is signing over into a "+N more" aggregate (the
-  // SAY-07 issue applied equally to this batch-entry view, not just the single-PSBT dialog).
+  // Itemize every external recipient with its complete address or script identity. The PSBT and
+  // batch request bounds keep this finite; the final-tree JSON guard rejects an oversized dialog.
   return externalOutputs.map((output) =>
-    uiRow(
-      'To',
-      detailValue(formatBtcValue(output.valueSats), truncateMiddle(output.address, 12, 8)),
-      output.role === 'unknown' ? 'warning' : undefined,
-    ),
+    uiBox([
+      uiRow(
+        output.role === 'unknown' ? 'Unknown script' : 'To',
+        detailValue(formatBtcValue(output.valueSats), outputDetailLabel(output)),
+        output.role === 'unknown' ? 'warning' : undefined,
+      ),
+      uiCopyable(outputIdentity(output)),
+    ]),
   );
 }
 
@@ -444,9 +478,15 @@ function timeoutInputsSection(timeoutInputs: PsbtSummary['signedInputs']): SnapE
   return [uiCollapsibleSection(`Unilateral exit (${timeoutInputs.length})`, rows, false)];
 }
 
+/**
+ * Requires approval after displaying the exact message, signer role, origin, network, and digest.
+ * @param params - Message, digest, role, network, origin, and account metadata.
+ * @returns Only after explicit user approval.
+ * @throws A user-rejected error when approval is denied.
+ */
 export async function confirmMessage(params: {
   origin: string;
-  network: DucatNetwork;
+  network: DeploymentId;
   address: string;
   role: DucatAddressRole;
   message: string;
@@ -508,24 +548,18 @@ export async function confirmMessage(params: {
   }
 }
 
+/**
+ * Requires approval of a verified PSBT summary including recipients, change, fees, and provenance.
+ * @param params - Prepared transaction summary and request context.
+ * @returns Only after explicit user approval.
+ * @throws When fee visibility is unavailable or approval is denied.
+ */
 export async function confirmPsbt(params: {
   origin: string;
   summary: PsbtSummary;
   context?: DucatActionContext;
 }): Promise<void> {
   const { summary, context, origin } = params;
-
-  // Hard-stop instead of rendering "Unavailable": if the total miner fee cannot be computed
-  // (any input omitted its value data), the user cannot see the net BTC leaving the wallet. We
-  // refuse before showing the dialog rather than letting an approval proceed with a hidden fee
-  // and total. The Ducat app must supply value data (witnessUtxo) for every input it asks us to
-  // sign over, including non-signed inputs that contribute to the fee.
-  if (summary.feeSats === null) {
-    throw ducatError('PSBT_FEE_UNAVAILABLE', 'This PSBT does not include enough value data to compute the Bitcoin miner fee, so the Ducat Snap cannot show the total you would pay and will not sign it.', {
-      inputCount: summary.inputCount,
-      inputValueSats: summary.inputValueSats,
-    });
-  }
 
   const displayContext = contextFromDecodedVault(summary, context);
   const signedInputs = summary.signedInputIndexes.map((index) => `#${index}`).join(', ');
@@ -544,9 +578,6 @@ export async function confirmPsbt(params: {
   const changeOutputCount = recipientOutputs.filter(({ output }) => output.isMine).length;
   const externalOutputs = recipientOutputs.filter(({ output }) => !output.isMine);
   const primaryExternalOutput = externalOutputs[0]?.output;
-  const visibleOutputs = recipientOutputs.slice(0, VISIBLE_OUTPUT_FOLD);
-  const hiddenOutputs = recipientOutputs.slice(visibleOutputs.length);
-  const hiddenExternalSats = hiddenOutputs.filter(({ output }) => !output.isMine).reduce((total, { output }) => total + output.valueSats, 0);
   const dataOutputs = summary.outputs.map((output, index) => ({ index, output })).filter(({ output }) => isDataOutput(output));
   const reviewDataOutputs = dataOutputs.filter(({ output }) => !output.vaultData);
   const visibleDataOutputs = reviewDataOutputs.slice(0, 4);
@@ -578,19 +609,22 @@ export async function confirmPsbt(params: {
   let recipientNumber = 0;
   let changeNumber = 0;
   const outputRows =
-    visibleOutputs.length > 0
-      ? visibleOutputs.map(({ output, index }) => {
+    recipientOutputs.length > 0
+      ? recipientOutputs.map(({ output, index }) => {
           const label = output.isMine
             ? `Change ${++changeNumber}`
             : output.role === 'unknown'
               ? `Unknown output ${index + 1}`
               : `Recipient ${++recipientNumber}`;
 
-          return uiRow(
-            label,
-            detailValue(formatBtcValue(output.valueSats), `${outputDetailLabel(output)} - ${truncateMiddle(output.address, 12, 8)}`),
-            output.role === 'unknown' ? 'warning' : undefined,
-          );
+          return uiBox([
+            uiRow(
+              label,
+              detailValue(formatBtcValue(output.valueSats), outputDetailLabel(output)),
+              output.role === 'unknown' ? 'warning' : undefined,
+            ),
+            uiCopyable(outputIdentity(output)),
+          ]);
         })
       : [uiMuted('No recipient or change outputs parsed. Review the totals above.')];
   const dataOutputRows = visibleDataOutputs.map(({ output, index }) =>
@@ -601,67 +635,72 @@ export async function confirmPsbt(params: {
     ),
   );
 
+  const content = uiBox([
+    uiCard({
+      description: `${originNameLabel(origin)} - ${networkLabel(summary.network)}`,
+      extra: leavesWalletSats === null ? 'review details' : 'you pay',
+      image: DUCAT_MARK_SVG,
+      title: action,
+      value: formatMaybeBtcValue(leavesWalletSats),
+    }),
+    uiBanner(statusTitle, statusSeverity, statusBody),
+    ...vaultActionSection(displayContext),
+    uiSection([
+      uiHeading('Approval summary'),
+      uiMuted(actionIntent(displayContext)),
+      amountCard('You pay', leavesWalletSats, 'Recipient value plus Bitcoin miner fee'),
+      amountCard(recipientTitle, summary.externalOutputSats, recipientDescription),
+      amountCard('Change', summary.selfOutputSats, compactCount(changeOutputCount, 'Ducat output')),
+      compactReviewLine('Network fee', summary.feeSats, 'Bitcoin miner fee', summary.feeSats === null ? 'warning' : undefined),
+    ]),
+    uiSection([
+      uiHeading('Signing check'),
+      countCard('Ducat signs', `${summary.signedInputIndexes.length} of ${summary.inputCount}`, inputRoleLabel, signedInputs || 'No requested inputs'),
+      uiRow(
+        'Safety',
+        inlineSecurity(
+          visibleWarnings.length ? 'Warnings need review' : 'Only Snap-managed inputs',
+          visibleWarnings.length ? 'warning' : 'success',
+        ),
+        visibleWarnings.length ? 'warning' : undefined,
+      ),
+    ]),
+    ...cosignSection,
+    ...timeoutSection,
+    ...(summary.unitInputs.length
+      ? [uiCollapsibleSection(`Verified UNIT inputs (${summary.unitInputs.length})`, unitEvidenceRows(summary), true)]
+      : []),
+    uiCollapsibleSection(
+      `Inspect signed inputs (${summary.signedInputs.length})`,
+      [...inputRows, ...(summary.signedInputs.length > visibleSignedInputs.length ? [uiMuted(`+ ${summary.signedInputs.length - visibleSignedInputs.length} more inputs`)] : [])],
+    ),
+    uiCollapsibleSection(`Inspect outputs (${recipientOutputs.length})`, outputRows, true),
+    ...(reviewDataOutputs.length
+      ? [
+          uiCollapsibleSection(
+            `Inspect data outputs (${reviewDataOutputs.length})`,
+            [
+              ...dataOutputRows,
+              ...(reviewDataOutputs.length > visibleDataOutputs.length ? [uiMuted(`+ ${reviewDataOutputs.length - visibleDataOutputs.length} more data outputs`)] : []),
+            ],
+          ),
+        ]
+      : []),
+    ...(visibleWarnings.length > 1
+      ? [uiCollapsibleSection('More warnings', visibleWarnings.slice(1).map((warning) => uiText(warning, { color: 'warning' })))]
+      : []),
+    ...contextSection(displayContext),
+    uiDivider(),
+    uiMuted('Approve only if these amounts match the Ducat app. Private keys stay inside MetaMask.'),
+  ]);
+
+  assert_confirmation_content_fits(content);
+
   const confirmed = await snap.request<boolean>({
     method: 'snap_dialog',
     params: {
       type: 'confirmation',
-      content: uiBox([
-        uiCard({
-          description: `${originNameLabel(origin)} - ${networkLabel(summary.network)}`,
-          extra: leavesWalletSats === null ? 'review details' : 'you pay',
-          image: DUCAT_MARK_SVG,
-          title: action,
-          value: formatMaybeBtcValue(leavesWalletSats),
-        }),
-        uiBanner(statusTitle, statusSeverity, statusBody),
-        ...vaultActionSection(displayContext),
-        uiSection([
-          uiHeading('Approval summary'),
-          uiMuted(actionIntent(displayContext)),
-          amountCard('You pay', leavesWalletSats, 'Recipient value plus Bitcoin miner fee'),
-          amountCard(recipientTitle, summary.externalOutputSats, recipientDescription),
-          amountCard('Change', summary.selfOutputSats, compactCount(changeOutputCount, 'Ducat output')),
-          compactReviewLine('Network fee', summary.feeSats, 'Bitcoin miner fee', summary.feeSats === null ? 'warning' : undefined),
-        ]),
-        uiSection([
-          uiHeading('Signing check'),
-          countCard('Ducat signs', `${summary.signedInputIndexes.length} of ${summary.inputCount}`, inputRoleLabel, signedInputs || 'No requested inputs'),
-          uiRow(
-            'Safety',
-            inlineSecurity(
-              visibleWarnings.length ? 'Warnings need review' : 'Only Snap-managed inputs',
-              visibleWarnings.length ? 'warning' : 'success',
-            ),
-            visibleWarnings.length ? 'warning' : undefined,
-          ),
-        ]),
-        ...cosignSection,
-        ...timeoutSection,
-        uiCollapsibleSection(
-          `Inspect signed inputs (${summary.signedInputs.length})`,
-          [...inputRows, ...(summary.signedInputs.length > visibleSignedInputs.length ? [uiMuted(`+ ${summary.signedInputs.length - visibleSignedInputs.length} more inputs`)] : [])],
-        ),
-        uiCollapsibleSection(
-          `Inspect outputs (${recipientOutputs.length})`,
-          [...outputRows, ...(hiddenOutputs.length ? [uiMuted(`+ ${hiddenOutputs.length} more outputs; hidden external total ${formatSats(hiddenExternalSats, summary.network)}`)] : [])],
-        ),
-        ...(reviewDataOutputs.length
-          ? [
-              uiCollapsibleSection(
-                `Inspect data outputs (${reviewDataOutputs.length})`,
-                [
-                  ...dataOutputRows,
-                  ...(reviewDataOutputs.length > visibleDataOutputs.length ? [uiMuted(`+ ${reviewDataOutputs.length - visibleDataOutputs.length} more data outputs`)] : []),
-                ],
-              ),
-            ]
-          : []),
-        ...(visibleWarnings.length > 1
-          ? [uiCollapsibleSection('More warnings', visibleWarnings.slice(1).map((warning) => uiText(warning, { color: 'warning' })))]
-          : []),
-        uiDivider(),
-        uiMuted('Approve only if these amounts match the Ducat app. Private keys stay inside MetaMask.'),
-      ]),
+      content,
     },
   });
 
@@ -670,6 +709,12 @@ export async function confirmPsbt(params: {
   }
 }
 
+/**
+ * Requires one all-or-nothing approval for a bounded PSBT batch with visible aggregate fees.
+ * @param params - Verified batch summaries and request context.
+ * @returns Only after explicit user approval of the complete batch.
+ * @throws When any fee is unavailable or approval is denied.
+ */
 export async function confirmBatch(params: {
   origin: string;
   entries: { summary: PsbtSummary; context?: DucatActionContext }[];
@@ -695,170 +740,87 @@ export async function confirmBatch(params: {
   const signedInputCount = summaries.reduce((total, summary) => total + summary.signedInputIndexes.length, 0);
   const network = summaries[0]?.network ?? 'mutinynet';
   const warningCount = summaries.reduce((total, summary) => total + summary.warnings.length, 0);
-  const visibleEntries = params.entries.slice(0, 6);
-  const hiddenEntries = params.entries.slice(visibleEntries.length);
-  const hiddenExternalTotal = hiddenEntries.reduce((total, entry) => total + entry.summary.externalOutputSats, 0);
   const statusTitle = warningCount ? 'Batch warnings' : 'Batch ready';
   const statusSeverity = warningCount ? 'warning' : 'success';
   const statusBody = warningCount
     ? `${warningCount} warning${warningCount === 1 ? '' : 's'} across this batch. Review each transaction before approving.`
     : 'Rejecting this request signs no PSBTs. Approving signs the full batch in order.';
 
+  const content = uiBox([
+    uiCard({
+      description: `${originNameLabel(params.origin)} - ${networkLabel(network)}`,
+      extra: 'all-or-nothing',
+      image: DUCAT_MARK_SVG,
+      // Same provenance rule as confirmPsbt (SAY-02): only a vault-decoded batch gets a
+      // Snap-verified action headline; otherwise the app's label is tagged "(app-provided)".
+      title: `${decodedBatchSummary ? actionLabel(displayContext, 'Ducat') : unverifiedActionLabel(displayContext, 'Bitcoin')} batch`,
+      value: formatMaybeBtcValue(netTotal),
+    }),
+    uiBanner(statusTitle, statusSeverity, statusBody),
+    ...vaultActionSection(displayContext),
+    uiSection([
+      uiHeading('Approval summary'),
+      uiMuted(actionIntent(displayContext)),
+      amountCard('You pay', netTotal, 'Recipient values plus Bitcoin miner fees'),
+      amountCard('Recipients', externalTotal, 'Total external outputs'),
+      compactReviewLine('Network fees', feeTotal, 'across the full batch', feeTotal === null ? 'warning' : undefined),
+    ]),
+    uiSection([
+      uiHeading('Signing check'),
+      countCard('Transactions', `${summaries.length}`, 'All-or-nothing approval', `${signedInputCount} input${signedInputCount === 1 ? '' : 's'}`),
+      uiRow(
+        'Safety',
+        inlineSecurity(
+          warningCount ? 'Warnings need review' : 'Full batch signs in order',
+          warningCount ? 'warning' : 'success',
+        ),
+        warningCount ? 'warning' : undefined,
+      ),
+    ]),
+    uiCollapsibleSection(
+      `Inspect transactions (${summaries.length})`,
+      params.entries.flatMap(({ summary, context }, index) => {
+        const entryContext = contextFromDecodedVault(summary, context);
+
+        return [
+          uiRow(
+            `#${index + 1} ${actionLabel(entryContext, 'Transaction')}`,
+            detailValue(
+              formatMaybeBtcValue(maybeAddSats(summary.externalOutputSats, summary.feeSats)),
+              `${summary.signedInputIndexes.length} input${summary.signedInputIndexes.length === 1 ? '' : 's'} - fee ${formatMaybeBtcValue(summary.feeSats)}${
+                summary.warnings.length ? ` - ${summary.warnings.length} warning${summary.warnings.length === 1 ? '' : 's'}` : ''
+              }`,
+            ),
+            summary.warnings.length ? 'warning' : undefined,
+          ),
+          ...batchEntryRecipientRows(summary),
+        ];
+      }),
+      true,
+    ),
+    ...(summaries.some((summary) => summary.unitInputs.length)
+      ? [
+          uiCollapsibleSection(
+            `Verified UNIT inputs (${summaries.reduce((total, summary) => total + summary.unitInputs.length, 0)})`,
+            summaries.flatMap(unitEvidenceRows),
+          ),
+        ]
+      : []),
+    uiDivider(),
+    uiMuted('Approve only if every transaction and recipient matches the Ducat app flow.'),
+  ]);
+
+  assert_confirmation_content_fits(content);
+
   const confirmed = await snap.request<boolean>({
     method: 'snap_dialog',
     params: {
       type: 'confirmation',
-      content: uiBox([
-        uiCard({
-          description: `${originNameLabel(params.origin)} - ${networkLabel(network)}`,
-          extra: 'all-or-nothing',
-          image: DUCAT_MARK_SVG,
-          // Same provenance rule as confirmPsbt (SAY-02): only a vault-decoded batch gets a
-          // Snap-verified action headline; otherwise the app's label is tagged "(app-provided)".
-          title: `${decodedBatchSummary ? actionLabel(displayContext, 'Ducat') : unverifiedActionLabel(displayContext, 'Bitcoin')} batch`,
-          value: formatMaybeBtcValue(netTotal),
-        }),
-        uiBanner(statusTitle, statusSeverity, statusBody),
-        ...vaultActionSection(displayContext),
-        uiSection([
-          uiHeading('Approval summary'),
-          uiMuted(actionIntent(displayContext)),
-          amountCard('You pay', netTotal, 'Recipient values plus Bitcoin miner fees'),
-          amountCard('Recipients', externalTotal, 'Total external outputs'),
-          compactReviewLine('Network fees', feeTotal, 'across the full batch', feeTotal === null ? 'warning' : undefined),
-        ]),
-        uiSection([
-          uiHeading('Signing check'),
-          countCard('Transactions', `${summaries.length}`, 'All-or-nothing approval', `${signedInputCount} input${signedInputCount === 1 ? '' : 's'}`),
-          uiRow(
-            'Safety',
-            inlineSecurity(
-              warningCount ? 'Warnings need review' : 'Full batch signs in order',
-              warningCount ? 'warning' : 'success',
-            ),
-            warningCount ? 'warning' : undefined,
-          ),
-        ]),
-        uiCollapsibleSection(
-          `Inspect transactions (${summaries.length})`,
-          [
-            ...visibleEntries.flatMap(({ summary, context }, index) => {
-              const entryContext = contextFromDecodedVault(summary, context);
-
-              return [
-                uiRow(
-                  `#${index + 1} ${actionLabel(entryContext, 'Transaction')}`,
-                  detailValue(
-                    formatMaybeBtcValue(maybeAddSats(summary.externalOutputSats, summary.feeSats)),
-                    `${summary.signedInputIndexes.length} input${summary.signedInputIndexes.length === 1 ? '' : 's'} - fee ${formatMaybeBtcValue(summary.feeSats)}${
-                      summary.warnings.length ? ` - ${summary.warnings.length} warning${summary.warnings.length === 1 ? '' : 's'}` : ''
-                    }`,
-                  ),
-                  summary.warnings.length ? 'warning' : undefined,
-                ),
-                ...batchEntryRecipientRows(summary),
-              ];
-            }),
-            ...(hiddenEntries.length
-              ? [uiMuted(`+ ${hiddenEntries.length} more transaction${hiddenEntries.length === 1 ? '' : 's'} not itemized; hidden external total ${formatSats(hiddenExternalTotal, network)}`)]
-              : []),
-          ],
-          true,
-        ),
-        uiDivider(),
-        uiMuted('Approve only if every transaction and recipient matches the Ducat app flow.'),
-      ]),
+      content,
     },
   });
 
   if (!confirmed) {
     throw ducatError('USER_REJECTED', 'You rejected Ducat batch signing.');
-  }
-}
-
-export async function confirmTransfer(params: {
-  origin: string;
-  network: DucatNetwork;
-  from: string;
-  to: string;
-  amountSats: number;
-  feeSats: number;
-  feeRate: number;
-  changeSats: number;
-  inputCount: number;
-  inputValueSats: number;
-  broadcastEndpoint: string;
-}): Promise<void> {
-  const confirmed = await snap.request<boolean>({
-    method: 'snap_dialog',
-    params: {
-      type: 'confirmation',
-      content: uiBox([
-        uiCard({
-          description: `${originNameLabel(params.origin)} - ${networkLabel(params.network)}`,
-          extra: 'you pay',
-          image: DUCAT_MARK_SVG,
-          title: 'Send BTC',
-          value: formatBtcValue(params.amountSats + params.feeSats),
-        }),
-        uiBanner('Ready to broadcast', 'warning', 'Approving signs and broadcasts this BTC transfer. Check the recipient before continuing.'),
-        uiSection([
-          uiHeading('Approval summary'),
-          amountCard('You pay', params.amountSats + params.feeSats, 'Recipient value plus Bitcoin miner fee'),
-          amountCard('Recipient gets', params.amountSats, `To ${truncateMiddle(params.to, 12, 8)}`),
-          amountCard('Change', params.changeSats, 'Returns to BTC account'),
-          compactReviewLine('Network fee', params.feeSats, `${params.feeRate} sat/vB`),
-        ]),
-        uiSection([
-          uiHeading('Broadcast check'),
-          countCard('Selected UTXOs', `${params.inputCount} input${params.inputCount === 1 ? '' : 's'}`, 'BTC account funds selected for this transfer', formatSats(params.inputValueSats, params.network)),
-          uiRow('Broadcast', inlineSecurity('Signs and broadcasts', 'warning'), 'warning'),
-          uiRow('Private keys', 'Stay inside MetaMask'),
-        ]),
-        uiCollapsibleSection('Request details', [
-          uiRow('App', detailValue(originNameLabel(params.origin), originUrlLabel(params.origin))),
-          uiRow('Network', networkLabel(params.network)),
-        ]),
-        uiCollapsibleSection('Inspect route', [
-          uiRow('From', uiCopyable(params.from)),
-          uiRow('To', uiCopyable(params.to)),
-          uiRow('Broadcast endpoint', uiCopyable(params.broadcastEndpoint)),
-        ]),
-        uiDivider(),
-        uiMuted('Approve only if the recipient and the amount shown under You pay are correct.'),
-      ]),
-    },
-  });
-
-  if (!confirmed) {
-    throw ducatError('USER_REJECTED', 'You rejected Ducat transfer.');
-  }
-}
-
-export async function confirmClearRecentActions(origin: string): Promise<void> {
-  const confirmed = await snap.request<boolean>({
-    method: 'snap_dialog',
-    params: {
-      type: 'confirmation',
-      content: uiBox([
-        uiCard({
-          description: originNameLabel(origin),
-          image: DUCAT_MARK_SVG,
-          title: 'Clear recent actions',
-          value: 'History',
-        }),
-        uiBanner('Snap Home only', 'info', 'This clears only the recent Ducat action history shown on Snap Home.'),
-        uiSection([
-          uiHeading('Security check'),
-          uiRow('App', detailValue(originNameLabel(origin), originUrlLabel(origin))),
-          uiRow('Accounts and keys', 'Unchanged'),
-          uiRow('Balances and vaults', 'Unchanged'),
-        ]),
-      ]),
-    },
-  });
-
-  if (!confirmed) {
-    throw ducatError('USER_REJECTED', 'You rejected clearing Ducat recent actions.');
   }
 }

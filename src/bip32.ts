@@ -1,3 +1,4 @@
+/** @fileoverview Implements private BIP32 child derivation, signing, and Taproot key tweaking for Snap key material. */
 import * as ecc from '@bitcoin-js/tiny-secp256k1-asmjs';
 import { hmac } from '@noble/hashes/hmac';
 import { sha512 } from '@noble/hashes/sha512';
