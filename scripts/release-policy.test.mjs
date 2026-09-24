@@ -181,3 +181,10 @@ test('CI authenticates GitHub Packages only for trusted runs', () => {
   );
   assert.match(verifyWorkflow, /run: npm ci --ignore-scripts/);
 });
+
+test('install icon contains no XML comments rejected by MetaMask bundled parser', () => {
+  // Production fix 0709fbc: MetaMask's source transform changes the parser's
+  // XML comment terminator, making otherwise-valid commented SVGs fail install.
+  const icon = readFileSync(new URL('../images/icon.svg', import.meta.url), 'utf8');
+  assert.equal(icon.includes('<!--'), false, 'Snap install icon must be comment-free');
+});
