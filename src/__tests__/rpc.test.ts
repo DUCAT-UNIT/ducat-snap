@@ -626,6 +626,7 @@ describe('RPC router', () => {
         expect(dev.has('http://frontend:3000')).toBe(true);
         expect(dev.has('http://ducat-admin:8075')).toBe(true);
         expect(dev.has('https://app.ducatprotocol.com')).toBe(false);
+        expect(dev.has('https://alpha.ducatprotocol.com')).toBe(false);
         expect(dev.has('https://evil.example')).toBe(false);
         expect(developmentProfiles().map((profile) => profile.id)).toEqual(['regtest', 'mainnet', 'mutinynet']);
       });
@@ -675,6 +676,15 @@ describe('RPC router', () => {
     expect((result as { features: Record<string, unknown> }).features).not.toHaveProperty('reserveIssueSigning');
   });
 
+  it('allows the Alpha app to discover published Snap capabilities', async () => {
+    await expect(handleRpcRequest('https://alpha.ducatprotocol.com', {
+      method: 'ducat_getCapabilities',
+    })).resolves.toEqual(expect.objectContaining({
+      networks: ['mainnet', 'mutinynet'],
+      features: expect.objectContaining({ mainnet: true }),
+    }));
+  });
+
   it('refreshes wallet inventory at the RPC boundary after settlement', async () => {
     setSnapMock();
     (getWalletInventory as jest.Mock).mockClear();
@@ -687,10 +697,16 @@ describe('RPC router', () => {
     expect(getWalletInventory).toHaveBeenCalledWith('mutinynet', { fresh: true });
   });
 
-  it('rejects unauthorized origins before requesting entropy', async () => {
+  it.each([
+    'https://evil.example',
+    'http://alpha.ducatprotocol.com',
+    'https://alpha.ducatprotocol.com:8443',
+    'https://preview.alpha.ducatprotocol.com',
+    'https://alpha.ducatprotocol.com.evil.example',
+  ])('rejects unauthorized origin %s before requesting entropy', async (origin) => {
     const request = setSnapMock();
 
-    await expect(handleRpcRequest('https://evil.example', { method: 'ducat_getAccounts', params: { network: 'mutinynet' } })).rejects.toMatchObject({
+    await expect(handleRpcRequest(origin, { method: 'ducat_getAccounts', params: { network: 'mutinynet' } })).rejects.toMatchObject({
       code: 'ORIGIN_NOT_AUTHORIZED',
     });
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_getBip32Entropy' }));

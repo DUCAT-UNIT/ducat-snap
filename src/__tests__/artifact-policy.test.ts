@@ -48,6 +48,7 @@ describe('compiled Snap artifact policy', () => {
       policy: 'production',
       allowed_origins: [
         'https://app.ducatprotocol.com',
+        'https://alpha.ducatprotocol.com',
         'https://dev.app.ducatprotocol.com',
         'https://staging.app.ducatprotocol.com',
       ],

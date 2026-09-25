@@ -62,6 +62,7 @@ The production artifact allows exactly these Ducat app origins:
 
 ```
 https://app.ducatprotocol.com
+https://alpha.ducatprotocol.com
 https://dev.app.ducatprotocol.com
 https://staging.app.ducatprotocol.com
 ```
