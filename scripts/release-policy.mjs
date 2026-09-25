@@ -4,6 +4,7 @@ const BOOLEAN_RELEASE_FLAGS = ['DUCAT_SNAP_DEV_UNPROMPTED', 'DUCAT_SNAP_DEBUG'];
 
 export const REVIEWED_PRODUCTION_ORIGINS = Object.freeze([
   'https://app.ducatprotocol.com',
+  'https://alpha.ducatprotocol.com',
   'https://dev.app.ducatprotocol.com',
   'https://staging.app.ducatprotocol.com',
 ]);
