@@ -170,6 +170,8 @@ export type PsbtInputSummary = {
 };
 
 export type PsbtSummary = {
+  recovery?: { action: 'repair' | 'return'; targetOutpoint: string; contractId: string;
+    replacementOwner: string; guardians: string[]; encodedDebt: number; collateralSats: number; parentOutpoint?: string };
   network: DeploymentId;
   inputCount: number;
   signedInputIndexes: number[];

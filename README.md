@@ -28,7 +28,7 @@ ducat_getCapabilities()
 ducat_getNetwork()
 ducat_getWalletInventory({ network })
 ducat_signMessage({ network, address, message })
-ducat_signPsbt({ network, psbt, signInputs, context })
+ducat_signPsbt({ network, psbt, signInputs, context, recovery? })
 ducat_signBatch({ network, entries, context })
 ducat_switchNetwork({ network })
 ```
@@ -157,3 +157,22 @@ The third-party security audit (Sayfer) is in [`docs/audit.pdf`](docs/audit.pdf)
 ## License
 
 See [LICENSE](LICENSE).
+
+## Vault recovery review
+
+`features.vaultRecoveryReview` advertises prompted recovery-v2 review. Repair
+signing independently decodes the target, current contract, replacement owner,
+guardians, encoded debt and collateral. The owner must be this Snap's vault key;
+funding alone does not grant ownership. The ordinary prevout, fee, destination
+and input-ownership checks still apply.
+
+For a return, pass `recovery: {action: "return", parentTx: "<exact raw parent>"}`
+to `ducat_signPsbt`. The Snap verifies the parent's recovery message and designated
+output, actual owner/guardian leaf, exact prevout and the selected BTC-account
+destination. The parent may use a verified historical contract in the same
+protocol deployment. No return is permitted through batch or unprompted signing.
+
+The prompt explicitly distinguishes encoded consistency from external ledger
+claims. Snap does not attest accepted debt, the winning repair or current return
+eligibility; the application and production Guardian must verify those facts.
+No new signing method, backend key or metadata-verification bypass is introduced.

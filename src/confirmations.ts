@@ -548,6 +548,22 @@ export async function confirmMessage(params: {
   }
 }
 
+function recoverySection(summary: PsbtSummary): SnapElement[] {
+  const recovery = summary.recovery;
+  if (!recovery) return [];
+  return [uiSection([
+    uiHeading('Vault recovery review'),
+    uiMuted('Decoded transaction and custody fields. Accepted ledger debt, winner selection and return eligibility are external checks; the Snap does not attest them.'),
+    uiRow('Broken output', recovery.targetOutpoint),
+    uiRow('Protocol contract', recovery.contractId),
+    uiRow('Replacement owner', recovery.replacementOwner),
+    uiRow('Guardians', recovery.guardians.join(', ')),
+    uiRow('Encoded debt (base units)', String(recovery.encodedDebt)),
+    uiRow('Replacement collateral', formatBtcValue(recovery.collateralSats)),
+    ...(recovery.parentOutpoint ? [uiRow('Unadopted output selected by app', recovery.parentOutpoint)] : []),
+  ])];
+}
+
 /**
  * Requires approval of a verified PSBT summary including recipients, change, fees, and provenance.
  * @param params - Prepared transaction summary and request context.
@@ -568,7 +584,7 @@ export async function confirmPsbt(params: {
   // whatever the app claimed, so tag it "(app-provided)" rather than presenting an unverified
   // string as the authoritative action (SAY-02).
   const isVaultVerified = summary.vaultUpdates.length > 0;
-  const action = isVaultVerified ? actionLabel(displayContext, 'Ducat transaction') : unverifiedActionLabel(displayContext, 'Bitcoin transaction');
+  const action = summary.recovery ? (summary.recovery.action === 'repair' ? 'Fund vault repair' : 'Return unadopted vault funding') : isVaultVerified ? actionLabel(displayContext, 'Ducat transaction') : unverifiedActionLabel(displayContext, 'Bitcoin transaction');
   const leavesWalletSats = maybeAddSats(summary.externalOutputSats, summary.feeSats);
   const visibleWarnings = summary.warnings.map((warning) => warning.trim()).filter(Boolean);
   const recipientOutputs = summary.outputs
@@ -644,6 +660,7 @@ export async function confirmPsbt(params: {
       value: formatMaybeBtcValue(leavesWalletSats),
     }),
     uiBanner(statusTitle, statusSeverity, statusBody),
+    ...recoverySection(summary),
     ...vaultActionSection(displayContext),
     uiSection([
       uiHeading('Approval summary'),

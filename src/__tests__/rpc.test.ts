@@ -669,6 +669,7 @@ describe('RPC router', () => {
         psbtSigning: true,
         snapHome: true,
         walletInventory: true,
+        vaultRecoveryReview: true,
       },
     });
     expect((result as { methods: string[] }).methods).not.toContain('ducat_signReserveIssue');

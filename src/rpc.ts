@@ -1,3 +1,4 @@
+import { verifyRecoveryReview } from './recovery';
 /** @fileoverview Authorizes and dispatches bounded RPC requests while gating unprompted signing to development. */
 import type { Json } from '@metamask/snaps-sdk';
 
@@ -25,6 +26,7 @@ type JsonRpcRequest = {
 };
 
 type SignPsbtParams = {
+  recovery?: unknown;
   network?: unknown;
   psbt?: unknown;
   signInputs?: unknown;
@@ -77,6 +79,7 @@ type CapabilitiesResponse = {
     psbtSigning: boolean;
     snapHome: boolean;
     walletInventory: boolean;
+    vaultRecoveryReview: boolean;
   };
 };
 
@@ -323,7 +326,7 @@ async function signMessage(origin: string, rawParams: unknown): Promise<SignMess
 // (`confirm: false`) is exclusively driven by the dev-only RPC method below, which is
 // dead-code-eliminated from production (see DEV_UNPROMPTED_ENABLED).
 async function signPsbt(origin: string, rawParams: unknown, confirm = true): Promise<SignPsbtResponse> {
-  const params = assertExactParams(rawParams, ['network', 'psbt', 'signInputs', 'context']) as SignPsbtParams;
+  const params = assertExactParams(rawParams, ['network', 'psbt', 'signInputs', 'context', 'recovery']) as SignPsbtParams;
   const network = normalizeDeploymentId(params.network);
 
   if (typeof params.psbt !== 'string') {
@@ -342,7 +345,9 @@ async function signPsbt(origin: string, rawParams: unknown, confirm = true): Pro
   }
   const verification = await createPsbtVerificationContext(network);
   await verification.verify(prepared.psbt, prepared.summary);
-  const decodedActionType = prepared.summary.vaultUpdates[0]?.actionType;
+  await verifyRecoveryReview(prepared.psbt, prepared.summary, keySet, params.recovery);
+  if (prepared.summary.recovery && !confirm) throw ducatError('INVALID_PARAMS', 'Recovery signing requires an explicit confirmation.');
+  const decodedActionType = prepared.summary.recovery?.action ?? prepared.summary.vaultUpdates[0]?.actionType;
   const actionContext = decodedActionType ? { ...(context ?? {}), actionType: decodedActionType } : context;
   const title = actionLabel(actionContext, 'Sign Ducat transaction');
 
@@ -392,7 +397,7 @@ function parseBatchEntries(value: unknown): ParsedBatchEntry[] {
       throw ducatError('BATCH_ENTRY_INVALID', 'Every Ducat batch entry must be an object.', { entryIndex: index });
     }
 
-    const entry = rawEntry as { psbt?: unknown; signInputs?: unknown; context?: unknown };
+    const entry = assertExactParams(rawEntry, ['psbt', 'signInputs', 'context']) as { psbt?: unknown; signInputs?: unknown; context?: unknown };
 
     if (typeof entry.psbt !== 'string') {
       throw ducatError('BATCH_ENTRY_INVALID', 'Every Ducat batch entry requires a PSBT.', { entryIndex: index });
@@ -439,6 +444,7 @@ function capabilities(): CapabilitiesResponse {
       snapHome: true,
       mainnet: ARTIFACT_POLICY.allowed_deployments.includes('mainnet'),
       walletInventory: true,
+      vaultRecoveryReview: true,
     },
   };
 }
@@ -535,6 +541,8 @@ async function signBatch(origin: string, rawParams: unknown): Promise<SignBatchR
   // until every entry has passed.
   for (const item of prepared) {
     await verification.verify(item.psbt, item.summary);
+    await verifyRecoveryReview(item.psbt, item.summary, keySet);
+    if (item.summary.recovery) throw ducatError('BATCH_ENTRY_INVALID', 'Review each recovery transaction with ducat_signPsbt.');
   }
   const decodedActionType = prepared.find((item) => item.summary.vaultUpdates.length > 0)?.summary.vaultUpdates[0]?.actionType;
   const actionContext = decodedActionType ? { ...(context ?? {}), actionType: decodedActionType } : context;

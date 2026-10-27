@@ -1,0 +1,107 @@
+{
+  "anchor_id": "99e30c509a2261322a046cb2ad46f8d07bb1dd1af5c95ac979052c1210922931",
+  "anchor_height": 125,
+  "anchor_index": 0,
+  "anchor_txid": "0000000000000000000000000000000000000000000000000000000000000000",
+  "boot_height": 125,
+  "chain_network": "regtest",
+  "domain_hash": "f04df4c4b30d2b7ac6e1ed2445aeb12a9cb4d2ec",
+  "contract_height": 125,
+  "contract_index": 0,
+  "contract_txid": "0000000000000000000000000000000000000000000000000000000000000000",
+  "chain_height": 125,
+  "contract_id": "d6c206529e2c08335dd8852b78b9595cf0b03a347adf3df0201d8dd6b8494488",
+  "proto_assets": [
+    {
+      "div": 2,
+      "id": "134:1",
+      "label": "UNIT",
+      "symbol": "$",
+      "supply": "1000000000000000000"
+    }
+  ],
+  "proto_members": [
+    {
+      "group": 21,
+      "idx": 0,
+      "pubkey": "466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27"
+    },
+    {
+      "group": 22,
+      "idx": 0,
+      "pubkey": "3752ade673753a7be34f4b24486151e66e7df781bde6d0c4cababd94aaa45a7a"
+    }
+  ],
+  "proto_terms": [
+    {
+      "group": 63,
+      "key": 243,
+      "value": [
+        "a0d790ef774fb9a9e0aa555d66dc9e45e76edfd796055f55590b6b4ae4820f50"
+      ]
+    },
+    {
+      "group": 63,
+      "key": 244,
+      "value": [
+        1000
+      ]
+    },
+    {
+      "group": 63,
+      "key": 241,
+      "value": [
+        0.15
+      ]
+    },
+    {
+      "group": 63,
+      "key": 242,
+      "value": [
+        1.35
+      ]
+    },
+    {
+      "group": 63,
+      "key": 245,
+      "value": [
+        0.006
+      ]
+    },
+    {
+      "group": 63,
+      "key": 246,
+      "value": [
+        1.25
+      ]
+    },
+    {
+      "group": 63,
+      "key": 247,
+      "value": [
+        "134:1"
+      ]
+    },
+    {
+      "group": 63,
+      "key": 248,
+      "value": [
+        1000
+      ]
+    },
+    {
+      "group": 63,
+      "key": 249,
+      "value": [
+        1.6
+      ]
+    },
+    {
+      "group": 63,
+      "key": 250,
+      "value": [
+        1000
+      ]
+    }
+  ]
+}
