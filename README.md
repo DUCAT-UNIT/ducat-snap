@@ -11,7 +11,7 @@ confirmation prompts.
 The production artifact supports exactly `mainnet` and `mutinynet`. The
 role-neutral local development artifact adds `regtest`. The Snap has no
 separate `alpha-mainnet` wallet network. Its Mainnet and Mutinynet profiles use
-the production validators while retaining their existing Bitcoin address,
+the same production Mutinynet validator URL while retaining their existing Bitcoin address,
 transaction, genesis, and wallet-derivation rules.
 
 ## What are snaps?
@@ -89,7 +89,7 @@ while no server is running, and serves those frozen bytes only at
 one local Snap; neither is an artifact-policy class. Production packaging stays
 on the isolated production policy and contains no localhost or removed wallet
 network authority. Both production and development artifacts use the same
-production Mainnet and Mutinynet validator defaults; Regtest stays local.
+shared validator URL for Mainnet and Mutinynet; Regtest stays local.
 
 From `ducat-infra`, use `make snap-down`, `make snap-install`, and
 `make snap-check` before `make snap-serve`. Starting Admin does not build, start,
@@ -107,13 +107,18 @@ address, transaction, transport, and genesis mechanics, and the exact
 
 | Snap network | Validator URL | Required `chain_network` |
 | --- | --- | --- |
-| Mainnet | `https://validator.ducatprotocol.com` | `main` |
+| Mainnet | `https://validator-mutinynet.prod.ducatprotocol.com` | `main` |
 | Mutinynet | `https://validator-mutinynet.prod.ducatprotocol.com` | `mutiny` |
 
 `main` is Ducat Core's production chain identity; `mainnet` remains the Snap's
 wallet network name. The endpoint update does not change any `0.3.1` account
 derivation paths. A failed production request does not fall back to a dev or
 alpha validator.
+
+The shared endpoint reports `mutiny`. It works for Mutinynet, but Mainnet
+rejects that response because it requires `main`. Sharing a URL does not make
+testnet data valid for Mainnet; Mainnet validator-backed operations remain
+unavailable with this endpoint's current identity.
 
 Users can set validator and Esplora endpoint overrides from Snap Home. Overrides are
 stored in Snap state and apply to complete wallet inventory and signing verification.

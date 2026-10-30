@@ -180,7 +180,7 @@ for (const forbidden of [
   });
 }
 
-for (const missing of productionValidatorEvidence) {
+for (const missing of new Set(productionValidatorEvidence)) {
   test(`rejects production bundle missing reviewed network evidence ${missing}`, () => {
     const evidence = productionValidatorEvidence
       .filter((value) => value !== missing)

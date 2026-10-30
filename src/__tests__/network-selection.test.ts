@@ -90,7 +90,7 @@ describe('explicit Snap network selection', () => {
     expect(dialogText(request)).toContain(ORIGIN);
     expect(dialogText(request)).toContain('mutinynet');
     expect(dialogText(request)).toContain('Mainnet');
-    expect(dialogText(request)).toContain('https://validator.ducatprotocol.com');
+    expect(dialogText(request)).toContain('https://validator-mutinynet.prod.ducatprotocol.com');
     expect(dialogText(request)).toContain('https://mempool.space');
     expect(dialogText(request)).toContain('signing context');
   });

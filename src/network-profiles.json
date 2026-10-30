@@ -5,7 +5,7 @@
       "label": "Mainnet",
       "bitcoin_network": "mainnet",
       "expected_validator_chain_network": "main",
-      "validator_base_url": "https://validator.ducatprotocol.com",
+      "validator_base_url": "https://validator-mutinynet.prod.ducatprotocol.com",
       "esplora_base_url": "https://mempool.space/api"
     },
     {

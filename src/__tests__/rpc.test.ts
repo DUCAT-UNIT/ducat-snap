@@ -578,7 +578,7 @@ describe('RPC router', () => {
     expect(networkProfile('mainnet')).toEqual(expect.objectContaining({
       label: 'Mainnet',
       expected_validator_chain_network: 'main',
-      validator_base_url: 'https://validator.ducatprotocol.com',
+      validator_base_url: 'https://validator-mutinynet.prod.ducatprotocol.com',
     }));
     expect(networkProfile('mutinynet').validator_base_url).toBe('https://validator-mutinynet.prod.ducatprotocol.com');
   });

@@ -21,7 +21,7 @@ export const REVIEWED_VALIDATOR_CHAIN_NETWORKS = Object.freeze({
   mainnet: 'main',
   mutinynet: 'mutiny',
 });
-export const REVIEWED_MAINNET_VALIDATOR_URL = 'https://validator.ducatprotocol.com';
+export const REVIEWED_MAINNET_VALIDATOR_URL = 'https://validator-mutinynet.prod.ducatprotocol.com';
 export const REVIEWED_MUTINYNET_VALIDATOR_URL = 'https://validator-mutinynet.prod.ducatprotocol.com';
 
 const REQUIRED_PRODUCTION_BUNDLE_EVIDENCE = [

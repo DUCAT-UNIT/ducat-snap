@@ -81,7 +81,7 @@ describe('network profiles', () => {
         expect(development.networkProfile('mainnet')).toEqual({
           id: 'mainnet', label: 'Mainnet', bitcoin_network: 'mainnet',
           expected_validator_chain_network: 'main',
-          validator_base_url: 'https://validator.ducatprotocol.com', esplora_base_url: 'https://mempool.space/api',
+          validator_base_url: 'https://validator-mutinynet.prod.ducatprotocol.com', esplora_base_url: 'https://mempool.space/api',
         });
         expect(development.networkProfile('mutinynet').validator_base_url).toBe('https://validator-mutinynet.prod.ducatprotocol.com');
         expect(development.networkProfile('regtest').expected_validator_chain_network).toBe('regtest');
@@ -137,7 +137,7 @@ describe('network profiles', () => {
   it('resolves bundled endpoints for a network', () => {
     const profile = networkProfile('mainnet');
 
-    expect(profile.validator_base_url).toBe('https://validator.ducatprotocol.com');
+    expect(profile.validator_base_url).toBe('https://validator-mutinynet.prod.ducatprotocol.com');
     expect(profile.esplora_base_url).toBe('https://mempool.space/api');
   });
 
@@ -237,7 +237,7 @@ describe('network profiles', () => {
   });
 
   it.each([
-    ['mainnet', 'main', 'https://validator.ducatprotocol.com'],
+    ['mainnet', 'main', 'https://validator-mutinynet.prod.ducatprotocol.com'],
     ['mutinynet', 'mutiny', 'https://validator-mutinynet.prod.ducatprotocol.com'],
   ] as const)('accepts only the production protocol identity for %s', async (network, identity, url) => {
     const profile = networkProfile(network);
@@ -259,6 +259,24 @@ describe('network profiles', () => {
         'validator', profile.validator_base_url, fetchWrongNetwork,
       )).rejects.toThrow(`validator endpoint did not report ${identity}`);
     }
+  });
+
+  it('rejects Mutinynet data for Mainnet even when both profiles share a validator URL', async () => {
+    const mainnet = networkProfile('mainnet');
+    const mutinynet = networkProfile('mutinynet');
+    expect(mainnet.validator_base_url).toBe(mutinynet.validator_base_url);
+    expect(mainnet.bitcoin_network).toBe('mainnet');
+    expect(mutinynet.bitcoin_network).toBe('signet');
+    const fetchMutinynet = jest.fn(async () => Response.json({ chain_network: 'mutiny' })) as typeof fetch;
+
+    await expect(verifyDeploymentEndpointIdentity(
+      mutinynet.expected_validator_chain_network, mutinynet.bitcoin_network,
+      'validator', mutinynet.validator_base_url, fetchMutinynet,
+    )).resolves.toBeUndefined();
+    await expect(verifyDeploymentEndpointIdentity(
+      mainnet.expected_validator_chain_network, mainnet.bitcoin_network,
+      'validator', mainnet.validator_base_url, fetchMutinynet,
+    )).rejects.toThrow('validator endpoint did not report main');
   });
 
   it('keeps guardian-backed mainnet signing closed', () => {

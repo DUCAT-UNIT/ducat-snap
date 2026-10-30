@@ -220,7 +220,7 @@ describe('Native Home and Settings navigation', () => {
     await handleHomeNetworkInput({ id: 'settings', context: { screen: 'settings', network: 'mutinynet' }, event: { type: UserInputEventType.InputChangeEvent, name: 'homeNetwork', value: 'mainnet' } });
     expect(state().selectedNetwork).toBe('mainnet');
     expect(rendered(interfaces.get('settings'))).toContain('Settings');
-    expect(rendered(interfaces.get('settings'))).toContain('https://validator.ducatprotocol.com');
+    expect(rendered(interfaces.get('settings'))).toContain('https://validator-mutinynet.prod.ducatprotocol.com');
   });
 
   it.each(['btc', 'unit', 'eth'] as const)('expands %s across the address row and restores all three columns on collapse', async kind => {
