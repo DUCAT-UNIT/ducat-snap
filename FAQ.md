@@ -154,11 +154,15 @@ published manifest.
 
 The published Snap supports Mainnet and Mutinynet. Development builds add Regtest.
 
-Mainnet is one canonical wallet network. It currently connects to the reviewed alpha
-DUCAT contract, whose validator reports `chain_network: alpha-mainnet`, while using
-Bitcoin mainnet mechanics. That response is validator evidence, not a separate network
-you can select in the Snap. Signet, Testnet4, and `alpha-mainnet` are not supported Snap
-network choices.
+Both profiles use `https://validator-mutinynet.prod.ducatprotocol.com`.
+Mainnet still requires `chain_network: main`, while Mutinynet requires `mutiny`.
+The endpoint currently reports `mutiny`, so Mainnet rejects its data and cannot
+use it for validator-backed operations. The shared URL does not change a
+wallet's Bitcoin network or relax the identity checks.
+Development builds use those same remote defaults plus local Regtest endpoints.
+Existing endpoint overrides are preserved; clear them in Settings to restore
+the bundled defaults. Signet, Testnet4, and `alpha-mainnet` are not supported
+Snap network choices. All `0.3.1` wallet derivation paths remain unchanged.
 
 </details>
 

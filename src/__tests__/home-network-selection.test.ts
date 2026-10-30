@@ -220,7 +220,7 @@ describe('Native Home and Settings navigation', () => {
     await handleHomeNetworkInput({ id: 'settings', context: { screen: 'settings', network: 'mutinynet' }, event: { type: UserInputEventType.InputChangeEvent, name: 'homeNetwork', value: 'mainnet' } });
     expect(state().selectedNetwork).toBe('mainnet');
     expect(rendered(interfaces.get('settings'))).toContain('Settings');
-    expect(rendered(interfaces.get('settings'))).toContain('validator-mainnet.alpha');
+    expect(rendered(interfaces.get('settings'))).toContain('https://validator-mutinynet.prod.ducatprotocol.com');
   });
 
   it.each(['btc', 'unit', 'eth'] as const)('expands %s across the address row and restores all three columns on collapse', async kind => {
@@ -309,7 +309,7 @@ describe('Native Home and Settings navigation', () => {
     expect(nodes(interfaces.get('settings'), 'Copyable')).toEqual([]);
     const event = { type: UserInputEventType.ButtonClickEvent as const, name: `home-toggle-copy-${kind}` };
     await handleHomeNavigationInput({ id: 'settings', context: contexts.get('settings'), event });
-    const expected = { key: home.publicKeys.sats.pubkey, validator: 'https://validator-mutinynet.dev.ducatprotocol.com', esplora: 'https://mutinynet.com/api' };
+    const expected = { key: home.publicKeys.sats.pubkey, validator: 'https://validator-mutinynet.prod.ducatprotocol.com', esplora: 'https://mutinynet.com/api' };
     expect(nodes(interfaces.get('settings'), 'Copyable').map(node => node.props.value)).toEqual([expected[kind]]);
     expect(nodes(interfaces.get('settings'), 'Text').some(node => node.props.children === expected[kind])).toBe(false);
     expect(contexts.get('settings').screen).toBe('settings');
