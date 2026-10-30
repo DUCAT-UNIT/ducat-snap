@@ -26,7 +26,7 @@ jest.mock('../psbt-verification', () => ({
 
 const ORIGIN = 'https://app.ducatprotocol.com';
 const DEV_ORIGIN = 'http://localhost:3000';
-const DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
+const DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com';
 
 function testNode(byte: number) {
   return DucatKeyNode.fromPrivateKey(Buffer.alloc(32, byte), Buffer.alloc(32, byte + 10));

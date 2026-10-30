@@ -5,7 +5,7 @@ const POLICY_ENV = [
   'DUCAT_SNAP_DEBUG',
 ] as const;
 
-const DEVELOPMENT_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
+const DEVELOPMENT_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com';
 
 let savedEnvironment: Record<(typeof POLICY_ENV)[number], string | undefined>;
 

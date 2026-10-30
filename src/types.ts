@@ -48,6 +48,8 @@ export type WalletInventoryResponse = {
   observedAt: number;
   expiresAt: number;
   assetId: string;
+  /** Optional display facts from the same network-checked protocol profile as assetId. */
+  vaultProtocol?: VaultDisplayProtocol;
   account: WalletAccountRecord;
   balances: {
     btcSats: string;
@@ -59,6 +61,12 @@ export type WalletInventoryResponse = {
   };
   btcUtxos: WalletBtcUtxo[];
   unitUtxos: WalletUnitUtxo[];
+};
+
+export type VaultDisplayProtocol = {
+  guardians: { index: number; pubkey: string }[];
+  minimumSats: number;
+  unitDivisibility: number;
 };
 
 export type DerivedDucatAccountRecord = WalletAccountRecord & {
@@ -126,10 +134,17 @@ export type DucatVaultReturnData = {
   unitPrice: number;
   unitTimestamp: number;
   collateralSats?: number;
+  /** Output carrying collateral, set only after matching the Snap's vault address. */
+  vaultOutputIndex?: number;
   tholdPrice?: number;
   tholdHash?: string;
   guardianCount?: number;
   priceCommitCount?: number;
+  guardianIndexes?: number[];
+  thresholdHashes?: string[];
+  guardianPubkeys?: string[];
+  /** Spendable collateral excludes the protocol's locked minimum. */
+  collateralBalanceSats?: number;
 };
 
 export type PsbtOutputSummary = {
@@ -172,6 +187,9 @@ export type PsbtSummary = {
   inputCount: number;
   signedInputIndexes: number[];
   signedInputs: PsbtInputSummary[];
+  transactionId?: string;
+  inputs?: { index: number; outpoint: string; address: string; valueSats: number | null; signed: boolean }[];
+  unitTransfers?: { outputIndex: number; amountUnit: number; assetId: string }[];
   outputCount: number;
   outputs: PsbtOutputSummary[];
   feeSats: number | null;
@@ -182,6 +200,15 @@ export type PsbtSummary = {
   externalOutputSats: number;
   selfOutputSats: number;
   vaultUpdates: DucatVaultReturnData[];
+  /** Prior state attached by prevout verification, never accepted from app context. */
+  vaultBefore?: {
+    inputIndex: number;
+    collateralSats: number;
+    collateralBalanceSats?: number;
+    debtUnit: number;
+    unitPrice?: number;
+    liquidationPrice?: number;
+  };
   warnings: string[];
 };
 
