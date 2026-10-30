@@ -16,6 +16,7 @@ const REVIEWED_DEVELOPMENT_ORIGINS = Object.freeze([
   'http://localhost:8075',
   'http://frontend:3000',
   'http://ducat-admin:8075',
+  'https://dev.app.ducatprotocol.com',
 ]);
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');

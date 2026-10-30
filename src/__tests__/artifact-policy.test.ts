@@ -8,7 +8,7 @@ const POLICY_ENV = [
 ] as const;
 
 const RETIRED_REGTEST_FLAG = ['DUCAT', 'SNAP', 'DEV', 'REGTEST'].join('_');
-const DEVELOPMENT_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
+const DEVELOPMENT_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com';
 
 type PolicyModule = typeof import('../artifact-policy');
 
@@ -61,14 +61,14 @@ describe('compiled Snap artifact policy', () => {
   it('defines development authority without inheriting production origins', () => {
     const { artifactPolicy } = loadPolicy({
       DUCAT_SNAP_ARTIFACT_POLICY: 'development',
-      DUCAT_SNAP_DEV_ORIGINS: ' http://localhost:3000 , http://localhost:8075 , http://frontend:3000 , http://ducat-admin:8075 ',
+      DUCAT_SNAP_DEV_ORIGINS: ' http://localhost:3000 , http://localhost:8075 , http://frontend:3000 , http://ducat-admin:8075 , https://dev.app.ducatprotocol.com ',
       DUCAT_SNAP_DEBUG: 'true',
       DUCAT_SNAP_DEV_UNPROMPTED: 'true',
     });
 
     expect(artifactPolicy()).toEqual({
       policy: 'development',
-      allowed_origins: ['http://localhost:3000', 'http://localhost:8075', 'http://frontend:3000', 'http://ducat-admin:8075'],
+      allowed_origins: ['http://localhost:3000', 'http://localhost:8075', 'http://frontend:3000', 'http://ducat-admin:8075', 'https://dev.app.ducatprotocol.com'],
       allowed_deployments: ['regtest', 'mainnet', 'mutinynet'],
       default_deployment: 'mutinynet',
       debug_enabled: true,

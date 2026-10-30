@@ -1,3 +1,4 @@
+jest.mock('../home-prices', () => ({ ...jest.requireActual('../home-prices'), homeBitcoinPrice: jest.fn(async () => null) }));
 import { UserInputEventType } from '@metamask/snaps-sdk';
 import { Buffer } from 'buffer';
 
@@ -54,7 +55,7 @@ function keyOverride(byte = 9): PrivateKeyOverrideRecord {
 }
 
 describe('Snap Home key override content', () => {
-  it('shows the internal Bitcoin Master Key source and private-key field when no override exists', () => {
+  it('shows a compact password editor without prefilled secret material', () => {
     const derived = keyOverride(4);
     const content = renderKeyOverrideContent({
       network: 'mutinynet',
@@ -65,16 +66,17 @@ describe('Snap Home key override content', () => {
         runes: derived.runes,
       },
       status: null,
+      editing: true,
     });
 
     const json = rendered(content);
-    expect(json).toContain('Bitcoin Master Key');
-    expect(json).toContain('Internal');
-    expect(json).not.toContain('MetaMask-derived');
+    expect(json).not.toContain('Bitcoin Master Key');
+    expect(json).not.toContain('"type":"Section"');
     expect(json).not.toContain(derived.sats.pubkey);
     expect(json).not.toContain(derived.runes.pubkey);
     expect(json).toContain('Bitcoin private key');
-    expect(json).toContain('Save override');
+    expect(json).toContain('cancel-edit-key');
+    expect(json).toContain('"name":"check"');
     expect(json).toContain('password');
     expect(json).not.toContain('Account management');
     expect(json).not.toContain('Accounts');
@@ -82,7 +84,7 @@ describe('Snap Home key override content', () => {
     expect(json).not.toContain('Remove override');
   });
 
-  it('shows the imported public key with edit and remove controls when an override exists', () => {
+  it('copies the imported public key inline and offers restore only when editing', () => {
     const override = keyOverride();
     const content = renderKeyOverrideContent({
       network: 'mutinynet',
@@ -93,21 +95,22 @@ describe('Snap Home key override content', () => {
         runes: override.runes,
       },
       status: null,
+      expandedCopy: true,
     });
 
     const json = rendered(content);
-    expect(json).toContain('Bitcoin Master Key');
-    expect(json).toContain('Imported');
-    expect(json).not.toContain('Imported override');
-    expect(json).toContain('Public key');
+    expect(json).toContain('Bitcoin public key');
     expect(json).toContain(override.sats.pubkey);
     expect(json).not.toContain('BTC public key');
     expect(json).not.toContain('UNIT public key');
-    expect(json).toContain('Bitcoin private key');
-    expect(json).toContain('Update override');
-    expect(json).toContain('Remove override');
-    expect(json).not.toContain('Save override');
-    expect(json).toContain('password');
+    expect(json).toContain('Copyable');
+    expect(json).toContain('manage-key');
+    expect(json).not.toContain('password');
+    expect(json).not.toContain('Restore MetaMask key');
+    const editing = rendered(renderKeyOverrideContent({ network: 'mutinynet', override, effective: { source: 'imported', sats: override.sats, runes: override.runes }, status: null, editing: true }));
+    expect(editing).toContain('Restore MetaMask key');
+    expect(editing).toContain('password');
+    expect(editing).not.toContain(override.private_key);
     expect(json).not.toContain('Account management');
     expect(json).not.toContain('Accounts');
     expect(json).not.toContain('Label');
@@ -182,7 +185,7 @@ describe('Snap Home key override input handling', () => {
 
     expect(state().selectedNetwork).toBe('mutinynet');
     expect(state().keyOverrides?.[0]?.private_key).toBe(override.private_key);
-    expect(JSON.stringify(interfaces.get('interface-1'))).toContain('mutinynet');
+    expect(JSON.stringify(interfaces.get('interface-1'))).toContain('Testnet');
   });
 
   it('saves a private key override from Snap Home without labels and clears submitted key material from rendered UI', async () => {
@@ -205,6 +208,8 @@ describe('Snap Home key override input handling', () => {
     expect(state().keyOverrides?.[0]?.private_key).toBe('09'.repeat(32));
     expect(state().keyOverrides?.[0]).not.toHaveProperty('label');
     expect(JSON.stringify(interfaces.get('interface-1'))).toContain('Override saved');
+    expect(JSON.stringify(interfaces.get('interface-1'))).toContain('Settings');
+    expect(JSON.stringify(interfaces.get('interface-1'))).not.toContain('"name":"privateKey"');
     expect(JSON.stringify(interfaces.get('interface-1'))).not.toContain('09090909');
     expect(JSON.stringify(interfaces.get('interface-1'))).not.toContain('Label');
   });

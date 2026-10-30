@@ -659,7 +659,10 @@ export async function handleRpcRequest(origin: string, request: JsonRpcRequest):
     case 'ducat_getWalletInventory': {
       const params = assertExactParams(request.params, ['network']);
       await rememberDucatSession(origin);
-      return getWalletInventory(params.network, { fresh: true });
+      // Vault display evidence is internal to the Snap. Preserve the existing
+      // public inventory shape for apps with strict response decoders.
+      const { vaultProtocol: _vaultProtocol, ...inventory } = await getWalletInventory(params.network, { fresh: true });
+      return inventory;
     }
 
     default:

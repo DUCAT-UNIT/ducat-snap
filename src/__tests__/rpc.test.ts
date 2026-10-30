@@ -1,3 +1,4 @@
+jest.mock('../home-prices', () => ({ ...jest.requireActual('../home-prices'), homeBitcoinPrice: jest.fn(async () => null) }));
 import * as ecc from '@bitcoin-js/tiny-secp256k1-asmjs';
 import { opcodes, payments, Psbt, script as btcScript } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
@@ -8,7 +9,7 @@ import { getJsonSizeUnsafe, validateJsxElements } from '@metamask/snaps-utils';
 import { DUCAT_DERIVATION_SCHEME, p2trAccount, p2wpkhAccount, toXOnly } from '../accounts';
 import { DucatKeyNode } from '../bip32';
 import { confirmBatch, confirmPsbt } from '../confirmations';
-import { renderHomePage } from '../home';
+import { renderHomePage, updateHomeInterface } from '../home';
 import { truncateMiddle } from '../display';
 import { networkProfile } from '../network-profiles';
 import { bitcoinNetwork, DUCAT_GUARDIAN_PUBKEYS } from '../networks';
@@ -35,7 +36,7 @@ jest.mock('../wallet-inventory', () => ({
 
 const ORIGIN = 'https://app.ducatprotocol.com';
 const DEV_ORIGIN = 'http://localhost:3000';
-const DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
+const DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com';
 const UNSPENDABLE_TAPROOT_KEY = Buffer.from('50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0', 'hex');
 
 const REGISTERED_NETWORK_METHODS = [
@@ -438,7 +439,8 @@ const signatureValidator = (pubkey: Buffer, hash: Buffer, signature: Buffer): bo
 function dialogValues(request: jest.Mock): string[] {
   const dialogCall = request.mock.calls.find(([arg]) => arg.method === 'snap_dialog');
 
-  return collectDialogText(dialogCall?.[0].params?.content);
+  return collectDialogText(dialogCall?.[0].params?.content
+    ?? (request as SnapRequestMock).interfaces.get(dialogCall?.[0].params?.id));
 }
 
 function dialogContent(request: jest.Mock): JSXElement {
@@ -448,7 +450,7 @@ function dialogContent(request: jest.Mock): JSXElement {
     throw new Error('Expected a snap_dialog call.');
   }
 
-  return dialogCall[0].params.content as JSXElement;
+  return (dialogCall[0].params.content ?? (request as SnapRequestMock).interfaces.get(dialogCall[0].params.id)) as JSXElement;
 }
 
 function jsxNodes(value: unknown, type: string): Record<string, unknown>[] {
@@ -560,8 +562,8 @@ function collectDialogText(value: unknown): string[] {
     typeof record.value === 'string' ? record.value : null,
     typeof record.label === 'string' ? record.label : null,
     typeof record.title === 'string' ? record.title : null,
-    typeof props.value === 'string' ? props.value : null,
-    typeof props.extra === 'string' ? props.extra : null,
+    ...collectDialogText(props.value),
+    ...collectDialogText(props.extra),
     typeof props.description === 'string' ? props.description : null,
     typeof props.label === 'string' ? props.label : null,
     typeof props.title === 'string' ? props.title : null,
@@ -617,7 +619,7 @@ describe('RPC router', () => {
     try {
       jest.isolateModules(() => {
         process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
-        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000, http://localhost:8075, http://frontend:3000, http://ducat-admin:8075';
+        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000, http://localhost:8075, http://frontend:3000, http://ducat-admin:8075, https://dev.app.ducatprotocol.com';
         developmentRpc = require('../rpc') as typeof import('../rpc');
         const { ALLOWED_ORIGINS: dev } = developmentRpc;
         const { networkProfiles: developmentProfiles } = require('../network-profiles') as typeof import('../network-profiles');
@@ -625,6 +627,7 @@ describe('RPC router', () => {
         expect(dev.has('http://localhost:8075')).toBe(true);
         expect(dev.has('http://frontend:3000')).toBe(true);
         expect(dev.has('http://ducat-admin:8075')).toBe(true);
+        expect(dev.has('https://dev.app.ducatprotocol.com')).toBe(true);
         expect(dev.has('https://app.ducatprotocol.com')).toBe(false);
         expect(dev.has('https://evil.example')).toBe(false);
         expect(developmentProfiles().map((profile) => profile.id)).toEqual(['regtest', 'mainnet', 'mutinynet']);
@@ -640,6 +643,19 @@ describe('RPC router', () => {
       networks: ['regtest', 'mainnet', 'mutinynet'],
       features: expect.objectContaining({ mainnet: true }),
     }));
+    await expect(developmentRpc.handleRpcRequest('https://dev.app.ducatprotocol.com', {
+      method: 'ducat_getCapabilities',
+    })).resolves.toEqual(expect.objectContaining({ networks: ['regtest', 'mainnet', 'mutinynet'] }));
+    for (const origin of [
+      'http://dev.app.ducatprotocol.com',
+      'https://dev.app.ducatprotocol.com:8443',
+      'https://dev.app.ducatprotocol.com.evil.example',
+      'https://app.ducatprotocol.com',
+    ]) {
+      await expect(developmentRpc.handleRpcRequest(origin, {
+        method: 'ducat_getCapabilities',
+      })).rejects.toMatchObject({ code: 'ORIGIN_NOT_AUTHORIZED' });
+    }
   });
 
   it('returns Snap capabilities', async () => {
@@ -685,6 +701,26 @@ describe('RPC router', () => {
     });
 
     expect(getWalletInventory).toHaveBeenCalledWith('mutinynet', { fresh: true });
+  });
+
+  it('keeps internal vault evidence out of the public wallet inventory response', async () => {
+    setSnapMock();
+    const inventory = {
+      network: 'mutinynet', observedAt: 1000, expiresAt: 31000, assetId: '134:1',
+      account: testKeySet().record,
+      balances: { btcSats: '0', btcUtxos: 0, unitActive: '0', unitReserved: '0', unitMixedActive: '0', unitMixedReserved: '0' },
+      btcUtxos: [], unitUtxos: [],
+    };
+    const internal = { ...inventory, vaultProtocol: { guardians: [], minimumSats: 1000, unitDivisibility: 2 } };
+    (getWalletInventory as jest.Mock).mockResolvedValueOnce(internal);
+
+    const result = await handleRpcRequest(ORIGIN, {
+      method: 'ducat_getWalletInventory', params: { network: 'mutinynet' },
+    });
+
+    expect(result).toEqual(inventory);
+    expect(result).not.toHaveProperty('vaultProtocol');
+    expect(internal.vaultProtocol).toEqual({ guardians: [], minimumSats: 1000, unitDivisibility: 2 });
   });
 
   it('rejects unauthorized origins before requesting entropy', async () => {
@@ -941,7 +977,7 @@ describe('RPC router', () => {
     ]);
   });
 
-  it('renders bounded primitive app metadata in message confirmations', async () => {
+  it('omits app metadata while retaining the exact message to sign', async () => {
     const request = setSnapMock();
     const keySet = testKeySet();
 
@@ -963,16 +999,16 @@ describe('RPC router', () => {
 
     const rendered = dialogValues(request).join('\n');
 
-    expect(rendered).toContain('Ducat app context');
-    expect(rendered).toContain('Confirmations');
-    expect(rendered).toContain('2');
-    expect(rendered).toContain('Is Retry');
-    expect(rendered).toContain('false');
-    expect(rendered).toContain('Vault Id');
-    expect(rendered).toContain('vault-alpha');
+    expect(rendered).toContain('Authorize Ducat session');
+    expect(rendered).toContain('Message to sign');
+    expect(rendered).not.toContain('Ducat app context');
+    expect(rendered).not.toContain('Confirmations');
+    expect(rendered).not.toContain('Is Retry');
+    expect(rendered).not.toContain('Vault Id');
+    expect(rendered).not.toContain('vault-alpha');
   });
 
-  it('escapes markdown syntax in app metadata so it cannot inject links into the dialog', async () => {
+  it('does not render links supplied through app metadata', async () => {
     const request = setSnapMock();
     const keySet = testKeySet();
 
@@ -992,9 +1028,8 @@ describe('RPC router', () => {
 
     const rendered = dialogValues(request).join('\n');
 
-    expect(rendered).toContain('Ducat app context');
-    // The literal characters survive, but escaped so MetaMask renders them as text, not a link.
-    expect(rendered).toContain('\\[Verified\\]\\(https://attacker.example\\)');
+    expect(rendered).not.toContain('Ducat app context');
+    expect(rendered).not.toContain('attacker.example');
     expect(rendered).not.toContain('[Verified](https://attacker.example)');
   });
 
@@ -1166,7 +1201,7 @@ describe('RPC router', () => {
     expect(rejectedRequest.mock.calls.filter(([arg]) => arg.method === 'snap_dialog')).toHaveLength(1);
   });
 
-  it('renders Ducat action labels, parsed output facts, and app metadata in PSBT confirmations', async () => {
+  it('renders Ducat action labels and parsed output facts without app metadata in PSBT confirmations', async () => {
     const request = setSnapMock();
     const { keySet, psbt } = makeExternalPsbt(100_000, 9);
 
@@ -1228,16 +1263,16 @@ describe('RPC router', () => {
     expect(rendered).toContain('Input #0');
     expect(rendered).toContain('Inspect outputs');
     expect(rendered).not.toContain('Request details');
-    expect(rendered).toContain('Ducat app context');
-    expect(rendered).toContain('App-provided');
-    expect(rendered).toContain('Intent Id');
-    expect(rendered).toContain('wrap-123');
-    expect(rendered).toContain('Expires At');
-    expect(rendered).toContain('2026-08-11T20:00:00.000Z');
-    expect(rendered).toContain('Final Asset');
-    expect(rendered).toContain('wUNIT');
-    expect(rendered).toContain('Evm Recipient');
-    expect(rendered).toContain('0x1111111111111111111111111111111111111111');
+    expect(rendered).not.toContain('Ducat app context');
+    expect(rendered).not.toContain('Verified UNIT inputs');
+    expect(rendered).not.toContain('Intent Id');
+    expect(rendered).not.toContain('wrap-123');
+    expect(rendered).not.toContain('Expires At');
+    expect(rendered).not.toContain('2026-08-11T20:00:00.000Z');
+    expect(rendered).not.toContain('Final Asset');
+    expect(rendered).not.toContain('wUNIT');
+    expect(rendered).not.toContain('Evm Recipient');
+    expect(rendered).not.toContain('0x1111111111111111111111111111111111111111');
   });
 
   it('renders decoded Ducat vault OP_RETURN facts in PSBT confirmations', async () => {
@@ -1271,8 +1306,9 @@ describe('RPC router', () => {
     // This action IS verified from the decoded OP_RETURN, so the headline must not be tagged
     // "(app-provided)" (SAY-02 only marks unverifiable, non-vault actions).
     expect(rendered).not.toContain('(app-provided)');
-    expect(rendered).toContain('Adds BTC collateral to the vault.');
-    expect(rendered).toContain('decoded from vault data');
+    expect(rendered).toContain('Deposit to your vault');
+    expect(rendered).toContain('Add BTC collateral');
+    expect(rendered).toContain('Vault before → after');
     expect(rendered).toContain('Collateral');
     expect(rendered).toContain('0.01100000 BTC');
     expect(rendered).toContain('UNIT debt');
@@ -1580,7 +1616,7 @@ describe('RPC router', () => {
     });
 
     const section = collapsibleSection(dialogContent(request), 'Inspect transactions (10)');
-    expect((section.props as Record<string, unknown>).isExpanded).toBe(true);
+    expect((section.props as Record<string, unknown>).isExpanded).toBe(false);
     expect(copyableValues(section)).toEqual(recipients);
     expect(dialogValues(request).join('\n')).not.toContain('not itemized');
   });
@@ -1820,26 +1856,27 @@ describe('RPC router', () => {
       expect(home).toEqual({ id: 'interface-1' });
       const rendered = JSON.stringify(request.interfaces.get('interface-1'));
 
-      expect(rendered).toContain('mutinynet');
-      expect(rendered).toContain('Manage');
-      expect(rendered).not.toContain(truncateMiddle(keySet.record.sats.address));
-      expect(rendered).not.toContain(truncateMiddle(keySet.record.runes.address));
-      expect(rendered).toContain(keySet.record.sats.address);
-      expect(rendered).toContain(keySet.record.runes.address);
-      expect(rendered).toContain(keySet.record.sats.pubkey);
-      expect(rendered).toContain('manage-key');
-      expect(rendered).toContain('https://validator-mutinynet.dev.ducatprotocol.com');
-      expect(rendered).toContain('manage-validator');
-      expect(rendered).toContain('https://mutinynet.com/api');
-      expect(rendered).toContain('manage-esplora');
-      expect(occurrenceCount(rendered, keySet.record.sats.address)).toBe(1);
-      expect(occurrenceCount(rendered, keySet.record.runes.address)).toBe(1);
+      expect(rendered).toContain('Testnet');
+      expect(rendered).toContain('home-settings');
+      expect(rendered).toContain(truncateMiddle(keySet.record.sats.address, 6, 4).replace("...", "…"));
+      expect(rendered).toContain(truncateMiddle(keySet.record.runes.address, 6, 4).replace("...", "…"));
+      expect(occurrenceCount(rendered, truncateMiddle(keySet.record.sats.address, 6, 4).replace("...", "…"))).toBe(1);
+      expect(occurrenceCount(rendered, truncateMiddle(keySet.record.runes.address, 6, 4).replace("...", "…"))).toBe(1);
+      await updateHomeInterface('interface-1', 'mutinynet', { expandedCopy: 'key' }, 'settings');
+      const settings = JSON.stringify(request.interfaces.get('interface-1'));
+      expect(settings).toContain(keySet.record.sats.pubkey.slice(0, 33));
+      expect(settings).toContain(keySet.record.sats.pubkey.slice(33));
+      expect(settings).toContain('manage-key');
+      expect(settings).toContain('https://validator-mutinynet.dev.ducatprotocol.com');
+      expect(settings).toContain('edit-endpoint:validator');
+      expect(settings).toContain('https://mutinynet.com/api');
+      expect(settings).toContain('edit-endpoint:esplora');
       expect(rendered).not.toContain('mainnet enabled');
       expect(rendered).not.toContain('Balance lookups contact external services');
-      expect(rendered).toContain('12345 sats');
-      expect(rendered).toContain('10000 active / 0 reserved');
+      expect(rendered).toContain('0.00012345 BTC');
+      expect(rendered).toContain('100 UNIT');
       expect(rendered).not.toContain('Alpha vault');
-      expect(rendered).toContain('Bitcoin public key');
+      expect(settings).toContain('Bitcoin public key');
       expect(rendered).not.toContain('Bitcoin private key');
       expect(rendered).not.toContain('Network endpoints');
       expect(rendered).not.toContain('Account management');
@@ -1886,9 +1923,11 @@ describe('RPC router', () => {
       expect(home).toEqual({ id: 'interface-1' });
       const rendered = JSON.stringify(request.interfaces.get('interface-1'));
 
-      expect(rendered).toContain(override.sats.address);
-      expect(rendered).toContain(override.runes.address);
-      expect(rendered).toContain(override.sats.pubkey);
+      expect(rendered).toContain(truncateMiddle(override.sats.address, 6, 4).replace("...", "…"));
+      expect(rendered).toContain(truncateMiddle(override.runes.address, 6, 4).replace("...", "…"));
+      await updateHomeInterface('interface-1', 'mutinynet', { expandedCopy: 'key' }, 'settings');
+      expect(JSON.stringify(request.interfaces.get('interface-1'))).toContain(override.sats.pubkey.slice(0, 33));
+      expect(JSON.stringify(request.interfaces.get('interface-1'))).toContain(override.sats.pubkey.slice(33));
       expect(rendered).not.toContain(derived.record.sats.address);
       expect(rendered).not.toContain(derived.record.runes.address);
     } finally {
@@ -1941,13 +1980,14 @@ describe('RPC router', () => {
       (getWalletInventory as jest.Mock).mockRejectedValueOnce(new Error('malformed remote payload'));
       const home = await renderHomePage();
       expect(home).toEqual({ id: 'interface-1' });
-      const rendered = JSON.stringify(request.interfaces.get('interface-1'));
+      // SVG path coordinates can be negative; assertions here concern displayed wallet values.
+      const rendered = JSON.stringify(request.interfaces.get('interface-1'), (key, value) => key === 'src' ? undefined : value);
 
-      expect(rendered).toContain('Wallet data unavailable');
+      expect(rendered).not.toContain('Wallet data unavailable');
       expect(rendered).toContain('BTC');
       expect(rendered).toContain('Unavailable');
       expect(rendered).toContain('UNIT');
-      expect(rendered).toContain('Message signing remains available');
+      expect(rendered).not.toContain('Message signing remains available');
       expect(rendered).not.toContain('Vault');
       expect(rendered).not.toContain('-0.5');
       expect(rendered).not.toContain('-1,000');

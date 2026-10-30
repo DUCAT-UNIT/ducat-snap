@@ -1,6 +1,7 @@
 /** @fileoverview Fetches, validates, caches, and invalidates complete wallet-owned BTC/UNIT snapshots. */
 import { get_vault_terms } from '@ducat-unit/core/lib';
 
+import { vaultDisplayProtocol } from './vault-evidence';
 import { ducatError, isDucatSnapError } from './errors';
 import { getActiveAccountKeySet, type SelectedAccountKeySet } from './key-overrides';
 import { verifyDeploymentEndpointIdentity } from './network-endpoint-policy';
@@ -302,6 +303,7 @@ export class WalletInventoryService {
       observedAt,
       expiresAt: observedAt + CACHE_TTL_MS,
       assetId,
+      vaultProtocol: vaultDisplayProtocol(proto, assetId),
       account: account.record,
       balances,
       btcUtxos,
