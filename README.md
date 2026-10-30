@@ -68,8 +68,9 @@ https://staging.app.ducatprotocol.com
 
 `localhost` and preview deployments are intentionally absent from the published
 manifest. The development artifact replaces this list with exactly
-`http://localhost:3000`, `http://localhost:8075`, `http://frontend:3000`, and
-`http://ducat-admin:8075`; it does not inherit production origins. It contains
+`http://localhost:3000`, `http://localhost:8075`, `http://frontend:3000`,
+`http://ducat-admin:8075`, and `https://dev.app.ducatprotocol.com`; it does not
+inherit other production origins. It contains
 exactly `regtest`, `mainnet`, and `mutinynet`, defaults to `mutinynet`, and
 disables debug and unprompted signing.
 The test-only unprompted method refuses every deployment mapped to Bitcoin
@@ -117,6 +118,13 @@ Home screen cannot modify a different network.
 
 ## Development
 
+For the local Flask connector, run `npm run preview:flask` and open
+`http://localhost:3000` in the browser with MetaMask Flask installed. The
+connector installs or updates `local:http://localhost:8086`. After source
+changes, stop the preview server and run the command again, then reconnect
+to load the rebuilt Snap. The server holds a verified snapshot of the bundle
+and manifest, so it never serves mismatched files during a rebuild.
+
 ```bash
 npm ci
 npm run build        # mm-snap build -> dist/bundle.js
@@ -141,6 +149,27 @@ npm run verify:harness   # MetaMask simulation harness (accounts, signing, BitVM
 
 Point the frontend at the local build with `NEXT_PUBLIC_DUCAT_SNAP_ID="local:http://localhost:8080"`,
 or at the published package with `NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wallet-snap"`.
+
+## Home and confirmation screens
+
+Snap Home displays BTC, UNIT, and the permitted MetaMask ETH account, with
+Bitcoin, UNIT, ETH, wUNIT, and USDC balances. The Ethereum provider permission
+is used for account discovery only; opening Home can request missing account
+access, while navigation reads existing access without prompting again.
+Ethereum balances use Ethereum mainnet or Sepolia according to the selected
+Snap network. wUNIT is configured for Sepolia; its mainnet address remains
+unset until deployment. Price quotes and EVM balances are display-only and
+are not used to authorize Bitcoin signing.
+
+Settings contains the network selector, Bitcoin key override, and endpoint
+editors. Copy fields and editing controls use native Snap components.
+Vault confirmations show the action amount, destination, and verified
+before/after values. Transaction sections start collapsed; full addresses
+remain in Addresses & signing details. Raw UNIT inventory and app metadata
+sections are omitted from confirmations. Input ownership, previous-output,
+network, fee, and signing checks still run independently of these displays.
+Vault comparison metadata remains internal to the Snap; the public wallet
+inventory RPC retains its existing response shape for compatible apps.
 
 ## Security
 

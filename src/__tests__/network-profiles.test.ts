@@ -75,7 +75,7 @@ describe('network profiles', () => {
     try {
       jest.isolateModules(() => {
         process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
-        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
+        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com';
         const development = require('../network-profiles') as typeof import('../network-profiles');
         expect(development.networkProfiles().map((profile) => profile.id)).toEqual(['regtest', 'mainnet', 'mutinynet']);
         expect(development.networkProfile('mainnet')).toEqual({

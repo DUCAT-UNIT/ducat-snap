@@ -33,7 +33,7 @@ const DEVELOPMENT_DEPLOYMENTS = Object.freeze([
   'mutinynet',
 ] as const satisfies readonly DeploymentId[]);
 
-const DEVELOPMENT_ORIGINS_COMMITMENT = '8f3f24b4e50a1b6d7b5957b840bc714edfdcee599dea4ca2377155665781f5da';
+const DEVELOPMENT_ORIGINS_COMMITMENT = '4661e06d6f039aedac5492a8976c7b8403eca1fc0a5534f3615a921e79ad0cad';
 
 function invalidPolicy(message: string, details?: Record<string, unknown>): never {
   throw ducatError('ARTIFACT_POLICY_INVALID', message, details);

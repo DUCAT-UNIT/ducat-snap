@@ -2,6 +2,8 @@
 import { UserInputEventType, type OnUserInputHandler } from '@metamask/snaps-sdk';
 
 import { updateHomeInterface } from './home';
+import { homeIconButton, homeSettingTitle, homeVerticalDivider } from './home-controls';
+import { homeCopyRow } from './home-copy';
 import { importPrivateKeyFromSnapHome, removeKeyOverrideFromSnapHome } from './key-overrides';
 import { getSelectedNetwork } from './network-selection';
 import { normalizeDeploymentId } from './networks';
@@ -11,13 +13,10 @@ import {
   uiBanner,
   uiBox,
   uiButton,
-  uiCopyable,
   uiField,
   uiForm,
-  uiHeading,
   uiInput,
-  uiRow,
-  uiSection,
+  uiText,
   type SnapElement,
 } from './ui';
 
@@ -34,37 +33,26 @@ export function renderKeyOverrideContent(params: {
     runes: DucatAccount;
   };
   status: KeyOverrideStatus;
+  editing?: boolean;
+  expandedCopy?: boolean;
 }): SnapElement {
-  const sourceLabel = params.effective.source === 'imported' ? 'Imported' : 'Internal';
-
   return uiBox([
-    uiSection([
-      uiHeading('Bitcoin Master Key'),
-      ...(params.status ? [uiBanner(params.status.title, params.status.severity, params.status.message)] : []),
-      uiRow('Source', sourceLabel),
-      ...(params.effective.source === 'imported'
-        ? [uiRow('Public key', uiCopyable(params.effective.sats.pubkey))]
-        : []),
-      ...(params.override
-        ? [
-            uiForm('import-private-key', [
-              uiField('Bitcoin private key', uiInput('privateKey', 'password', 'Replacement WIF or 32-byte hex')),
-              uiButton('Update override', { type: 'submit', name: 'import-private-key' }),
-            ]),
-            uiForm(`remove-override:${params.override.id}`, [
-              uiButton('Remove override', {
-                name: `remove-override:${params.override.id}`,
-                type: 'submit',
-                variant: 'destructive',
-              }),
-            ]),
-          ]
-        : [
-            uiForm('import-private-key', [
-              uiField('Bitcoin private key', uiInput('privateKey', 'password', 'WIF or 32-byte hex')),
-              uiButton('Save override', { type: 'submit', name: 'import-private-key' }),
-            ]),
-          ]),
+    ...(params.status ? [uiBanner(params.status.title, params.status.severity, params.status.message)] : []),
+    ...(params.editing ? [
+      uiForm('import-private-key', [
+        homeSettingTitle('Bitcoin private key', 'cancel-edit-key', true),
+        uiText('Import a private key to change the account on this network.', { size: 'sm', color: 'alternative' }),
+        uiBox([
+          uiField('', uiInput('privateKey', 'password', params.override ? 'Replacement WIF or 32-byte hex' : 'WIF or 32-byte hex')),
+          homeVerticalDivider(28),
+          homeIconButton('import-private-key', 'check', 'submit'),
+        ], { direction: 'horizontal', crossAlignment: 'center', alignment: 'space-between' }),
+      ]),
+      ...(params.override ? [uiForm(`remove-override:${params.override.id}`, [
+        uiButton('Restore MetaMask key', { name: `remove-override:${params.override.id}`, type: 'submit' }),
+      ])] : []),
+    ] : [
+      homeCopyRow(homeSettingTitle('Bitcoin public key', 'manage-key'), params.effective.sats.pubkey, 'key', params.expandedCopy),
     ]),
   ]);
 }
@@ -74,7 +62,7 @@ function stringField(value: unknown): string {
 }
 
 async function updateKeyOverrideInterface(id: string, network: DeploymentId, status: KeyOverrideStatus): Promise<void> {
-  await updateHomeInterface(id, network, { keyOverride: status }, 'key');
+  await updateHomeInterface(id, network, { keyOverride: status, editingKey: status?.severity === 'danger' }, 'settings');
 }
 
 export const handleHomeUserInput: OnUserInputHandler = async ({ id, context, event }) => {

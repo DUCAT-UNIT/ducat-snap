@@ -8,6 +8,7 @@ import type { DucatKeyNode } from './bip32';
 import { matchCosignLeafHex } from './cosign-leaf';
 import { matchTimeoutLeafHex } from './timeout-leaf';
 import { ducatError } from './errors';
+import { bindVaultOutput } from './vault-evidence';
 import { bitcoinNetwork, bitcoinNetworkForDeployment, guardianAllowlistEnforced, isKnownGuardianPubkey } from './networks';
 import type {
   DeploymentId,
@@ -18,6 +19,7 @@ import type {
   PsbtOutputSummary,
   PsbtSummary,
   SignInputs,
+  VaultDisplayProtocol,
 } from './types';
 
 const TAPLEAF_VERSION_MASK = 0xfe;
@@ -47,7 +49,7 @@ const DUCAT_VAULT_ACTION_CODES: Record<
   number,
   { actionFlag: DucatVaultActionFlag; actionType: string; protocolAction: string; vaultOutputIndex: number }
 > = {
-  161: { actionFlag: 'o', actionType: 'create', protocolAction: 'open', vaultOutputIndex: 2 },
+  161: { actionFlag: 'o', actionType: 'create', protocolAction: 'open', vaultOutputIndex: 1 },
   163: { actionFlag: 'c', actionType: 'close', protocolAction: 'close', vaultOutputIndex: -1 },
   164: { actionFlag: 'b', actionType: 'borrow', protocolAction: 'borrow', vaultOutputIndex: 1 },
   165: { actionFlag: 'r', actionType: 'repay', protocolAction: 'repay', vaultOutputIndex: 0 },
@@ -572,7 +574,7 @@ type DecodedVaultAction = {
   vaultOutputIndex: number;
 };
 
-function decodeVaultActionFromSequences(inputs: Psbt['txInputs']): DecodedVaultAction | null {
+function decodeVaultActionFromSequences(inputs: { sequence?: number }[]): DecodedVaultAction | null {
   for (const input of inputs) {
     if (input.sequence === undefined) {
       continue;
@@ -603,9 +605,9 @@ function decodeVaultActionFromSequences(inputs: Psbt['txInputs']): DecodedVaultA
 
 function inferVaultCollateralSats(
   action: DecodedVaultAction,
-  outputs: Psbt['txOutputs'],
+  outputs: VaultTransactionView['txOutputs'],
   network: DeploymentId,
-  keySet: AccountPublicSet,
+  keySet: Pick<AccountPublicSet, 'record'>,
 ): number | undefined {
   const outputIndex = action.vaultOutputIndex;
   const output = outputs[outputIndex];
@@ -655,9 +657,9 @@ function decodeLegacyDucatVaultReturn(
   payload: Buffer,
   action: DecodedVaultAction,
   outputIndex: number,
-  outputs: Psbt['txOutputs'],
+  outputs: VaultTransactionView['txOutputs'],
   network: DeploymentId,
-  keySet: AccountPublicSet,
+  keySet: Pick<AccountPublicSet, 'record'>,
 ): DucatVaultReturnData | null {
   if (payload.length !== DUCAT_VAULT_RETURN_MIN_SIZE && payload.length !== DUCAT_VAULT_RETURN_LOCKED_SIZE) {
     return null;
@@ -679,6 +681,7 @@ function decodeLegacyDucatVaultReturn(
     return null;
   }
 
+  const collateralSats = inferVaultCollateralSats(action, outputs, network, keySet);
   const decoded: DucatVaultReturnData = {
     actionFlag: action.actionFlag,
     actionType: action.actionType,
@@ -691,7 +694,8 @@ function decodeLegacyDucatVaultReturn(
     unitBalanceUnit: unitBalanceCents / 100,
     unitPrice,
     unitTimestamp,
-    collateralSats: inferVaultCollateralSats(action, outputs, network, keySet),
+    collateralSats,
+    vaultOutputIndex: collateralSats === undefined ? undefined : action.vaultOutputIndex,
   };
 
   if (isLocked) {
@@ -706,9 +710,9 @@ function decodeCoreDucatVaultReturn(
   payload: Buffer,
   action: DecodedVaultAction,
   outputIndex: number,
-  outputs: Psbt['txOutputs'],
+  outputs: VaultTransactionView['txOutputs'],
   network: DeploymentId,
-  keySet: AccountPublicSet,
+  keySet: Pick<AccountPublicSet, 'record'>,
 ): DucatVaultReturnData | null {
   if (payload.length < 2 || payload[0] !== DUCAT_VAULT_RETURN_VERSION) {
     return null;
@@ -721,6 +725,7 @@ function decodeCoreDucatVaultReturn(
   }
 
   const baseOffset = 2 + guardianCount;
+  const collateralSats = inferVaultCollateralSats(action, outputs, network, keySet);
 
   if (payload.length === baseOffset) {
     return {
@@ -735,8 +740,11 @@ function decodeCoreDucatVaultReturn(
       unitBalanceUnit: 0,
       unitPrice: 0,
       unitTimestamp: 0,
-      collateralSats: inferVaultCollateralSats(action, outputs, network, keySet),
+      collateralSats,
+      vaultOutputIndex: collateralSats === undefined ? undefined : action.vaultOutputIndex,
       guardianCount,
+      guardianIndexes: [...payload.subarray(2, baseOffset)],
+      thresholdHashes: [],
       priceCommitCount: 0,
     };
   }
@@ -783,20 +791,31 @@ function decodeCoreDucatVaultReturn(
     unitBalanceUnit: unitBalanceCents / 100,
     unitPrice,
     unitTimestamp,
-    collateralSats: inferVaultCollateralSats(action, outputs, network, keySet),
+    collateralSats,
+    vaultOutputIndex: collateralSats === undefined ? undefined : action.vaultOutputIndex,
     tholdPrice,
     tholdHash,
     guardianCount,
+    guardianIndexes: [...payload.subarray(2, baseOffset)],
+    thresholdHashes: Array.from({ length: priceCommitCount }, (_, index) => {
+      const offset = commitsOffset + index * DUCAT_PRICE_COMMIT_SIZE;
+      return payload.subarray(offset + 9, offset + 29).toString('hex');
+    }),
     priceCommitCount,
   };
 }
 
+export type VaultTransactionView = {
+  txInputs: { sequence?: number }[];
+  txOutputs: { value: number; script: Uint8Array; address?: string }[];
+};
+
 function decodeDucatVaultReturn(
   outputScript: Buffer,
   outputIndex: number,
-  psbt: Psbt,
+  psbt: VaultTransactionView,
   network: DeploymentId,
-  keySet: AccountPublicSet,
+  keySet: Pick<AccountPublicSet, 'record'>,
 ): DucatVaultReturnData | null {
   const chunks = btcScript.decompile(outputScript);
 
@@ -819,6 +838,28 @@ function decodeDucatVaultReturn(
   return payloadAction
     ? decodeLegacyDucatVaultReturn(payload, legacyVaultAction(payloadAction), outputIndex, psbt.txOutputs, network, keySet)
     : null;
+}
+
+/** Decode prior state only when the spent output is the protocol's own collateral output. */
+export function previousVaultState(
+  transaction: VaultTransactionView,
+  spentOutputIndex: number,
+  network: DeploymentId,
+  account: AccountPublicSet['record'],
+  protocol?: VaultDisplayProtocol,
+): DucatVaultReturnData | undefined {
+  // Re-derive addresses from scripts on the selected network; a transaction view
+  // may come from a Psbt instance constructed with a different default network.
+  const canonical = {
+    txInputs: transaction.txInputs,
+    txOutputs: transaction.txOutputs.map(({ value, script }) => ({ value, script })),
+  };
+  const updates = canonical.txOutputs.map((output, index) =>
+    decodeDucatVaultReturn(Buffer.from(output.script), index, canonical, network, { record: account }),
+  ).filter((data): data is DucatVaultReturnData => data !== null);
+  for (const data of updates) bindVaultOutput(data, canonical.txOutputs, account, protocol);
+  if (updates.length !== 1 || updates[0].vaultOutputIndex !== spentOutputIndex) return undefined;
+  return updates[0];
 }
 
 function allSignedInputIndexes(signInputs: SignInputs): number[] {
@@ -858,7 +899,7 @@ export function parsePsbt(psbtBase64: string, network: DeploymentId): Psbt {
   }
 }
 
-function outputRole(address: string, keySet: AccountPublicSet): PsbtOutputSummary['role'] {
+function outputRole(address: string, keySet: Pick<AccountPublicSet, 'record'>): PsbtOutputSummary['role'] {
   if (address.startsWith('OP_RETURN')) {
     return 'op_return';
   }
@@ -958,6 +999,13 @@ export function summarizePsbt(
   return {
     network,
     inputCount: psbt.data.inputs.length,
+    transactionId: Transaction.fromBuffer(psbt.data.globalMap.unsignedTx.toBuffer()).getId(),
+    inputs: psbt.txInputs.map((input, index) => ({
+      index, outpoint: `${Buffer.from(input.hash).reverse().toString('hex')}:${input.index}`, signed: signedInputs.some((signed) => signed.index === index),
+      address: psbt.data.inputs[index].witnessUtxo
+        ? parseOutputAddress(psbt.data.inputs[index].witnessUtxo!.script, network) : 'Unknown script',
+      valueSats: psbt.data.inputs[index].witnessUtxo?.value ?? null,
+    })),
     signedInputIndexes: allSignedInputIndexes(signInputs),
     signedInputs,
     outputCount: outputs.length,
