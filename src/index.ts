@@ -15,7 +15,7 @@ import { uiBanner, uiBox, uiHeading, uiMuted, uiRow, uiSection } from './ui';
 const INSTALL_NETWORK_LABELS: Record<DeploymentId, string> = {
   regtest: 'Regtest',
   mutinynet: 'Mutinynet',
-  mainnet: 'Mainnet (Alpha contract)',
+  mainnet: 'Mainnet',
 };
 
 function installationNetworkSummary(): string {

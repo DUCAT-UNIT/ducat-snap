@@ -37,7 +37,7 @@ describe('Snap installation disclosure', () => {
 
     const dialog = request.mock.calls.find(([args]) => args.method === 'snap_dialog');
     const content = JSON.stringify(dialog?.[0]?.params?.content ?? '');
-    for (const label of ['Regtest', 'Mutinynet', 'Mainnet (Alpha contract)']) {
+    for (const label of ['Regtest', 'Mutinynet', 'Mainnet']) {
       expect(content).toContain(label);
     }
     for (const removed of ['Signet', 'Testnet4', 'Alpha Mainnet']) {

@@ -18,18 +18,23 @@ export const REVIEWED_DERIVATION_PATHS = Object.freeze([
   Object.freeze({ path: Object.freeze(['m', "86'", "1'", "0'", '2', '0']), curve: 'secp256k1' }),
 ]);
 export const REVIEWED_VALIDATOR_CHAIN_NETWORKS = Object.freeze({
-  mainnet: 'alpha-mainnet',
+  mainnet: 'main',
   mutinynet: 'mutiny',
 });
-export const REVIEWED_MAINNET_VALIDATOR_URL = 'https://validator-mainnet.alpha.ducatprotocol.com';
+export const REVIEWED_MAINNET_VALIDATOR_URL = 'https://validator.ducatprotocol.com';
+export const REVIEWED_MUTINYNET_VALIDATOR_URL = 'https://validator-mutinynet.prod.ducatprotocol.com';
 
 const REQUIRED_PRODUCTION_BUNDLE_EVIDENCE = [
   REVIEWED_MAINNET_VALIDATOR_URL,
-  REVIEWED_VALIDATOR_CHAIN_NETWORKS.mainnet,
-  REVIEWED_VALIDATOR_CHAIN_NETWORKS.mutinynet,
+  REVIEWED_MUTINYNET_VALIDATOR_URL,
+  ...Object.values(REVIEWED_VALIDATOR_CHAIN_NETWORKS).map(
+    (identity) => `"expected_validator_chain_network":${JSON.stringify(identity)}`,
+  ),
 ];
 
 const FORBIDDEN_PRODUCTION_BUNDLE_EVIDENCE = [
+  'https://validator-mainnet.alpha.ducatprotocol.com',
+  'https://validator-mutinynet.dev.ducatprotocol.com',
   'http://localhost',
   'http://127.0.0.1',
   'http://frontend',
@@ -98,6 +103,9 @@ export function assertProductionProfiles(profileDocument) {
   }
   if (profiles[0]?.validator_base_url !== REVIEWED_MAINNET_VALIDATOR_URL) {
     throw new Error(`production mainnet profile must use ${REVIEWED_MAINNET_VALIDATOR_URL}.`);
+  }
+  if (profiles[1]?.validator_base_url !== REVIEWED_MUTINYNET_VALIDATOR_URL) {
+    throw new Error(`production mutinynet profile must use ${REVIEWED_MUTINYNET_VALIDATOR_URL}.`);
   }
 }
 

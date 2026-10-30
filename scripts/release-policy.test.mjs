@@ -10,10 +10,18 @@ import {
   REVIEWED_DERIVATION_PATHS,
   REVIEWED_PRODUCTION_ORIGINS,
   REVIEWED_MAINNET_VALIDATOR_URL,
+  REVIEWED_MUTINYNET_VALIDATOR_URL,
 } from './release-policy.mjs';
 import { parseDevelopmentOrigins } from './dev-origin-policy.mjs';
 
 const trackedManifest = JSON.parse(readFileSync(new URL('../snap.manifest.json', import.meta.url), 'utf8'));
+
+const productionValidatorEvidence = [
+  REVIEWED_MAINNET_VALIDATOR_URL,
+  REVIEWED_MUTINYNET_VALIDATOR_URL,
+  '"expected_validator_chain_network":"main"',
+  '"expected_validator_chain_network":"mutiny"',
+];
 
 const verifyWorkflow = readFileSync(
   new URL('../.github/workflows/verify.yml', import.meta.url),
@@ -135,8 +143,8 @@ test('rejects manifest and runtime policy disagreement', () => {
   );
 });
 
-test('accepts the reviewed mainnet contract evidence without treating alpha as a wallet deployment', () => {
-  const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${REVIEWED_MAINNET_VALIDATOR_URL} alpha-mainnet mutiny INVALID_NETWORK`;
+test('accepts the production validator URLs and protocol identities', () => {
+  const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${productionValidatorEvidence.join(' ')} INVALID_NETWORK`;
   assert.doesNotThrow(() => assertProductionBundle(bundle));
 });
 
@@ -146,14 +154,18 @@ test('accepts only the exact ordered production profile set and validator mappin
 
   for (const mutation of [
     { networks: [...profiles.networks, { ...profiles.networks[0], id: 'alpha-mainnet' }] },
+    { networks: profiles.networks.map((profile) => profile.id === 'mainnet' ? { ...profile, expected_validator_chain_network: 'alpha-mainnet' } : profile) },
     { networks: profiles.networks.map((profile) => profile.id === 'mainnet' ? { ...profile, expected_validator_chain_network: 'mainnet' } : profile) },
     { networks: profiles.networks.map((profile) => profile.id === 'mainnet' ? { ...profile, validator_base_url: 'https://validator-mainnet.example' } : profile) },
+    { networks: profiles.networks.map((profile) => profile.id === 'mutinynet' ? { ...profile, validator_base_url: 'https://validator-mutinynet.dev.ducatprotocol.com' } : profile) },
   ]) {
     assert.throws(() => assertProductionProfiles(mutation));
   }
 });
 
 for (const forbidden of [
+  'https://validator-mainnet.alpha.ducatprotocol.com',
+  'https://validator-mutinynet.dev.ducatprotocol.com',
   'http://localhost:3000',
   'http://127.0.0.1:8083',
   'http://frontend:3000',
@@ -163,14 +175,14 @@ for (const forbidden of [
   '.snap/dev',
 ]) {
   test(`rejects production bundle evidence ${forbidden}`, () => {
-    const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${REVIEWED_MAINNET_VALIDATOR_URL} alpha-mainnet mutiny ${forbidden}`;
+    const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${productionValidatorEvidence.join(' ')} ${forbidden}`;
     assert.throws(() => assertProductionBundle(bundle), /forbidden production bundle evidence/);
   });
 }
 
-for (const missing of [REVIEWED_MAINNET_VALIDATOR_URL, 'alpha-mainnet', 'mutiny']) {
+for (const missing of productionValidatorEvidence) {
   test(`rejects production bundle missing reviewed network evidence ${missing}`, () => {
-    const evidence = [REVIEWED_MAINNET_VALIDATOR_URL, 'alpha-mainnet', 'mutiny']
+    const evidence = productionValidatorEvidence
       .filter((value) => value !== missing)
       .join(' ');
     const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${evidence}`;
