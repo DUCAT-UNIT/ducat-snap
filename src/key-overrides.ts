@@ -280,11 +280,14 @@ function overrideKeySet(account: PrivateKeyOverrideRecord): SelectedAccountKeySe
     satsNode: node,
     runesNode: node,
     vaultNode: node,
+    taprootNode: node,
     satsOutputScript: sats.output,
     runesOutputScript: runes.output,
     vaultOutputScript: runes.output,
+    taprootOutputScript: runes.output,
     runesInternalPubkey,
     vaultInternalPubkey: runesInternalPubkey,
+    taprootInternalPubkey: runesInternalPubkey,
   };
 }
 

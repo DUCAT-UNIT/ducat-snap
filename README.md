@@ -43,6 +43,12 @@ MetaMask from the same Secret Recovery Phrase recovers the same managed accounts
 for this scheme. An imported key selected in Snap Home is an explicit override
 and is not derived from this scheme.
 
+The beta integration preserves all published `0.3.1` managed paths, including
+the vault's `/2/0` suffix. It does not switch existing users to the older beta
+`/0/1` vault key or migrate their vaults. Release verification checks the built
+Snap against the `0.3.1` account fixtures, including fresh recovery, on Mainnet,
+Mutinynet, and Regtest.
+
 The Snap owns one explicit deployment selection. New production installations default to
 `mutinynet`. `ducat_getNetwork()` returns that selection; `ducat_switchNetwork()`
 changes it only after a MetaMask-owned confirmation showing the requesting origin,

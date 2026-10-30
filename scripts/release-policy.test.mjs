@@ -90,6 +90,19 @@ test('tracked manifest contains the exact reviewed derivation paths in order', (
   assert.doesNotThrow(() => assertProductionManifest(trackedManifest));
 });
 
+test('rejects the older beta vault path for both coin types', () => {
+  for (const coin of ["0'", "1'"]) {
+    const manifest = structuredClone(trackedManifest);
+    const vaultPermission = manifest.initialPermissions.snap_getBip32Entropy.find(
+      ({ path }) => path[1] === "86'" && path[2] === coin && path[4] === '2',
+    );
+    assert.ok(vaultPermission, '0.3.1 vault permission must be present');
+    vaultPermission.path[4] = '0';
+    vaultPermission.path[5] = '1';
+    assert.throws(() => assertProductionManifest(manifest), /exact reviewed derivation paths/);
+  }
+});
+
 test('rejects every derivation permission set mutation', () => {
   const reviewed = structuredClone(REVIEWED_DERIVATION_PATHS);
   const mutations = [
@@ -180,4 +193,11 @@ test('CI authenticates GitHub Packages only for trusted runs', () => {
     /if: github\.event_name == 'pull_request' && github\.event\.pull_request\.head\.repo\.full_name != github\.repository/,
   );
   assert.match(verifyWorkflow, /run: npm ci --ignore-scripts/);
+});
+
+test('install icon contains no XML comments rejected by MetaMask bundled parser', () => {
+  // Production fix 0709fbc: MetaMask's source transform changes the parser's
+  // XML comment terminator, making otherwise-valid commented SVGs fail install.
+  const icon = readFileSync(new URL('../images/icon.svg', import.meta.url), 'utf8');
+  assert.equal(icon.includes('<!--'), false, 'Snap install icon must be comment-free');
 });

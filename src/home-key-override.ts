@@ -1,5 +1,5 @@
 /** @fileoverview Handles Home forms for network key overrides without redisplaying imported secret material. */
-import { UserInputEventType, type OnUserInputHandler } from '@metamask/snaps-sdk';
+import { UserInputEventType, type InterfaceContext, type OnUserInputHandler } from '@metamask/snaps-sdk';
 
 import { updateHomeInterface } from './home';
 import { homeIconButton, homeSettingTitle, homeVerticalDivider } from './home-controls';
@@ -23,6 +23,11 @@ import {
 export type KeyOverrideStatus =
   | { severity: 'success' | 'warning' | 'danger' | 'info'; title: string; message: string }
   | null;
+
+export type KeyOverrideContext = InterfaceContext & {
+  screen?: 'key-override';
+  network?: DeploymentId;
+};
 
 export function renderKeyOverrideContent(params: {
   network: DeploymentId;

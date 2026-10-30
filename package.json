@@ -58,8 +58,9 @@
   },
   "dependencies": {
     "@bitcoin-js/tiny-secp256k1-asmjs": "2.2.4",
-    "@ducat-unit/core": "^0.22.6",
+    "@ducat-unit/core": "0.24.0-beta.1",
     "@noble/hashes": "1.8.0",
+    "@scure/btc-signer": "^2.2.0",
     "bitcoinjs-lib": "6.1.7",
     "buffer": "6.0.3"
   },

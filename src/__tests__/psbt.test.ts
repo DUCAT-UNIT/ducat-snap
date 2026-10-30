@@ -43,6 +43,9 @@ function makeSharedTaprootKeySet() {
     vaultNode: keySet.runesNode,
     vaultOutputScript: keySet.runesOutputScript,
     vaultInternalPubkey: keySet.runesInternalPubkey,
+    taprootNode: keySet.runesNode,
+    taprootOutputScript: keySet.runesOutputScript,
+    taprootInternalPubkey: keySet.runesInternalPubkey,
   };
 }
 

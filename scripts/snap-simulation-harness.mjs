@@ -25,6 +25,8 @@ const DEFAULT_NETWORK = 'regtest';
 const DEFAULT_SRP = 'test test test test test test test test test test test ball';
 const REGTEST_GENESIS_HASH = '0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206';
 const HARNESS_UNIT_ASSET_ID = '123:45';
+// Recovery fixtures from the released 0.3.1 source (34392b3). Keep these fixed
+// when integrating dependency updates; they pin existing users' wallet keys.
 const GOLDEN_ACCOUNTS = {
   mainnet: {
     sats: { address: 'bc1quezrxxup6e9u62xusarwd3dd9kqp4lzawm4hpw', pubkey: '0378ac2dbefccd68ecb2f836d6253185473128c12b61ceea24ab57bf2fead5a818' },
@@ -453,7 +455,7 @@ async function runDerivationContract() {
     }
   }
 
-  assertHarness(JSON.stringify(installations[0]) === JSON.stringify(expected), `${network} managed accounts changed from the pre-v1 golden record.`);
+  assertHarness(JSON.stringify(installations[0]) === JSON.stringify(expected), `${network} managed accounts changed from the released 0.3.1 golden record.`);
   assertHarness(JSON.stringify(installations[1]) === JSON.stringify(expected), `${network} fresh reinstall did not reproduce the golden record.`);
   console.log(JSON.stringify({ network, status: 'derivation-contract-verified', accounts: expected }, null, 2));
 }

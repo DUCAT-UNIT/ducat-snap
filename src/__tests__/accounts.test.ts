@@ -53,7 +53,7 @@ describe('Ducat account derivation', () => {
     expect(MANAGED_ROLE_PATHS.regtest).toEqual(MANAGED_ROLE_PATHS.mutinynet);
   });
 
-  it.each(['mainnet', 'mutinynet'] as const)('hard-cuts the vault key to role branch 2 on %s', (network) => {
+  it.each(['mainnet', 'mutinynet', 'regtest'] as const)('preserves the 0.3.1 vault role branch on %s', (network) => {
     const satsBaseNode = testNode(1);
     const taprootBaseNode = testNode(2);
     const expected = deriveAccountSetFromBaseNodes(network, satsBaseNode, taprootBaseNode);
@@ -71,6 +71,9 @@ describe('Ducat account derivation', () => {
       expect(direct[role].publicKey.equals(expected[role].publicKey)).toBe(true);
     }
     expect(direct.vaultNode.publicKey.equals(oldVaultNode.publicKey)).toBe(false);
+    expect(direct.taprootNode).toBe(direct.vaultNode);
+    expect(direct.taprootOutputScript).toBe(direct.vaultOutputScript);
+    expect(direct.taprootInternalPubkey).toBe(direct.vaultInternalPubkey);
     expect(direct.record).toEqual(expected.record);
   });
 
@@ -84,9 +87,12 @@ describe('Ducat account derivation', () => {
     expect(publicSet.vaultOutputScript.equals(keySet.vaultOutputScript)).toBe(true);
     expect(publicSet.runesInternalPubkey.equals(keySet.runesInternalPubkey)).toBe(true);
     expect(publicSet.vaultInternalPubkey.equals(keySet.vaultInternalPubkey)).toBe(true);
+    expect(publicSet.taprootOutputScript.equals(keySet.taprootOutputScript)).toBe(true);
+    expect(publicSet.taprootInternalPubkey.equals(keySet.taprootInternalPubkey)).toBe(true);
     expect('satsNode' in publicSet).toBe(false);
     expect('runesNode' in publicSet).toBe(false);
     expect('vaultNode' in publicSet).toBe(false);
+    expect('taprootNode' in publicSet).toBe(false);
   });
 
   it('accepts one Taproot key shared by the runes and vault roles', () => {

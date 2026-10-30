@@ -18,7 +18,12 @@ export DUCAT_SNAP_DEV_ORIGINS=
 export DUCAT_SNAP_ARTIFACT_POLICY=production
 
 npm run verify
+for recovery_network in mainnet mutinynet; do
+  DUCAT_NETWORK="$recovery_network" node scripts/snap-simulation-harness.mjs derivation-contract
+done
 npm run verify:harness
+DUCAT_SNAP_DIR=.snap/dev DUCAT_HARNESS_ORIGIN=http://localhost:3000 DUCAT_NETWORK=regtest \
+  node scripts/snap-simulation-harness.mjs derivation-contract
 node scripts/release-policy.mjs --verify-artifacts
 npm run audit:prod
 
