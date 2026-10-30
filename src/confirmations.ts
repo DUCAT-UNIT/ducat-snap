@@ -1,13 +1,17 @@
 /** @fileoverview Builds fail-closed confirmations from verified facts while separating untrusted app metadata. */
 import { crypto } from 'bitcoinjs-lib';
 import { Buffer } from 'buffer';
+import { Image, Text } from '@metamask/snaps-sdk/jsx';
 
 import { DUCAT_MARK_SVG } from './brand';
+import { depositVaultRow, showDepositConfirmation } from './confirmation-vault';
+import { vaultColoredValue } from './vault-colors';
+import bitcoinIcon from './home-assets/bitcoin.svg';
+import unitIcon from './home-assets/unit.svg';
 import {
   actionLabel,
   formatBtcValue,
   formatInteger,
-  formatMetadataKey,
   formatMaybeBtcValue,
   formatSatsOnly,
   formatUnit,
@@ -15,7 +19,6 @@ import {
   originNameLabel,
   originUrlLabel,
   roleLabel,
-  sanitizeMarkdown,
   truncateMiddle,
   unverifiedActionLabel,
 } from './display';
@@ -202,7 +205,7 @@ function vaultHealthFromReturnData(vaultData: DucatVaultReturnData): number | nu
     return undefined;
   }
 
-  const collateralBtc = vaultData.collateralSats / 100_000_000;
+  const collateralBtc = (vaultData.collateralBalanceSats ?? vaultData.collateralSats) / 100_000_000;
 
   return Math.round(((collateralBtc * vaultData.unitPrice) / vaultData.unitBalanceUnit) * 100);
 }
@@ -307,6 +310,225 @@ function vaultActionSection(context?: DucatActionContext): SnapElement[] {
   ];
 }
 
+function depositSecondary(value: string): SnapElement {
+  return uiText(value, { color: 'alternative', size: 'sm' });
+}
+
+type ConfirmationEntry = { summary: PsbtSummary; context?: DucatActionContext };
+
+type VaultAction = 'create' | 'borrow' | 'repay' | 'deposit' | 'withdraw';
+type VaultReview = { entry: ConfirmationEntry; entries: ConfirmationEntry[]; action: VaultAction; unitAmount?: number };
+
+/** Choose a native action view only for an owned vault and its actual transaction package. */
+function vaultReview(entries: ConfirmationEntry[]): VaultReview | undefined {
+  const candidates = entries.filter(({ summary }) => summary.vaultUpdates.length > 0);
+  if (candidates.length !== 1) return undefined;
+  const entry = candidates[0];
+  const { summary } = entry;
+  const data = summary.vaultUpdates[0];
+  if (summary.vaultUpdates.length !== 1 || !['create', 'borrow', 'repay', 'deposit', 'withdraw'].includes(data.actionType)) return undefined;
+  const vaultOutputs = summary.outputs.filter((output) => output.role === 'vault' && output.isMine);
+  if (data.collateralSats === undefined || vaultOutputs.length !== 1 || vaultOutputs[0].valueSats !== data.collateralSats) return undefined;
+  const action = data.actionType as VaultAction;
+  if (action === 'deposit' || action === 'withdraw') return entries.length === 1 ? { entry, entries, action } : undefined;
+  if (entries.length !== 2 || entries[1] !== entry || entries[0].summary.network !== summary.network) return undefined;
+  const parent = entries[0].summary;
+  if (!parent.transactionId || !summary.inputs || !parent.unitTransfers) return undefined;
+  const links = summary.inputs.filter((input) => input.outpoint.startsWith(`${parent.transactionId}:`));
+  const expected = action === 'repay' ? [0] : [1, 2];
+  if (links.length !== expected.length || expected.some((vout) => !links.some((input) => input.outpoint === `${parent.transactionId}:${vout}`))) return undefined;
+  if (summary.inputCount !== (action === 'borrow' ? 3 : 2)) return undefined;
+  if (action !== 'repay' && !(summary.outputs[0]?.isMine && summary.outputs[0].role === 'runes')) return undefined;
+  const transfers = parent.unitTransfers.filter((transfer) => transfer.amountUnit > 0);
+  if (transfers.length > 1 || (transfers.length === 0 && !(action === 'create' && data.unitBalanceUnit === 0))) return undefined;
+  const transfer = transfers[0];
+  if (transfer && transfer.outputIndex !== 1) return undefined;
+  if (action === 'repay' && parent.outputs[1]?.role !== 'op_return') return undefined;
+  if (action !== 'repay' && parent.outputs[1]?.role === 'op_return') return undefined;
+  const before = verifiedBefore(summary);
+  const delta = action === 'create' ? data.unitBalanceUnit : before
+    ? action === 'repay' ? before.debtUnit - data.unitBalanceUnit : data.unitBalanceUnit - before.debtUnit : undefined;
+  if (delta !== undefined && Math.abs(delta - (transfer?.amountUnit ?? 0)) > 0.00000001) return undefined;
+  return { entry, entries, action, unitAmount: transfer?.amountUnit ?? 0 };
+}
+
+function verifiedBefore(summary: PsbtSummary): PsbtSummary['vaultBefore'] {
+  const prior = summary.vaultBefore;
+  if (!prior) return undefined;
+  const input = summary.signedInputs.find((input) => input.index === prior.inputIndex && input.role === 'vault');
+  return input?.valueSats === prior.collateralSats ? prior : undefined;
+}
+
+/** Prior collateral is known only when every input and the spent vault are identified. */
+function depositBeforeCollateral(summary: PsbtSummary): number | undefined {
+  const prior = verifiedBefore(summary);
+  if (prior) return prior.collateralSats;
+  const vaultOutput = summary.outputs.find((output) => output.isMine && output.role === 'vault');
+  if (!vaultOutput || summary.signedInputs.length !== summary.inputCount) return undefined;
+  const indexes = new Set(summary.signedInputs.map((input) => input.index));
+  if (indexes.size !== summary.inputCount || summary.signedInputs.some((input) =>
+    input.valueSats === null || !Number.isSafeInteger(input.valueSats) || input.valueSats < 0
+    || input.index < 0 || input.index >= summary.inputCount
+    || (input.role === 'vault' && input.address !== vaultOutput.address
+      && input.verification !== 'committed-ducat-cosign-leaf')
+  )) return undefined;
+  const vaultInputs = summary.signedInputs.filter((input) => input.role === 'vault');
+  if (vaultInputs.length !== 1) return undefined;
+  const previousSats = vaultInputs[0].valueSats as number;
+  return Number.isSafeInteger(previousSats) ? previousSats : undefined;
+}
+
+function vaultComparison(
+  label: string,
+  before: number | null | undefined,
+  after: number | null | undefined,
+  format: (value: number | null | undefined) => string,
+  lowerIsBetter = false,
+  beforeSuffix = '',
+): SnapElement {
+  const beforeText = before === undefined ? '—' : format(before);
+  const afterText = after === undefined ? '—' : format(after);
+  const changed = before !== undefined && after !== undefined && before !== after;
+  const improved = changed && (after === null || (before !== null && after !== undefined && before !== undefined
+    && (lowerIsBetter ? after < before : after > before)));
+  const previous = Text({ children: `${beforeSuffix ? beforeText.replace(beforeSuffix, '') : beforeText} →`, color: 'alternative', size: 'md' });
+  // Keep the text and image as direct flex siblings. A tooltip around only the
+  // image adds an inline descender gap in MetaMask and lifts the colored value.
+  return uiRow(label, uiBox([
+    previous,
+    changed ? vaultColoredValue(afterText, improved) : Text({ children: afterText, fontWeight: 'medium' }),
+  ], { direction: 'horizontal', alignment: 'end', crossAlignment: 'center' }));
+}
+
+function depositOutputLabel(output: PsbtOutputSummary): string {
+  if (output.vaultData) return 'Vault state';
+  if (isDataOutput(output)) return 'Transaction data';
+  if (output.role === 'unknown') return 'Unknown script';
+  if (output.isMine) return output.role === 'vault' ? 'Your vault' : 'Change (you)';
+  return 'External recipient';
+}
+
+/** All outputs, fees, warnings and signing evidence remain available in each native disclosure. */
+function depositTransactionDetails(entry: ConfirmationEntry, step?: string): SnapElement {
+  const { summary, context } = entry;
+  const decoded = contextFromDecodedVault(summary, context);
+  const label = summary.vaultUpdates.length > 0
+    ? actionLabel(decoded, 'Vault update')
+    : unverifiedActionLabel(decoded, 'Bitcoin transaction');
+  const addresses = summary.outputs.filter((output) => !isDataOutput(output)).map((output, outputIndex) => uiBox([
+    uiRow(`${outputIndex + 1}. ${depositOutputLabel(output)}`, formatBtcValue(output.valueSats)),
+    uiCopyable(outputIdentity(output)),
+  ]));
+
+  return uiCollapsibleSection(step ?? label, [
+    uiHeading(`Inputs (${summary.inputCount})`),
+    ...(summary.inputs ?? summary.signedInputs).map((input) => uiRow(
+      truncateMiddle(input.address, 10, 6),
+      formatMaybeBtcValue(input.valueSats),
+    )),
+    ...(!summary.inputs && summary.inputCount > summary.signedInputs.length
+      ? [depositSecondary(`${summary.inputCount - summary.signedInputs.length} other input(s) — not signed by this Snap.`)] : []),
+    uiDivider(),
+    uiHeading(`Outputs (${summary.outputCount})`),
+    ...summary.outputs.map((output) =>
+      uiRow(isDataOutput(output) || output.role === 'unknown' ? depositOutputLabel(output) : truncateMiddle(output.address, 10, 6),
+        formatBtcValue(output.valueSats), output.role === 'unknown' ? 'warning' : undefined),
+    ),
+    uiDivider(),
+    uiRow('Network fee', summary.feeSats === null ? 'Unavailable' : formatSatsOnly(summary.feeSats)),
+    uiCollapsibleSection('Addresses & signing details', [
+      depositSecondary(`Ducat signs ${summary.signedInputIndexes.length} of ${summary.inputCount} inputs. Only Snap-managed inputs are signed.`),
+      ...summary.signedInputs.map((input) => uiBox([
+        uiRow(`Input #${input.index}`, input.role === 'vault' && input.verification === 'matched-account-output' ? 'Vault account' : signedInputTitle(input.role)),
+        uiCopyable(input.address),
+      ])),
+      ...addresses,
+    ]),
+  ]);
+}
+
+/** Five action variants share Home's native typography, icons and disclosure controls. */
+function vaultConfirmation(origin: string, review: VaultReview): SnapElement {
+  const { entry, entries, action } = review;
+  const { summary } = entry;
+  const data = summary.vaultUpdates[0];
+  const vaultOutput = summary.outputs.find((output) => output.role === 'vault' && output.isMine)!;
+  const before = verifiedBefore(summary);
+  const beforeGross = action === 'create' ? 0 : depositBeforeCollateral(summary);
+  const afterCollateral = data.collateralBalanceSats ?? data.collateralSats!;
+  const reserve = data.collateralSats! - afterCollateral;
+  const beforeCollateral = action === 'create' ? 0 : before?.collateralBalanceSats
+    ?? (beforeGross === undefined ? undefined : Math.max(beforeGross - reserve, 0));
+  const transactionPrice = data.unitPrice > 0 ? data.unitPrice : undefined;
+  const beforeDebt = action === 'create' ? 0 : before?.debtUnit;
+  const beforeRatio = beforeDebt === undefined || beforeCollateral === undefined ? undefined : vaultHealthFromReturnData({
+    ...data, collateralSats: beforeCollateral, collateralBalanceSats: beforeCollateral, unitBalanceUnit: beforeDebt,
+    unitPrice: transactionPrice ?? before?.unitPrice ?? 0,
+  });
+  const added = beforeGross !== undefined && data.collateralSats! > beforeGross ? data.collateralSats! - beforeGross : undefined;
+  const btcReturned = summary.outputs.filter((output) => output.isMine && output.role === 'sats')
+    .reduce((total, output) => total + output.valueSats, 0);
+  const labels: Record<VaultAction, [string, string]> = {
+    create: ['Open your vault', data.unitBalanceUnit > 0 ? 'Deposit BTC and borrow UNIT' : 'Start with BTC collateral'],
+    borrow: ['Borrow UNIT', 'Borrow against your BTC collateral'],
+    repay: ['Repay UNIT', data.unitBalanceUnit === 0 ? 'Clear your vault debt' : 'Reduce your vault debt'],
+    deposit: ['Deposit to your vault', 'Add BTC collateral'],
+    withdraw: ['Withdraw from your vault', 'Return BTC to your wallet'],
+  };
+  const amountLabel = action === 'borrow' ? 'You borrow' : action === 'repay' ? 'You repay'
+    : action === 'withdraw' ? 'You receive' : added === undefined ? 'Vault collateral after' : 'You deposit';
+  const amountSats = action === 'withdraw' ? btcReturned : added ?? data.collateralSats!;
+  const isUnit = action === 'borrow' || action === 'repay';
+  const signedInputs = entries.flatMap(({ summary }) => summary.signedInputs);
+  const fees = entries.reduce((sum, { summary }) => sum + (summary.feeSats ?? 0), 0);
+  const steps = action === 'create' ? [data.unitBalanceUnit > 0 ? 'Allocate UNIT' : 'Prepare vault funding', 'Open vault']
+    : action === 'borrow' ? ['Allocate UNIT', 'Update vault'] : ['Repay UNIT', 'Update vault'];
+  const comparison: typeof vaultComparison = (label, prior, next, format, lowerIsBetter, suffix) =>
+    action === 'create' ? uiRow(label, detailValue(format(next)))
+      : vaultComparison(label, prior, next, format, lowerIsBetter, suffix);
+  return uiBox([
+    uiBox([
+      Image({ src: isUnit ? unitIcon : bitcoinIcon, alt: isUnit ? 'UNIT' : 'Bitcoin', width: 44, height: 44, borderRadius: 'full' }),
+      uiBox([uiHeading(labels[action][0], 'md'), uiText(labels[action][1], { color: 'alternative' })]),
+    ], { direction: 'horizontal', crossAlignment: 'center' }),
+    depositSecondary(`${originNameLabel(origin)} · ${summary.network === 'mutinynet' ? 'Testnet' : summary.network === 'mainnet' ? 'Mainnet' : 'Regtest'}`),
+    ...entries.flatMap(({ summary }, index) => summary.warnings.filter((warning) => warning.trim()).map((warning) =>
+      uiBanner(entries.length > 1 ? `Transaction ${index + 1}` : 'Review before signing', 'warning', warning))),
+    uiSection([
+      depositSecondary(amountLabel),
+      uiHeading(isUnit ? formatMaybeUnitValue(review.unitAmount) : formatBtcValue(amountSats), 'lg'),
+      ...(!isUnit && transactionPrice ? [depositSecondary(`≈ ${formatMaybeUsd(amountSats / 100_000_000 * transactionPrice)} at transaction price`)] : []),
+      ...(action === 'create' ? [uiRow('You borrow', formatUnit(data.unitBalanceUnit)),
+        ...(data.collateralBalanceSats !== undefined && data.collateralSats! > data.collateralBalanceSats
+          ? [uiRow('Vault reserve', formatSatsOnly(data.collateralSats! - data.collateralBalanceSats))] : [])] : []),
+      ...(action === 'repay' && btcReturned > 0 ? [uiRow('BTC returned to you', formatBtcValue(btcReturned))] : []),
+      ...(action === 'borrow' && added ? [uiRow('BTC added to vault', formatBtcValue(added))] : []),
+      uiDivider(), depositVaultRow(vaultOutput.address),
+    ]),
+    uiSection([
+      uiHeading(action === 'create' ? 'Your new vault' : 'Vault before → after'),
+      comparison('Collateral', beforeCollateral, afterCollateral, formatMaybeBtcVaultValue, false, ' BTC'),
+      ...(transactionPrice ? [comparison('Vault value',
+        beforeCollateral === undefined ? undefined : beforeCollateral / 100_000_000 * transactionPrice,
+        afterCollateral / 100_000_000 * transactionPrice, formatMaybeUsd)] : []),
+      comparison('UNIT debt', beforeDebt, data.unitBalanceUnit, formatMaybeUnitValue, true, ' UNIT'),
+      comparison('Collateral ratio', beforeRatio, vaultHealthFromReturnData(data), formatMaybeHealth),
+      ...((data.isLocked && data.tholdPrice !== undefined) || before?.liquidationPrice !== undefined
+        ? [comparison('Liquidation price', before?.liquidationPrice,
+          data.isLocked ? data.tholdPrice : null, (value) => value === null ? 'None' : formatMaybeUsd(value), true)] : []),
+    ]),
+    uiSection([
+      uiHeading(entries.length === 1 ? 'Transaction' : `${entries.length} transactions`),
+      ...(entries.length > 1 ? [uiRow('Total network fee', formatSatsOnly(fees))] : []),
+      ...(summary.externalOutputSats > 0 ? [uiRow('External outputs', formatBtcValue(summary.externalOutputSats), 'warning')] : []),
+      ...entries.map((item, index) => depositTransactionDetails(item,
+        entries.length > 1 ? `${index + 1}. ${steps[index]}` : undefined)),
+    ]),
+    ...cosignInputsSection(signedInputs.filter((input) => input.verification === 'committed-ducat-cosign-leaf')),
+    ...timeoutInputsSection(signedInputs.filter((input) => input.verification === 'committed-bitvm3-timeout-leaf')),
+  ]);
+}
+
 function countCard(title: string, value: string, description: string, extra?: string): SnapElement {
   return uiCard({
     description,
@@ -314,18 +536,6 @@ function countCard(title: string, value: string, description: string, extra?: st
     title,
     value,
   });
-}
-
-function unitEvidenceRows(summary: PsbtSummary): SnapElement[] {
-  return summary.unitInputs.map((input) =>
-    uiRow(
-      truncateMiddle(input.coinId, 12, 8),
-      detailValue(
-        `${input.activeAmount} active / ${input.reservedAmount} reserved`,
-        `${input.classification} - asset ${input.assetId}`,
-      ),
-    ),
-  );
 }
 
 function actionKey(context?: DucatActionContext): string | null {
@@ -370,24 +580,6 @@ function inlineSecurity(message: string, variant: 'success' | 'warning'): SnapEl
     uiIcon(variant === 'success' ? 'security-tick' : 'warning', variant),
     uiText(message, { color: variant, fontWeight: 'medium' }),
   ]);
-}
-
-function contextSection(
-  context?: DucatActionContext,
-  note = 'App-provided values below are context only. Parsed PSBT values above are what the Snap signs.',
-): SnapElement[] {
-  const metadata = Object.entries(context?.metadata ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== '');
-
-  if (!metadata.length) {
-    return [];
-  }
-
-  return [
-    uiCollapsibleSection('Ducat app context', [
-      uiMuted(note),
-      ...metadata.slice(0, 8).map(([key, value]) => uiRow(formatMetadataKey(key), sanitizeMarkdown(String(value).slice(0, 140)))),
-    ]),
-  ];
 }
 
 function vaultDataDetail(vaultData: DucatVaultReturnData): string {
@@ -536,7 +728,6 @@ export async function confirmMessage(params: {
           [uiMuted('Copyable value is exactly what will be signed.'), uiCopyable(params.message)],
           true,
         ),
-        ...contextSection(params.context, 'App labels are shown for context. The copyable message above is exactly what the Snap signs.'),
         uiDivider(),
         uiMuted('Approve only if this message matches the Ducat app request.'),
       ]),
@@ -635,7 +826,8 @@ export async function confirmPsbt(params: {
     ),
   );
 
-  const content = uiBox([
+  const deposit = vaultReview([{ summary, context }]);
+  const content = deposit ? vaultConfirmation(origin, deposit) : uiBox([
     uiCard({
       description: `${originNameLabel(origin)} - ${networkLabel(summary.network)}`,
       extra: leavesWalletSats === null ? 'review details' : 'you pay',
@@ -667,9 +859,6 @@ export async function confirmPsbt(params: {
     ]),
     ...cosignSection,
     ...timeoutSection,
-    ...(summary.unitInputs.length
-      ? [uiCollapsibleSection(`Verified UNIT inputs (${summary.unitInputs.length})`, unitEvidenceRows(summary), true)]
-      : []),
     uiCollapsibleSection(
       `Inspect signed inputs (${summary.signedInputs.length})`,
       [...inputRows, ...(summary.signedInputs.length > visibleSignedInputs.length ? [uiMuted(`+ ${summary.signedInputs.length - visibleSignedInputs.length} more inputs`)] : [])],
@@ -689,14 +878,15 @@ export async function confirmPsbt(params: {
     ...(visibleWarnings.length > 1
       ? [uiCollapsibleSection('More warnings', visibleWarnings.slice(1).map((warning) => uiText(warning, { color: 'warning' })))]
       : []),
-    ...contextSection(displayContext),
     uiDivider(),
     uiMuted('Approve only if these amounts match the Ducat app. Private keys stay inside MetaMask.'),
   ]);
 
   assert_confirmation_content_fits(content);
 
-  const confirmed = await snap.request<boolean>({
+  const confirmed = deposit
+    ? await showDepositConfirmation(content, deposit.entry.summary.outputs.find((output) => output.role === 'vault' && output.isMine)!.address)
+    : await snap.request<boolean>({
     method: 'snap_dialog',
     params: {
       type: 'confirmation',
@@ -746,7 +936,8 @@ export async function confirmBatch(params: {
     ? `${warningCount} warning${warningCount === 1 ? '' : 's'} across this batch. Review each transaction before approving.`
     : 'Rejecting this request signs no PSBTs. Approving signs the full batch in order.';
 
-  const content = uiBox([
+  const deposit = vaultReview(params.entries);
+  const content = deposit ? vaultConfirmation(params.origin, deposit) : uiBox([
     uiCard({
       description: `${originNameLabel(params.origin)} - ${networkLabel(network)}`,
       extra: 'all-or-nothing',
@@ -796,23 +987,17 @@ export async function confirmBatch(params: {
           ...batchEntryRecipientRows(summary),
         ];
       }),
-      true,
+      false,
     ),
-    ...(summaries.some((summary) => summary.unitInputs.length)
-      ? [
-          uiCollapsibleSection(
-            `Verified UNIT inputs (${summaries.reduce((total, summary) => total + summary.unitInputs.length, 0)})`,
-            summaries.flatMap(unitEvidenceRows),
-          ),
-        ]
-      : []),
     uiDivider(),
     uiMuted('Approve only if every transaction and recipient matches the Ducat app flow.'),
   ]);
 
   assert_confirmation_content_fits(content);
 
-  const confirmed = await snap.request<boolean>({
+  const confirmed = deposit
+    ? await showDepositConfirmation(content, deposit.entry.summary.outputs.find((output) => output.role === 'vault' && output.isMine)!.address)
+    : await snap.request<boolean>({
     method: 'snap_dialog',
     params: {
       type: 'confirmation',

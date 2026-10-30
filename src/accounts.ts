@@ -13,22 +13,25 @@ export const DUCAT_DERIVATION_SCHEME = 'ducat-snap/v1' as const;
 
 type ManagedRole = 'sats' | 'runes' | 'vault';
 
+// BIP-44/BIP-86 reserve change values 0 and 1 for external and internal
+// addresses. Ducat uses change value 2 as its application-specific vault role
+// branch and derives the first vault key at address index 0.
 export const MANAGED_ROLE_PATHS: Record<DeploymentId, Record<ManagedRole, readonly string[]>> = {
   mainnet: {
     sats: ['m', "84'", "0'", "0'", '0', '0'],
     runes: ['m', "86'", "0'", "0'", '0', '0'],
-    vault: ['m', "86'", "0'", "0'", '0', '1'],
+    vault: ['m', "86'", "0'", "0'", '2', '0'],
   },
   mutinynet: {
     sats: ['m', "84'", "1'", "0'", '0', '0'],
     runes: ['m', "86'", "1'", "0'", '0', '0'],
-    vault: ['m', "86'", "1'", "0'", '0', '1'],
+    vault: ['m', "86'", "1'", "0'", '2', '0'],
   },
   // Regtest shares coin-type-1 key material with Mutinynet while retaining bcrt encoding.
   regtest: {
     sats: ['m', "84'", "1'", "0'", '0', '0'],
     runes: ['m', "86'", "1'", "0'", '0', '0'],
-    vault: ['m', "86'", "1'", "0'", '0', '1'],
+    vault: ['m', "86'", "1'", "0'", '2', '0'],
   },
 };
 

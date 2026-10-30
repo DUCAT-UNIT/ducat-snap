@@ -25,11 +25,13 @@ const DEFAULT_NETWORK = 'regtest';
 const DEFAULT_SRP = 'test test test test test test test test test test test ball';
 const REGTEST_GENESIS_HASH = '0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206';
 const HARNESS_UNIT_ASSET_ID = '123:45';
+// Recovery fixtures from the released 0.3.1 source (34392b3). Keep these fixed
+// when integrating dependency updates; they pin existing users' wallet keys.
 const GOLDEN_ACCOUNTS = {
   mainnet: {
     sats: { address: 'bc1quezrxxup6e9u62xusarwd3dd9kqp4lzawm4hpw', pubkey: '0378ac2dbefccd68ecb2f836d6253185473128c12b61ceea24ab57bf2fead5a818' },
     runes: { address: 'bc1ptj3kkp79g0rm9clk4u8tzq4w9lpv0c0h0qkd7tm8shahaxjtk90s626w8p', pubkey: '59fd22bc6c5e1bfff71f5b1b077128c7e134114bbbaef4ea78ec48bca969d254' },
-    vault: { address: 'bc1pznqpxfculsx7ex5s2mc42c56ecsfv6tk5ucap0rtkn3kk32l2vfsu0cmez', pubkey: '066becd412561dd25beb6b60d4c8719f58432564a26f577672e5e1e701222692' },
+    vault: { address: 'bc1pfxjt04zav87u476xfmpqdktr3zck0yce6a76gc6qyj5g2ue6v94qqlghkr', pubkey: 'a676f763c0752f0226ba4ab2975e2959f57f194b48d4213af47f2b208b81240e' },
     authCandidates: [{
       address: 'bc1quezrxxup6e9u62xusarwd3dd9kqp4lzawm4hpw',
       publicKey: '0378ac2dbefccd68ecb2f836d6253185473128c12b61ceea24ab57bf2fead5a818',
@@ -40,7 +42,7 @@ const GOLDEN_ACCOUNTS = {
   mutinynet: {
     sats: { address: 'tb1qanzjvshhgn30dap5kvdkternn9cxm93fl9jxww', pubkey: '021e90a6f5a336d48c8ce4deb95d877c034423bc25b9a96a44d31ff5b1ea18f681' },
     runes: { address: 'tb1pp3lfgknyj7mhhqy29uqlcm9va2fn0v8rwcl9c0mzxnuhmeszaqqq99vk0t', pubkey: '1a87334dafde8825d32ef66e80e3e2c8cf82c7963151c64f6dd30a0cb927fdf6' },
-    vault: { address: 'tb1pec80nx984jftsw7y42wcqr42ft3tu6en0gdewrf3krya62nsvy3suzc5qd', pubkey: '9ef7bd1c36b630f4d3adfb59ce52e49e66993e7079a4a0e415cc78daa4a279de' },
+    vault: { address: 'tb1pkcu75f6u7x8v2vhplks075y4gplfn3c5ry5p7hl96zaeu6x8v2hsu7dc3f', pubkey: '1318a7b327da6566078bccc88d969672132512258f01daa2e6800d237332cc47' },
     authCandidates: [{
       address: 'tb1qanzjvshhgn30dap5kvdkternn9cxm93fl9jxww',
       publicKey: '021e90a6f5a336d48c8ce4deb95d877c034423bc25b9a96a44d31ff5b1ea18f681',
@@ -51,7 +53,7 @@ const GOLDEN_ACCOUNTS = {
   regtest: {
     sats: { address: 'bcrt1qanzjvshhgn30dap5kvdkternn9cxm93favtte8', pubkey: '021e90a6f5a336d48c8ce4deb95d877c034423bc25b9a96a44d31ff5b1ea18f681' },
     runes: { address: 'bcrt1pp3lfgknyj7mhhqy29uqlcm9va2fn0v8rwcl9c0mzxnuhmeszaqqqguxs63', pubkey: '1a87334dafde8825d32ef66e80e3e2c8cf82c7963151c64f6dd30a0cb927fdf6' },
-    vault: { address: 'bcrt1pec80nx984jftsw7y42wcqr42ft3tu6en0gdewrf3krya62nsvy3s3mjj4h', pubkey: '9ef7bd1c36b630f4d3adfb59ce52e49e66993e7079a4a0e415cc78daa4a279de' },
+    vault: { address: 'bcrt1pkcu75f6u7x8v2vhplks075y4gplfn3c5ry5p7hl96zaeu6x8v2hs3887yn', pubkey: '1318a7b327da6566078bccc88d969672132512258f01daa2e6800d237332cc47' },
     authCandidates: [{
       address: 'bcrt1qanzjvshhgn30dap5kvdkternn9cxm93favtte8',
       publicKey: '021e90a6f5a336d48c8ce4deb95d877c034423bc25b9a96a44d31ff5b1ea18f681',
@@ -453,7 +455,7 @@ async function runDerivationContract() {
     }
   }
 
-  assertHarness(JSON.stringify(installations[0]) === JSON.stringify(expected), `${network} managed accounts changed from the pre-v1 golden record.`);
+  assertHarness(JSON.stringify(installations[0]) === JSON.stringify(expected), `${network} managed accounts changed from the released 0.3.1 golden record.`);
   assertHarness(JSON.stringify(installations[1]) === JSON.stringify(expected), `${network} fresh reinstall did not reproduce the golden record.`);
   console.log(JSON.stringify({ network, status: 'derivation-contract-verified', accounts: expected }, null, 2));
 }

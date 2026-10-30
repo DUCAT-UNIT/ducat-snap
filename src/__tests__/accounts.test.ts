@@ -43,36 +43,38 @@ describe('Ducat account derivation', () => {
     expect(MANAGED_ROLE_PATHS.mainnet).toEqual({
       sats: ['m', "84'", "0'", "0'", '0', '0'],
       runes: ['m', "86'", "0'", "0'", '0', '0'],
-      vault: ['m', "86'", "0'", "0'", '0', '1'],
+      vault: ['m', "86'", "0'", "0'", '2', '0'],
     });
     expect(MANAGED_ROLE_PATHS.mutinynet).toEqual({
       sats: ['m', "84'", "1'", "0'", '0', '0'],
       runes: ['m', "86'", "1'", "0'", '0', '0'],
-      vault: ['m', "86'", "1'", "0'", '0', '1'],
+      vault: ['m', "86'", "1'", "0'", '2', '0'],
     });
     expect(MANAGED_ROLE_PATHS.regtest).toEqual(MANAGED_ROLE_PATHS.mutinynet);
   });
 
-  it.each(['mainnet', 'mutinynet'] as const)('preserves pre-v1 node material and accounts on %s', (network) => {
+  it.each(['mainnet', 'mutinynet', 'regtest'] as const)('preserves the 0.3.1 vault role branch on %s', (network) => {
     const satsBaseNode = testNode(1);
     const taprootBaseNode = testNode(2);
-    const previous = deriveAccountSetFromBaseNodes(network, satsBaseNode, taprootBaseNode);
+    const expected = deriveAccountSetFromBaseNodes(network, satsBaseNode, taprootBaseNode);
+    const oldVaultNode = taprootBaseNode.deriveHardened(0).derive(0).derive(1);
     const direct = accountKeySetFromRoleNodes(
       network,
       satsBaseNode.deriveHardened(0).derive(0).derive(0),
       taprootBaseNode.deriveHardened(0).derive(0).derive(0),
-      taprootBaseNode.deriveHardened(0).derive(0).derive(1),
+      taprootBaseNode.deriveHardened(0).derive(2).derive(0),
     );
 
     for (const role of ['satsNode', 'runesNode', 'vaultNode'] as const) {
-      expect(direct[role].privateKey.equals(previous[role].privateKey)).toBe(true);
-      expect(direct[role].chainCode.equals(previous[role].chainCode)).toBe(true);
-      expect(direct[role].publicKey.equals(previous[role].publicKey)).toBe(true);
+      expect(direct[role].privateKey.equals(expected[role].privateKey)).toBe(true);
+      expect(direct[role].chainCode.equals(expected[role].chainCode)).toBe(true);
+      expect(direct[role].publicKey.equals(expected[role].publicKey)).toBe(true);
     }
-    expect(direct.satsOutputScript.equals(previous.satsOutputScript)).toBe(true);
-    expect(direct.runesOutputScript.equals(previous.runesOutputScript)).toBe(true);
-    expect(direct.vaultOutputScript.equals(previous.vaultOutputScript)).toBe(true);
-    expect(direct.record).toEqual(previous.record);
+    expect(direct.vaultNode.publicKey.equals(oldVaultNode.publicKey)).toBe(false);
+    expect(direct.taprootNode).toBe(direct.vaultNode);
+    expect(direct.taprootOutputScript).toBe(direct.vaultOutputScript);
+    expect(direct.taprootInternalPubkey).toBe(direct.vaultInternalPubkey);
+    expect(direct.record).toEqual(expected.record);
   });
 
   it('reconstructs public account ownership data without private keys', () => {

@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Ducat Bitcoin accounts, Ducat-aware confirmations, and PSBT/message signing for MetaMask.",
   "proposedName": "Ducat",
   "repository": {
@@ -7,7 +7,7 @@
     "url": "git+https://github.com/DUCAT-UNIT/ducat-snap.git"
   },
   "source": {
-    "shasum": "koATtNg4BbMG2hHB9iR/3LnJNEZQFWKNFtEOu9dS2zY=",
+    "shasum": "nPQSj4TbmMgl6NSGQQfh8kPpSSIo/dS+ozIiHPB2IoI=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
@@ -35,7 +35,7 @@
         "curve": "secp256k1"
       },
       {
-        "path": ["m", "86'", "0'", "0'", "0", "1"],
+        "path": ["m", "86'", "0'", "0'", "2", "0"],
         "curve": "secp256k1"
       },
       {
@@ -47,7 +47,7 @@
         "curve": "secp256k1"
       },
       {
-        "path": ["m", "86'", "1'", "0'", "0", "1"],
+        "path": ["m", "86'", "1'", "0'", "2", "0"],
         "curve": "secp256k1"
       }
     ],
@@ -55,6 +55,7 @@
     "snap_manageState": {},
     "snap_notify": {},
     "endowment:page-home": {},
+    "endowment:ethereum-provider": {},
     "endowment:network-access": {},
     "endowment:lifecycle-hooks": {}
   },

@@ -12,10 +12,10 @@ export const REVIEWED_PRODUCTION_PROFILE_IDS = Object.freeze(['mainnet', 'mutiny
 export const REVIEWED_DERIVATION_PATHS = Object.freeze([
   Object.freeze({ path: Object.freeze(['m', "84'", "0'", "0'", '0', '0']), curve: 'secp256k1' }),
   Object.freeze({ path: Object.freeze(['m', "86'", "0'", "0'", '0', '0']), curve: 'secp256k1' }),
-  Object.freeze({ path: Object.freeze(['m', "86'", "0'", "0'", '0', '1']), curve: 'secp256k1' }),
+  Object.freeze({ path: Object.freeze(['m', "86'", "0'", "0'", '2', '0']), curve: 'secp256k1' }),
   Object.freeze({ path: Object.freeze(['m', "84'", "1'", "0'", '0', '0']), curve: 'secp256k1' }),
   Object.freeze({ path: Object.freeze(['m', "86'", "1'", "0'", '0', '0']), curve: 'secp256k1' }),
-  Object.freeze({ path: Object.freeze(['m', "86'", "1'", "0'", '0', '1']), curve: 'secp256k1' }),
+  Object.freeze({ path: Object.freeze(['m', "86'", "1'", "0'", '2', '0']), curve: 'secp256k1' }),
 ]);
 export const REVIEWED_VALIDATOR_CHAIN_NETWORKS = Object.freeze({
   mainnet: 'alpha-mainnet',

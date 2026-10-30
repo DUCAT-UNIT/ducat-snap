@@ -2,11 +2,11 @@ import type { DeploymentId } from '../../types';
 import { accountKeySetFromRoleNodes } from '../../accounts';
 import type { DucatKeyNode } from '../../bip32';
 
-function deriveAccountNode(baseNode: DucatKeyNode, index = 0): DucatKeyNode {
-  return baseNode.deriveHardened(0).derive(0).derive(index);
+function deriveRoleNode(baseNode: DucatKeyNode, change: number): DucatKeyNode {
+  return baseNode.deriveHardened(0).derive(change).derive(0);
 }
 
-/** Reproduces the pre-v1 parent-node derivation for tests only. */
+/** Reproduces the complete role-node derivation for tests only. */
 export function deriveAccountSetFromBaseNodes(
   network: DeploymentId,
   satsBaseNode: DucatKeyNode,
@@ -14,8 +14,8 @@ export function deriveAccountSetFromBaseNodes(
 ) {
   return accountKeySetFromRoleNodes(
     network,
-    deriveAccountNode(satsBaseNode),
-    deriveAccountNode(taprootBaseNode),
-    deriveAccountNode(taprootBaseNode, 1),
+    deriveRoleNode(satsBaseNode, 0),
+    deriveRoleNode(taprootBaseNode, 0),
+    deriveRoleNode(taprootBaseNode, 2),
   );
 }

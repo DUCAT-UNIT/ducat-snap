@@ -7,6 +7,8 @@ import {
   type DeploymentProfile,
 } from './network-profiles';
 import { verifyDeploymentEndpointIdentity, type EndpointKind } from './network-endpoint-policy';
+import { homeIconButton, homeSettingTitle, homeVerticalDivider } from './home-controls';
+import { homeCopyRow, type HomeCopyKind } from './home-copy';
 import { updateHomeInterface } from './home';
 import { getSelectedNetwork } from './network-selection';
 import { normalizeDeploymentId } from './networks';
@@ -15,6 +17,7 @@ import type { DeploymentId, NetworkEndpointOverride, NetworkEndpointOverrides } 
 import { invalidateWalletInventory } from './wallet-inventory';
 import {
   uiBanner,
+  uiBox,
   uiButton,
   uiCopyable,
   uiField,
@@ -52,8 +55,35 @@ export function renderNetworkEndpointContent(params: {
   editingEndpoint: EndpointKind | null;
   endpoint?: EndpointKind;
   status: NetworkEndpointStatus;
+  compact?: boolean;
+  expandedCopy?: HomeCopyKind | null;
+  preserveDraft?: boolean;
 }): SnapElement {
   const endpoints: EndpointKind[] = params.endpoint ? [params.endpoint] : ['validator', 'esplora'];
+
+  if (params.compact) {
+    return uiBox([
+      ...(params.status ? [uiBanner(params.status.title, params.status.severity, params.status.message)] : []),
+      ...endpoints.map((kind) => {
+        const label = `${endpointLabel(kind)} URL`;
+        const currentUrl = endpointUrl(params.profile, kind);
+        if (params.editingEndpoint === kind) {
+          return uiForm(`save-endpoint:${kind}`, [
+            homeSettingTitle(label, `cancel-edit-endpoint:${kind}`, true),
+            uiBox([
+              uiField('', uiInput('endpointUrl', 'text', label, params.preserveDraft ? undefined : currentUrl)),
+              homeVerticalDivider(28),
+              homeIconButton(`save-endpoint:${kind}`, 'check', 'submit'),
+            ], { direction: 'horizontal', crossAlignment: 'center', alignment: 'space-between' }),
+          ]);
+        }
+        return uiBox([
+          homeCopyRow(homeSettingTitle(label, `edit-endpoint:${kind}`), currentUrl, kind, params.expandedCopy === kind),
+          ...(currentUrl !== endpointUrl(params.defaultProfile, kind) ? [uiButton('Restore default', { name: `clear-endpoint:${kind}` })] : []),
+        ]);
+      }),
+    ]);
+  }
 
   return uiSection([
     uiHeading(params.endpoint ? `Manage ${endpointLabel(params.endpoint)}` : 'Network endpoints'),
@@ -152,7 +182,7 @@ async function updateEndpointInterface(
   id: string,
   network: DeploymentId,
   status: NetworkEndpointStatus,
-  screenEndpoint: EndpointKind,
+  screenEndpoint: EndpointKind | 'settings',
   editingEndpoint: EndpointKind | null = null,
 ): Promise<void> {
   await updateHomeInterface(id, network, { endpoints: status, editingEndpoint }, screenEndpoint);
@@ -172,17 +202,18 @@ export const handleEndpointOverrideInput: OnUserInputHandler = async ({ id, cont
   }
 
   const [, fallbackEndpoint] = event.name.split(':') as [string, EndpointKind];
+  const targetScreen = (endpoint: EndpointKind) => context?.screen === 'settings' ? 'settings' as const : endpoint;
 
   try {
     const [action, endpointInput] = event.name.split(':') as [string, EndpointKind];
 
     if (action === 'edit-endpoint') {
-      await updateEndpointInterface(id, network, null, endpointInput, endpointInput);
+      await updateEndpointInterface(id, network, null, targetScreen(endpointInput), endpointInput);
       return;
     }
 
     if (action === 'cancel-edit-endpoint') {
-      await updateHomeInterface(id, network, { endpoints: null, editingEndpoint: null }, endpointInput);
+      await updateHomeInterface(id, network, { endpoints: null, editingEndpoint: null }, targetScreen(endpointInput));
       return;
     }
 
@@ -195,7 +226,7 @@ export const handleEndpointOverrideInput: OnUserInputHandler = async ({ id, cont
         severity: 'success',
         title: `${endpointLabel(endpointInput)} endpoint cleared`,
         message: 'The bundled Ducat network endpoint is active again.',
-      }, endpointInput);
+      }, targetScreen(endpointInput));
       return;
     }
 
@@ -221,13 +252,13 @@ export const handleEndpointOverrideInput: OnUserInputHandler = async ({ id, cont
       severity: 'success',
       title: `${endpointLabel(endpointInput)} endpoint saved`,
       message: 'The Snap will use this endpoint for this network until it is cleared.',
-    }, endpointInput);
+    }, targetScreen(endpointInput));
   } catch (error) {
     await updateEndpointInterface(id, network, {
       severity: 'danger',
       title: 'Endpoint update failed',
       message: error instanceof Error ? error.message : String(error),
-    }, fallbackEndpoint);
+    }, targetScreen(fallbackEndpoint));
     throw error instanceof Error ? error : new Error(String(error));
   }
 };

@@ -56,7 +56,7 @@ On mainnet, the Snap derives:
 ```text
 sats:  m/84'/0'/0'/0/0
 runes: m/86'/0'/0'/0/0
-vault: m/86'/0'/0'/0/1
+vault: m/86'/0'/0'/2/0
 ```
 
 Mutinynet and Regtest use the corresponding coin type `1'` paths:
@@ -64,14 +64,15 @@ Mutinynet and Regtest use the corresponding coin type `1'` paths:
 ```text
 sats:  m/84'/1'/0'/0/0
 runes: m/86'/1'/0'/0/0
-vault: m/86'/1'/0'/0/1
+vault: m/86'/1'/0'/2/0
 ```
 
-The change to direct role-node requests preserves the same keys and addresses
-as the earlier parent-node implementation. A fresh installation recovered
-from the same MetaMask Secret Recovery Phrase therefore recovers the same
-managed Ducat accounts. A key imported through Snap Home is an explicit
-account override and does not follow this derivation scheme.
+The direct role-node requests preserve the BTC funds and UNIT addresses. The
+vault role is a deliberate hard cut to role branch `2`; the Snap does not retain
+or request the former `/0/1` vault key. A fresh installation recovered from the
+same MetaMask Secret Recovery Phrase recovers the same corrected managed Ducat
+accounts. A key imported through Snap Home is an explicit account override and
+does not follow this derivation scheme.
 
 This overlap is intentional in the current implementation. The important distinction is
 that the Snap is not a general-purpose Bitcoin wallet replacement. It exposes only

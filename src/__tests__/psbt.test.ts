@@ -211,32 +211,7 @@ function coreVaultReturnPayload(unitBalanceCents: number, unitPrice: number, uni
 }
 
 function addCoreVaultActionPsbtOutputs(psbt: Psbt, keySet: ReturnType<typeof makeKeySet>, actionCode: number, vaultValueSats: number, payload: Buffer): void {
-  if (actionCode === 161) {
-    psbt.addOutput({
-      address: keySet.record.sats.address,
-      value: 1_000,
-    });
-    psbt.addOutput({
-      address: keySet.record.runes.address,
-      value: 1_000,
-    });
-    psbt.addOutput({
-      address: keySet.record.vault.address,
-      value: vaultValueSats,
-    });
-    psbt.addOutput({
-      address: keySet.record.sats.address,
-      value: 898_000,
-    });
-    psbt.addOutput({
-      script: btcScript.compile([opcodes.OP_RETURN, opcodes.OP_8, payload]),
-      value: 0,
-    });
-
-    return;
-  }
-
-  if (actionCode === 164) {
+  if (actionCode === 161 || actionCode === 164) {
     psbt.addOutput({
       address: keySet.record.runes.address,
       value: 1_000,
@@ -1067,7 +1042,7 @@ describe('PSBT signing', () => {
   });
 
   it.each([
-    { actionCode: 161, actionFlag: 'o', actionType: 'create', protocolAction: 'open', vaultOutputIndex: 2, expectedDataOutputIndex: 4 },
+    { actionCode: 161, actionFlag: 'o', actionType: 'create', protocolAction: 'open', vaultOutputIndex: 1, expectedDataOutputIndex: 3 },
     { actionCode: 164, actionFlag: 'b', actionType: 'borrow', protocolAction: 'borrow', vaultOutputIndex: 1 },
     { actionCode: 165, actionFlag: 'r', actionType: 'repay', protocolAction: 'repay', vaultOutputIndex: 0 },
     { actionCode: 167, actionFlag: 'w', actionType: 'withdraw', protocolAction: 'withdraw', vaultOutputIndex: 0 },

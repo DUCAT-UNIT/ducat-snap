@@ -42,7 +42,7 @@ function loadDevelopmentState(): typeof import('../state') {
     origins: process.env.DUCAT_SNAP_DEV_ORIGINS,
   };
   process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
-  process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075';
+  process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com';
   jest.resetModules();
   (require('../artifact-policy') as typeof import('../artifact-policy')).artifactPolicy();
   const module = require('../state') as typeof import('../state');

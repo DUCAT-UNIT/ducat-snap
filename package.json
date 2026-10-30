@@ -1,6 +1,6 @@
 {
   "name": "@ducat-unit/wallet-snap",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Ducat Bitcoin account and signing Snap for MetaMask.",
   "keywords": [
     "ducat",
@@ -40,7 +40,7 @@
     "verify": "npm run type-check && npm test && npm run build && npm run manifest",
     "lint": "npm run type-check && npm test",
     "audit:prod": "npm audit --omit=dev",
-    "build:harness-dev": "DUCAT_SNAP_ARTIFACT_POLICY=development DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075 DUCAT_SNAP_DEV_UNPROMPTED=false DUCAT_SNAP_DEBUG=false node scripts/prepare-dev-build.mjs && DUCAT_SNAP_ARTIFACT_POLICY=development DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075 DUCAT_SNAP_DEV_UNPROMPTED=false DUCAT_SNAP_DEBUG=false mm-snap build --config snap.config.dev.ts && DUCAT_SNAP_ARTIFACT_POLICY=development DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075 node scripts/apply-dev-origins.mjs .snap/dev/snap.manifest.json && mm-snap manifest --config snap.config.dev.ts --fix",
+    "build:harness-dev": "DUCAT_SNAP_ARTIFACT_POLICY=development DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com DUCAT_SNAP_DEV_UNPROMPTED=false DUCAT_SNAP_DEBUG=false node scripts/prepare-dev-build.mjs && DUCAT_SNAP_ARTIFACT_POLICY=development DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com DUCAT_SNAP_DEV_UNPROMPTED=false DUCAT_SNAP_DEBUG=false mm-snap build --config snap.config.dev.ts && DUCAT_SNAP_ARTIFACT_POLICY=development DUCAT_SNAP_DEV_ORIGINS=http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com node scripts/apply-dev-origins.mjs .snap/dev/snap.manifest.json && mm-snap manifest --config snap.config.dev.ts --fix",
     "harness:accounts": "DUCAT_NETWORK=mutinynet node scripts/snap-simulation-harness.mjs accounts",
     "harness:smoke-signing": "DUCAT_SNAP_DIR=.snap/dev DUCAT_HARNESS_ORIGIN=http://localhost:3000 DUCAT_NETWORK=regtest node scripts/snap-simulation-harness.mjs smoke-signing",
     "harness:session": "DUCAT_SNAP_DIR=.snap/dev DUCAT_HARNESS_ORIGIN=http://localhost:3000 DUCAT_NETWORK=regtest node scripts/snap-simulation-harness.mjs session",
@@ -51,7 +51,10 @@
     "test:release-policy": "node --test scripts/release-policy.test.mjs scripts/package-policy.test.mjs",
     "verify:release": "bash scripts/verify-release.sh",
     "pack:dry-run": "npm pack --dry-run --json | node scripts/package-policy.mjs",
-    "prepublishOnly": "npm run verify:release"
+    "prepublishOnly": "npm run verify:release",
+    "preview:flask": "npm run build:harness-dev && node scripts/serve-flask-preview.mjs",
+    "preview:serve": "node scripts/serve-flask-preview.mjs",
+    "test:flask-preview": "node --test scripts/flask-preview/*.test.mjs"
   },
   "dependencies": {
     "@bitcoin-js/tiny-secp256k1-asmjs": "2.2.4",

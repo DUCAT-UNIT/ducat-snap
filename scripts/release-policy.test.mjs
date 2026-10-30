@@ -90,6 +90,19 @@ test('tracked manifest contains the exact reviewed derivation paths in order', (
   assert.doesNotThrow(() => assertProductionManifest(trackedManifest));
 });
 
+test('rejects the older beta vault path for both coin types', () => {
+  for (const coin of ["0'", "1'"]) {
+    const manifest = structuredClone(trackedManifest);
+    const vaultPermission = manifest.initialPermissions.snap_getBip32Entropy.find(
+      ({ path }) => path[1] === "86'" && path[2] === coin && path[4] === '2',
+    );
+    assert.ok(vaultPermission, '0.3.1 vault permission must be present');
+    vaultPermission.path[4] = '0';
+    vaultPermission.path[5] = '1';
+    assert.throws(() => assertProductionManifest(manifest), /exact reviewed derivation paths/);
+  }
+});
+
 test('rejects every derivation permission set mutation', () => {
   const reviewed = structuredClone(REVIEWED_DERIVATION_PATHS);
   const mutations = [
