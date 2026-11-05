@@ -68,14 +68,14 @@ The production artifact allows exactly these Ducat app origins:
 
 ```
 https://app.ducatprotocol.com
-https://dev.app.ducatprotocol.com
-https://staging.app.ducatprotocol.com
+https://dev.ducatprotocol.com
+https://test.ducatprotocol.com
 ```
 
 `localhost` and preview deployments are intentionally absent from the published
 manifest. The development artifact replaces this list with exactly
 `http://localhost:3000`, `http://localhost:8075`, `http://frontend:3000`,
-`http://ducat-admin:8075`, and `https://dev.app.ducatprotocol.com`; it does not
+`http://ducat-admin:8075`, and `https://dev.ducatprotocol.com`; it does not
 inherit other production origins. It contains
 exactly `regtest`, `mainnet`, and `mutinynet`, defaults to `mutinynet`, and
 disables debug and unprompted signing.
@@ -107,7 +107,7 @@ address, transaction, transport, and genesis mechanics, and the exact
 
 | Snap network | Validator URL | Required `chain_network` |
 | --- | --- | --- |
-| Mainnet | `https://validator-mutinynet.prod.ducatprotocol.com` | `main` |
+| Mainnet | `https://validator-mainnet.prod.ducatprotocol.com` | `main` |
 | Mutinynet | `https://validator-mutinynet.prod.ducatprotocol.com` | `mutiny` |
 
 `main` is Ducat Core's production chain identity; `mainnet` remains the Snap's
@@ -115,10 +115,8 @@ wallet network name. The endpoint update does not change any `0.3.1` account
 derivation paths. A failed production request does not fall back to a dev or
 alpha validator.
 
-The shared endpoint reports `mutiny`. It works for Mutinynet, but Mainnet
-rejects that response because it requires `main`. Sharing a URL does not make
-testnet data valid for Mainnet; Mainnet validator-backed operations remain
-unavailable with this endpoint's current identity.
+Each validator must report its own network identity. Mainnet rejects Mutinynet
+data, and neither profile falls back to the other network when unavailable.
 
 Users can set validator and Esplora endpoint overrides from Snap Home. Overrides are
 stored in Snap state and apply to complete wallet inventory and signing verification.

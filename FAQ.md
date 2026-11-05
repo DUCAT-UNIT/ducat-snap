@@ -140,8 +140,8 @@ The published Snap allows only these HTTPS origins:
 
 ```text
 https://app.ducatprotocol.com
-https://dev.app.ducatprotocol.com
-https://staging.app.ducatprotocol.com
+https://dev.ducatprotocol.com
+https://test.ducatprotocol.com
 ```
 
 Localhost and preview deployments are development-only and are not present in the

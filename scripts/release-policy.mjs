@@ -4,8 +4,8 @@ const BOOLEAN_RELEASE_FLAGS = ['DUCAT_SNAP_DEV_UNPROMPTED', 'DUCAT_SNAP_DEBUG'];
 
 export const REVIEWED_PRODUCTION_ORIGINS = Object.freeze([
   'https://app.ducatprotocol.com',
-  'https://dev.app.ducatprotocol.com',
-  'https://staging.app.ducatprotocol.com',
+  'https://dev.ducatprotocol.com',
+  'https://test.ducatprotocol.com',
 ]);
 
 export const REVIEWED_PRODUCTION_PROFILE_IDS = Object.freeze(['mainnet', 'mutinynet']);
@@ -21,7 +21,7 @@ export const REVIEWED_VALIDATOR_CHAIN_NETWORKS = Object.freeze({
   mainnet: 'main',
   mutinynet: 'mutiny',
 });
-export const REVIEWED_MAINNET_VALIDATOR_URL = 'https://validator-mutinynet.prod.ducatprotocol.com';
+export const REVIEWED_MAINNET_VALIDATOR_URL = 'https://validator-mainnet.prod.ducatprotocol.com';
 export const REVIEWED_MUTINYNET_VALIDATOR_URL = 'https://validator-mutinynet.prod.ducatprotocol.com';
 
 const REQUIRED_PRODUCTION_BUNDLE_EVIDENCE = [

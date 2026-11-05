@@ -8,7 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const load = (path) => readFileSync(resolve(root, path));
 const manifestBytes = load('.snap/dev/snap.manifest.json');
 const manifest = JSON.parse(manifestBytes);
-const expected = ['http://localhost:3000', 'http://localhost:8075', 'http://frontend:3000', 'http://ducat-admin:8075', 'https://dev.app.ducatprotocol.com'];
+const expected = ['http://localhost:3000', 'http://localhost:8075', 'http://frontend:3000', 'http://ducat-admin:8075', 'https://dev.ducatprotocol.com'];
 if (JSON.stringify(manifest.initialPermissions?.['endowment:rpc']?.allowedOrigins) !== JSON.stringify(expected)) throw new Error('Build the reviewed development artifact with npm run build:harness-dev first.');
 const snapFiles = new Map([
   ['/snap.manifest.json', ['application/json', manifestBytes]],

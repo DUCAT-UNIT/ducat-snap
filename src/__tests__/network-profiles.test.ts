@@ -75,13 +75,13 @@ describe('network profiles', () => {
     try {
       jest.isolateModules(() => {
         process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
-        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com';
+        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.ducatprotocol.com';
         const development = require('../network-profiles') as typeof import('../network-profiles');
         expect(development.networkProfiles().map((profile) => profile.id)).toEqual(['regtest', 'mainnet', 'mutinynet']);
         expect(development.networkProfile('mainnet')).toEqual({
           id: 'mainnet', label: 'Mainnet', bitcoin_network: 'mainnet',
           expected_validator_chain_network: 'main',
-          validator_base_url: 'https://validator-mutinynet.prod.ducatprotocol.com', esplora_base_url: 'https://mempool.space/api',
+          validator_base_url: 'https://validator-mainnet.prod.ducatprotocol.com', esplora_base_url: 'https://mempool.space/api',
         });
         expect(development.networkProfile('mutinynet').validator_base_url).toBe('https://validator-mutinynet.prod.ducatprotocol.com');
         expect(development.networkProfile('regtest').expected_validator_chain_network).toBe('regtest');
@@ -137,7 +137,7 @@ describe('network profiles', () => {
   it('resolves bundled endpoints for a network', () => {
     const profile = networkProfile('mainnet');
 
-    expect(profile.validator_base_url).toBe('https://validator-mutinynet.prod.ducatprotocol.com');
+    expect(profile.validator_base_url).toBe('https://validator-mainnet.prod.ducatprotocol.com');
     expect(profile.esplora_base_url).toBe('https://mempool.space/api');
   });
 
@@ -237,7 +237,7 @@ describe('network profiles', () => {
   });
 
   it.each([
-    ['mainnet', 'main', 'https://validator-mutinynet.prod.ducatprotocol.com'],
+    ['mainnet', 'main', 'https://validator-mainnet.prod.ducatprotocol.com'],
     ['mutinynet', 'mutiny', 'https://validator-mutinynet.prod.ducatprotocol.com'],
   ] as const)('accepts only the production protocol identity for %s', async (network, identity, url) => {
     const profile = networkProfile(network);
@@ -261,10 +261,10 @@ describe('network profiles', () => {
     }
   });
 
-  it('rejects Mutinynet data for Mainnet even when both profiles share a validator URL', async () => {
+  it('uses separate production validators and rejects Mutinynet data for Mainnet', async () => {
     const mainnet = networkProfile('mainnet');
     const mutinynet = networkProfile('mutinynet');
-    expect(mainnet.validator_base_url).toBe(mutinynet.validator_base_url);
+    expect(mainnet.validator_base_url).not.toBe(mutinynet.validator_base_url);
     expect(mainnet.bitcoin_network).toBe('mainnet');
     expect(mutinynet.bitcoin_network).toBe('signet');
     const fetchMutinynet = jest.fn(async () => Response.json({ chain_network: 'mutiny' })) as typeof fetch;
@@ -279,9 +279,26 @@ describe('network profiles', () => {
     )).rejects.toThrow('validator endpoint did not report main');
   });
 
-  it('keeps guardian-backed mainnet signing closed', () => {
+  it.each([
+    { keys: [] },
+    { keys: ['invalid'] },
+    { keys: [DUCAT_GUARDIAN_PUBKEYS.mutinynet[0]] },
+  ])('fails closed for invalid mainnet guardian configuration: $keys', ({ keys }) => {
+    const original = DUCAT_GUARDIAN_PUBKEYS.mainnet;
+    try {
+      DUCAT_GUARDIAN_PUBKEYS.mainnet = keys;
+      expect(guardianKeyPolicyReady('mainnet')).toBe(false);
+    } finally {
+      DUCAT_GUARDIAN_PUBKEYS.mainnet = original;
+    }
+  });
+
+  it('pins the fresh mainnet guardian and rejects test-network or unknown keys', () => {
     const mutinynetGuardian = DUCAT_GUARDIAN_PUBKEYS.mutinynet[0];
-    expect(guardianKeyPolicyReady('mainnet')).toBe(false);
+    expect(guardianKeyPolicyReady('mainnet')).toBe(true);
+    expect(isKnownGuardianPubkey('mainnet', 'ae14e844894a298e6d731428582618bba86f86e5cd6f14ee94082db4f2ed4c45')).toBe(true);
+    expect(isKnownGuardianPubkey('mainnet', '00'.repeat(32))).toBe(false);
+    expect(isKnownGuardianPubkey('mutinynet', DUCAT_GUARDIAN_PUBKEYS.mainnet[0])).toBe(false);
     expect(isKnownGuardianPubkey('mainnet', mutinynetGuardian)).toBe(false);
     expect(guardianKeyPolicyReady('mutinynet')).toBe(true);
     expect(isKnownGuardianPubkey('mutinynet', mutinynetGuardian)).toBe(true);
