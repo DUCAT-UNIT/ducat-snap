@@ -28,7 +28,7 @@ afterEach(() => {
 });
 
 describe('Snap installation disclosure', () => {
-  it('lists every deployment available in the development artifact', async () => {
+  it('shows the welcome screen and default network', async () => {
     const request = jest.fn(async (_args: { method: string; params?: { content?: unknown } }) => undefined);
     (globalThis as unknown as { snap: { request: typeof request } }).snap = { request };
     const { onInstall } = require('../index') as typeof import('../index');
@@ -37,12 +37,9 @@ describe('Snap installation disclosure', () => {
 
     const dialog = request.mock.calls.find(([args]) => args.method === 'snap_dialog');
     const content = JSON.stringify(dialog?.[0]?.params?.content ?? '');
-    for (const label of ['Regtest', 'Mutinynet', 'Mainnet']) {
-      expect(content).toContain(label);
-    }
-    for (const removed of ['Signet', 'Testnet4', 'Alpha Mainnet']) {
-      expect(content).not.toContain(removed);
-    }
-    expect(content).toContain('Bitcoin Testnet account permission covers Regtest and Mutinynet');
+    expect(content).toContain('Your Ducat wallet is ready');
+    expect(content).toContain('Your keys stay in MetaMask');
+    expect(content).toContain('Testnet');
+    expect(content).not.toContain('Mainnet enabled');
   });
 });

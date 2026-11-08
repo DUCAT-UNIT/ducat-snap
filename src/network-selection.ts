@@ -7,7 +7,7 @@ import { bitcoinNetworkForDeployment, normalizeDeploymentId } from './networks';
 import { getState, setSelectedNetwork } from './state';
 import type { DeploymentId } from './types';
 import { invalidateWalletInventory } from './wallet-inventory';
-import { uiBanner, uiBox, uiHeading, uiRow, uiSection } from './ui';
+import { uiBox, uiHeading, uiRow, uiText, uiMuted, uiDivider, uiCollapsibleSection } from './ui';
 
 export type NetworkResponse = {
   network: DeploymentId;
@@ -88,21 +88,18 @@ export async function requestNetworkSwitch(
     params: {
       type: 'confirmation',
       content: uiBox([
-        uiHeading('Switch Ducat network', 'lg'),
-        uiSection([
-          uiRow('Requesting origin', requestingOrigin),
-          uiRow('From', networkLabel(state.selectedNetwork)),
-          uiRow('To', profile.label),
+        uiHeading(`Switch to ${network === 'mutinynet' ? 'Testnet' : profile.label}?`, 'lg'),
+        uiText(isMainnet ? 'You’ll use real Bitcoin.' : 'You’ll use test Bitcoin.'),
+        uiDivider(),
+        uiRow('Current network', state.selectedNetwork === 'mutinynet' ? 'Testnet' : networkLabel(state.selectedNetwork)),
+        uiRow('Switch to', network === 'mutinynet' ? 'Testnet' : profile.label),
+        uiMuted(`Your ${isMainnet ? 'Mainnet' : network === 'mutinynet' ? 'Testnet' : profile.label} addresses and balances will be different.`),
+        uiDivider(),
+        uiRow('Requested by', requestingOrigin),
+        uiCollapsibleSection('Network details', [
           uiRow('Validator', endpointOrigin(profile.validator_base_url)),
-          uiRow('Esplora', endpointOrigin(profile.esplora_base_url)),
+          uiRow('Explorer', endpointOrigin(profile.esplora_base_url)),
         ]),
-        uiBanner(
-          isMainnet ? 'Real BTC warning' : 'Signing context changes',
-          isMainnet ? 'danger' : 'warning',
-          isMainnet
-            ? 'This switches Ducat to Bitcoin mainnet. Real BTC may be spent. Accounts, addresses, balances, imported network key, endpoints, and signing context will change.'
-            : 'Bitcoin accounts, addresses, balances, imported network key, endpoint selection, and signing context will change.',
-        ),
       ]),
     },
   });
