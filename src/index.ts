@@ -9,18 +9,7 @@ import { handleHomeUserInput } from './home-key-override';
 import { handleHomeNetworkInput, isHomeNetworkEvent } from './home-network';
 import { handleEndpointOverrideInput, isEndpointOverrideEvent } from './home-network-endpoints';
 import { handleRpcRequest } from './rpc';
-import type { DeploymentId } from './types';
-import { uiBanner, uiBox, uiHeading, uiMuted, uiRow, uiSection } from './ui';
-
-const INSTALL_NETWORK_LABELS: Record<DeploymentId, string> = {
-  regtest: 'Regtest',
-  mutinynet: 'Mutinynet',
-  mainnet: 'Mainnet (Alpha contract)',
-};
-
-function installationNetworkSummary(): string {
-  return artifactPolicy().allowed_deployments.map((network) => INSTALL_NETWORK_LABELS[network]).join(' / ');
-}
+import { uiBox, uiHeading, uiMuted, uiRow, uiText, uiDivider } from './ui';
 
 export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => {
   return handleRpcRequest(origin, request);
@@ -59,16 +48,16 @@ export const onInstall: OnInstallHandler = async () => {
     params: {
       type: 'alert',
       content: uiBox([
-        uiHeading('Ducat installed', 'lg'),
-        uiSection([
-          uiRow('Ducat deployments', installationNetworkSummary()),
-          uiRow('Accounts', 'Bitcoin accounts from MetaMask SRP'),
-          uiRow('Keys', 'Stay inside MetaMask'),
-          uiRow('Approvals', 'Required for every message, PSBT, batch, and transfer'),
+        uiHeading('Your Ducat wallet is ready', 'lg'),
+        uiMuted('Manage your Bitcoin and UNIT with MetaMask.'),
+        uiDivider(),
+        uiBox([
+          uiHeading('Your keys stay in MetaMask', 'sm'),
+          uiMuted('You approve every signature.'),
         ]),
-        uiMuted('Bitcoin Testnet account permission covers Regtest and Mutinynet.'),
-        uiBanner('Mainnet enabled', 'warning', 'Mainnet requests use distinct Bitcoin mainnet derivation paths and require the same MetaMask confirmations.'),
-        uiMuted('Use the Ducat web app for create, deposit, borrow, repay, withdraw, swap, and liquidation flows.'),
+        uiRow('Network', artifactPolicy().default_deployment === 'mutinynet' ? 'Testnet' : artifactPolicy().default_deployment === 'mainnet' ? 'Mainnet' : 'Regtest'),
+        uiDivider(),
+        uiText('Open Ducat to get started.'),
       ]),
     },
   });

@@ -9,10 +9,10 @@ repay, withdraw, and so on — and the snap handles account discovery and the Me
 confirmation prompts.
 
 The production artifact supports exactly `mainnet` and `mutinynet`. The
-role-neutral local development artifact adds `regtest`. The Snap has no
-separate `alpha-mainnet` wallet network: its Mainnet profile currently uses the
-reviewed alpha DUCAT contract while retaining canonical Bitcoin mainnet
-address, transaction, and genesis rules.
+role-neutral local development artifact adds `regtest`. Mainnet and Mutinynet use
+separate production validator endpoints while retaining their existing Bitcoin
+address, transaction, genesis, and wallet-derivation rules. Alpha-mainnet is retired;
+there is no Alpha compatibility profile or fallback.
 
 ## What are snaps?
 
@@ -62,14 +62,14 @@ The production artifact allows exactly these Ducat app origins:
 
 ```
 https://app.ducatprotocol.com
-https://dev.app.ducatprotocol.com
-https://staging.app.ducatprotocol.com
+https://dev.ducatprotocol.com
+https://test.ducatprotocol.com
 ```
 
 `localhost` and preview deployments are intentionally absent from the published
 manifest. The development artifact replaces this list with exactly
 `http://localhost:3000`, `http://localhost:8075`, `http://frontend:3000`,
-`http://ducat-admin:8075`, and `https://dev.app.ducatprotocol.com`; it does not
+`http://ducat-admin:8075`, and `https://dev.ducatprotocol.com`; it does not
 inherit other production origins. It contains
 exactly `regtest`, `mainnet`, and `mutinynet`, defaults to `mutinynet`, and
 disables debug and unprompted signing.
@@ -82,29 +82,40 @@ while no server is running, and serves those frozen bytes only at
 `local:http://localhost:8086`. Frontend and Admin are caller workflows of this
 one local Snap; neither is an artifact-policy class. Production packaging stays
 on the isolated production policy and contains no localhost or removed wallet
-network authority. The string `alpha-mainnet` remains only as the Mainnet
-profile's expected validator response while the alpha DUCAT contract is active.
+network authority. Production and development artifacts use the same separate
+production defaults for Mainnet and Mutinynet; Regtest stays local.
 
 From `ducat-infra`, use `make snap-down`, `make snap-install`, and
-`make snap-check` before `make snap-serve`. Starting the Alpha-configured Admin
-does not build, start, stop, or log the shared Snap. Snap install/update, key
+`make snap-check` before `make snap-serve`. Starting Admin does not build, start,
+stop, or log the shared Snap. Snap install/update, key
 import, funding, prompting, signing, and broadcast each remain separate
-operator approvals. The complete real-Bitcoin sequence and private-key
-handling rules are in
-[`../../dev/runbooks/DUCAT_ADMIN_ALPHA_MAINNET.md`](../../dev/runbooks/DUCAT_ADMIN_ALPHA_MAINNET.md).
+operator approvals. The bundled Mainnet profile requires the production
+contract identity; an Alpha-configured validator is not compatible with it.
 
 ## Network Profiles and Endpoint Overrides
 
 The Snap ships bundled network profiles in [`src/network-profiles.json`](src/network-profiles.json).
 Each profile carries a canonical Snap network, the Bitcoin network used for
 address, transaction, transport, and genesis mechanics, and the exact
-`chain_network` value expected from its validator. The Mainnet profile currently
-expects `alpha-mainnet`; that value is contract-stage evidence, not another Snap
-network. Retiring the alpha contract requires changing the profile expectation
-and validator URL, not adding or migrating a wallet network.
+`chain_network` value expected from its validator:
+
+| Snap network | Validator URL | Required `chain_network` |
+| --- | --- | --- |
+| Mainnet | `https://validator-mainnet.prod.ducatprotocol.com` | `main` |
+| Mutinynet | `https://validator-mutinynet.prod.ducatprotocol.com` | `mutiny` |
+
+`main` is Ducat Core's production chain identity; `mainnet` remains the Snap's
+wallet network name. The endpoint update does not change any `0.3.1` account
+derivation paths. A failed production request does not fall back to a dev or
+alpha validator.
+
+Each validator must report its own network identity. Mainnet rejects Mutinynet
+data, and neither profile falls back to the other network when unavailable.
 
 Users can set validator and Esplora endpoint overrides from Snap Home. Overrides are
 stored in Snap state and apply to complete wallet inventory and signing verification.
+Existing explicit overrides remain selected; clear them in Settings to use
+the bundled production defaults.
 Dapps pass only
 the target network name; they do not pass arbitrary endpoint URLs into signing or
 inventory RPC calls. Remote overrides require HTTPS and are verified against the
