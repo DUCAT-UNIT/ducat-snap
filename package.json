@@ -60,7 +60,7 @@
     "@bitcoin-js/tiny-secp256k1-asmjs": "2.2.4",
     "@ducat-unit/core": "0.25.0-beta.4",
     "@noble/hashes": "1.8.0",
-    "bitcoinjs-lib": "6.1.7",
+    "bitcoinjs-lib": "6.1.8",
     "buffer": "6.0.3"
   },
   "devDependencies": {
