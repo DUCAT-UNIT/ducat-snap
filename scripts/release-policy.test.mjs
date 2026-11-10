@@ -115,7 +115,7 @@ test('rejects every derivation permission set mutation', () => {
   }
 });
 
-for (const extraOrigin of ['https://preview.ducatprotocol.com', 'http://localhost:3000']) {
+for (const extraOrigin of ['https://dev.ducatprotocol.com', 'https://preview.ducatprotocol.com', 'http://localhost:3000']) {
   test(`rejects extra manifest origin ${extraOrigin}`, () => {
     const manifest = structuredClone(trackedManifest);
     manifest.initialPermissions['endowment:rpc'].allowedOrigins.push(extraOrigin);

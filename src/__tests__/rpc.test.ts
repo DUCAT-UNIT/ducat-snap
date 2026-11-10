@@ -36,7 +36,7 @@ jest.mock('../wallet-inventory', () => ({
 
 const ORIGIN = 'https://app.ducatprotocol.com';
 const DEV_ORIGIN = 'http://localhost:3000';
-const DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.ducatprotocol.com';
+const DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com';
 const UNSPENDABLE_TAPROOT_KEY = Buffer.from('50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0', 'hex');
 
 const REGISTERED_NETWORK_METHODS = [
@@ -583,10 +583,18 @@ describe('RPC router', () => {
     expect(networkProfile('mutinynet').validator_base_url).toBe('https://validator-mutinynet.prod.ducatprotocol.com');
   });
 
+  it('authorizes the existing development app in the production build', async () => {
+    await expect(handleRpcRequest('https://dev.app.ducatprotocol.com', {
+      method: 'ducat_getCapabilities',
+    })).resolves.toEqual(expect.objectContaining({ networks: ['mainnet', 'mutinynet'] }));
+  });
+
   it.each([
-    'https://dev.app.ducatprotocol.com',
+    'https://dev.ducatprotocol.com',
     'https://staging.app.ducatprotocol.com',
-    'http://dev.ducatprotocol.com',
+    'http://dev.app.ducatprotocol.com',
+    'https://dev.app.ducatprotocol.com:8443',
+    'https://dev.app.ducatprotocol.com.evil.example',
     'https://test.ducatprotocol.com:8443',
     'https://app.ducatprotocol.com.evil.example',
   ])('rejects origins outside the exact published allowlist: %s', async (origin) => {
@@ -629,7 +637,7 @@ describe('RPC router', () => {
     try {
       jest.isolateModules(() => {
         process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
-        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000, http://localhost:8075, http://frontend:3000, http://ducat-admin:8075, https://dev.ducatprotocol.com';
+        process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000, http://localhost:8075, http://frontend:3000, http://ducat-admin:8075, https://dev.app.ducatprotocol.com';
         developmentRpc = require('../rpc') as typeof import('../rpc');
         const { ALLOWED_ORIGINS: dev } = developmentRpc;
         const { networkProfiles: developmentProfiles } = require('../network-profiles') as typeof import('../network-profiles');
@@ -637,7 +645,7 @@ describe('RPC router', () => {
         expect(dev.has('http://localhost:8075')).toBe(true);
         expect(dev.has('http://frontend:3000')).toBe(true);
         expect(dev.has('http://ducat-admin:8075')).toBe(true);
-        expect(dev.has('https://dev.ducatprotocol.com')).toBe(true);
+        expect(dev.has('https://dev.app.ducatprotocol.com')).toBe(true);
         expect(dev.has('https://app.ducatprotocol.com')).toBe(false);
         expect(dev.has('https://evil.example')).toBe(false);
         expect(developmentProfiles().map((profile) => profile.id)).toEqual(['regtest', 'mainnet', 'mutinynet']);
@@ -653,13 +661,14 @@ describe('RPC router', () => {
       networks: ['regtest', 'mainnet', 'mutinynet'],
       features: expect.objectContaining({ mainnet: true }),
     }));
-    await expect(developmentRpc.handleRpcRequest('https://dev.ducatprotocol.com', {
+    await expect(developmentRpc.handleRpcRequest('https://dev.app.ducatprotocol.com', {
       method: 'ducat_getCapabilities',
     })).resolves.toEqual(expect.objectContaining({ networks: ['regtest', 'mainnet', 'mutinynet'] }));
     for (const origin of [
-      'http://dev.ducatprotocol.com',
-      'https://dev.ducatprotocol.com:8443',
-      'https://dev.ducatprotocol.com.evil.example',
+      'https://dev.ducatprotocol.com',
+      'http://dev.app.ducatprotocol.com',
+      'https://dev.app.ducatprotocol.com:8443',
+      'https://dev.app.ducatprotocol.com.evil.example',
       'https://app.ducatprotocol.com',
     ]) {
       await expect(developmentRpc.handleRpcRequest(origin, {
@@ -1796,7 +1805,7 @@ describe('RPC router', () => {
           actionType: 'borrow',
           title: 'Borrow UNIT',
           network: 'mutinynet',
-          origin: 'https://dev.ducatprotocol.com',
+          origin: 'https://dev.app.ducatprotocol.com',
           timestamp: Date.now() - 60_000,
           status: 'broadcast',
           txid: 'a'.repeat(64),
@@ -1809,7 +1818,7 @@ describe('RPC router', () => {
         },
       ],
       selectedNetwork: 'mutinynet',
-      lastOrigin: 'https://dev.ducatprotocol.com',
+      lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const href = String(url);
@@ -1856,7 +1865,7 @@ describe('RPC router', () => {
     globalThis.fetch = fetchMock as typeof fetch;
 
     try {
-      await handleRpcRequest('https://dev.ducatprotocol.com', {
+      await handleRpcRequest('https://dev.app.ducatprotocol.com', {
         method: 'ducat_getAccounts',
         params: { network: 'mutinynet' },
       });
@@ -1895,7 +1904,7 @@ describe('RPC router', () => {
       expect(rendered).not.toContain('Recent Ducat actions');
       expect(rendered).not.toContain('Open Ducat app');
       expect(rendered).not.toContain('Ducat actions');
-      expect(rendered).not.toContain('https://dev.ducatprotocol.com/?action=deposit');
+      expect(rendered).not.toContain('https://dev.app.ducatprotocol.com/?action=deposit');
       expect(rendered).not.toContain('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     } finally {
       globalThis.fetch = originalFetch;
@@ -1909,7 +1918,7 @@ describe('RPC router', () => {
       recentActions: [],
       keyOverrides: [override],
       selectedNetwork: 'mutinynet',
-      lastOrigin: 'https://dev.ducatprotocol.com',
+      lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
     const fetchMock = jest.fn(async (url: RequestInfo | URL) => {
       const href = String(url);
@@ -1949,7 +1958,7 @@ describe('RPC router', () => {
     const request = setSnapMock(true, {
       recentActions: [],
       selectedNetwork: 'mutinynet',
-      lastOrigin: 'https://dev.ducatprotocol.com',
+      lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
     const fetchMock = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const href = String(url);

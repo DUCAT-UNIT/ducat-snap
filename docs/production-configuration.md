@@ -28,4 +28,4 @@ resolve, so its live protocol identity and service readiness remain unverified.
 
 Mainnet wUNIT remains unconfigured until its deployed Ethereum contract is verified. No token address is inferred from the Bitcoin anchor.
 
-The existing 0.3.1 wallet derivation paths, including the vault path, are unchanged. Production defaults were released in `@ducat-unit/wallet-snap@0.3.2`. Version `0.3.3` adds the simplified welcome and network-switch dialogs, with endpoint details collapsed by default. Installed Snaps require an update. The published RPC allowlist is exactly `https://dev.ducatprotocol.com`, `https://test.ducatprotocol.com`, and `https://app.ducatprotocol.com`.
+The existing 0.3.1 wallet derivation paths, including the vault path, are unchanged. Production defaults were released in `@ducat-unit/wallet-snap@0.3.2`. Version `0.3.3` adds the simplified welcome and network-switch dialogs, with endpoint details collapsed by default. Installed Snaps require an update. The published RPC allowlist is exactly `https://dev.app.ducatprotocol.com`, `https://test.ducatprotocol.com`, and `https://app.ducatprotocol.com`.

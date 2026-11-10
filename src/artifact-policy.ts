@@ -18,7 +18,7 @@ export type SnapArtifactPolicyEvidence = {
 
 export const PRODUCTION_ALLOWED_ORIGINS = Object.freeze([
   'https://app.ducatprotocol.com',
-  'https://dev.ducatprotocol.com',
+  'https://dev.app.ducatprotocol.com',
   'https://test.ducatprotocol.com',
 ] as const);
 
@@ -33,7 +33,7 @@ const DEVELOPMENT_DEPLOYMENTS = Object.freeze([
   'mutinynet',
 ] as const satisfies readonly DeploymentId[]);
 
-const DEVELOPMENT_ORIGINS_COMMITMENT = 'ffa428697c932ec320c1c6fe78593e89ff75d11d86c2041d9fefab7eb358a119';
+const DEVELOPMENT_ORIGINS_COMMITMENT = '4661e06d6f039aedac5492a8976c7b8403eca1fc0a5534f3615a921e79ad0cad';
 
 function invalidPolicy(message: string, details?: Record<string, unknown>): never {
   throw ducatError('ARTIFACT_POLICY_INVALID', message, details);

@@ -62,14 +62,14 @@ The production artifact allows exactly these Ducat app origins:
 
 ```
 https://app.ducatprotocol.com
-https://dev.ducatprotocol.com
+https://dev.app.ducatprotocol.com
 https://test.ducatprotocol.com
 ```
 
 `localhost` and preview deployments are intentionally absent from the published
 manifest. The development artifact replaces this list with exactly
 `http://localhost:3000`, `http://localhost:8075`, `http://frontend:3000`,
-`http://ducat-admin:8075`, and `https://dev.ducatprotocol.com`; it does not
+`http://ducat-admin:8075`, and `https://dev.app.ducatprotocol.com`; it does not
 inherit other production origins. It contains
 exactly `regtest`, `mainnet`, and `mutinynet`, defaults to `mutinynet`, and
 disables debug and unprompted signing.

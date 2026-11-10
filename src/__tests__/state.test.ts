@@ -42,7 +42,7 @@ function loadDevelopmentState(): typeof import('../state') {
     origins: process.env.DUCAT_SNAP_DEV_ORIGINS,
   };
   process.env.DUCAT_SNAP_ARTIFACT_POLICY = 'development';
-  process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.ducatprotocol.com';
+  process.env.DUCAT_SNAP_DEV_ORIGINS = 'http://localhost:3000,http://localhost:8075,http://frontend:3000,http://ducat-admin:8075,https://dev.app.ducatprotocol.com';
   jest.resetModules();
   (require('../artifact-policy') as typeof import('../artifact-policy')).artifactPolicy();
   const module = require('../state') as typeof import('../state');
@@ -231,12 +231,12 @@ describe('Snap state', () => {
   it('remembers the current Ducat origin without changing recent actions or selection', async () => {
     const { getStoredState } = setStateMock({ recentActions: [], selectedNetwork: 'mutinynet' });
 
-    await rememberDucatSession('https://dev.ducatprotocol.com');
+    await rememberDucatSession('https://dev.app.ducatprotocol.com');
 
     expect(getStoredState()).toEqual({
       recentActions: [],
       selectedNetwork: 'mutinynet',
-      lastOrigin: 'https://dev.ducatprotocol.com',
+      lastOrigin: 'https://dev.app.ducatprotocol.com',
     });
   });
 

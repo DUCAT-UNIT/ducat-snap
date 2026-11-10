@@ -7,7 +7,7 @@
     "url": "git+https://github.com/DUCAT-UNIT/ducat-snap.git"
   },
   "source": {
-    "shasum": "CjUueBjbfhfrPbGBtiHTj4pIIdDelVMmYiHDOswWGBY=",
+    "shasum": "KBjtVs0hRqkPRByQEk13/JiYpMUJk9QXQM7dcEE/HKY=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
@@ -21,7 +21,7 @@
     "endowment:rpc": {
       "allowedOrigins": [
         "https://app.ducatprotocol.com",
-        "https://dev.ducatprotocol.com",
+        "https://dev.app.ducatprotocol.com",
         "https://test.ducatprotocol.com"
       ]
     },
