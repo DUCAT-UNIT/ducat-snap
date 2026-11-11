@@ -1,6 +1,6 @@
 {
   "name": "@ducat-unit/wallet-snap",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "description": "Ducat Bitcoin account and signing Snap for MetaMask.",
   "keywords": [
     "ducat",
@@ -58,9 +58,9 @@
   },
   "dependencies": {
     "@bitcoin-js/tiny-secp256k1-asmjs": "2.2.4",
-    "@ducat-unit/core": "^0.22.6",
+    "@ducat-unit/core": "0.25.0-beta.4",
     "@noble/hashes": "1.8.0",
-    "bitcoinjs-lib": "6.1.7",
+    "bitcoinjs-lib": "6.1.8",
     "buffer": "6.0.3"
   },
   "devDependencies": {

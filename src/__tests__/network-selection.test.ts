@@ -86,13 +86,14 @@ describe('explicit Snap network selection', () => {
     })).resolves.toEqual({ network: 'mainnet', changed: true });
 
     expect(state().selectedNetwork).toBe('mainnet');
-    expect(dialogText(request)).toContain('Switch Ducat network');
+    expect(dialogText(request)).toContain('Switch to Mainnet?');
     expect(dialogText(request)).toContain(ORIGIN);
-    expect(dialogText(request)).toContain('mutinynet');
-    expect(dialogText(request)).toContain('Mainnet (Alpha contract)');
-    expect(dialogText(request)).toContain('https://validator-mainnet.alpha.ducatprotocol.com');
+    expect(dialogText(request)).toContain('Testnet');
+    expect(dialogText(request)).toContain('Mainnet');
+    expect(dialogText(request)).toContain('https://validator-mainnet.prod.ducatprotocol.com');
     expect(dialogText(request)).toContain('https://mempool.space');
-    expect(dialogText(request)).toContain('signing context');
+    expect(dialogText(request)).toContain('You’ll use real Bitcoin.');
+    expect(dialogText(request)).toContain('Network details');
   });
 
   it('leaves selection unchanged when the switch is rejected', async () => {
@@ -122,16 +123,16 @@ describe('explicit Snap network selection', () => {
     expect(request).not.toHaveBeenCalledWith(expect.objectContaining({ method: 'snap_dialog' }));
   });
 
-  it('shows the stronger real-BTC warning for mainnet', async () => {
+  it('discloses real Bitcoin and initially collapses endpoint details', async () => {
     const { request } = setSnapMock({ dialogResult: false });
 
     await expect(handleRpcRequest(ORIGIN, {
       method: 'ducat_switchNetwork',
       params: { network: 'mainnet' },
     })).rejects.toMatchObject({ code: 'USER_REJECTED' });
-    expect(dialogText(request)).toContain('Real BTC warning');
-    expect(dialogText(request)).toContain('Real BTC may be spent');
-    expect(dialogText(request)).toContain('danger');
+    expect(dialogText(request)).toContain('You’ll use real Bitcoin.');
+    expect(dialogText(request)).toContain('Your Mainnet addresses and balances will be different.');
+    expect(dialogText(request)).toContain('"isExpanded":false');
   });
 
   it('keeps the prior selection effective when persistence fails', async () => {

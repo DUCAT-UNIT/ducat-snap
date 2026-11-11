@@ -49,7 +49,7 @@ describe('compiled Snap artifact policy', () => {
       allowed_origins: [
         'https://app.ducatprotocol.com',
         'https://dev.app.ducatprotocol.com',
-        'https://staging.app.ducatprotocol.com',
+        'https://test.ducatprotocol.com',
       ],
       allowed_deployments: ['mainnet', 'mutinynet'],
       default_deployment: 'mutinynet',

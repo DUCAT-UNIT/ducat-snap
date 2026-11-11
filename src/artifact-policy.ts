@@ -19,7 +19,7 @@ export type SnapArtifactPolicyEvidence = {
 export const PRODUCTION_ALLOWED_ORIGINS = Object.freeze([
   'https://app.ducatprotocol.com',
   'https://dev.app.ducatprotocol.com',
-  'https://staging.app.ducatprotocol.com',
+  'https://test.ducatprotocol.com',
 ] as const);
 
 const PRODUCTION_DEPLOYMENTS = Object.freeze([

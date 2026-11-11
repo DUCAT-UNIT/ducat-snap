@@ -576,11 +576,29 @@ function collectDialogText(value: unknown): string[] {
 describe('RPC router', () => {
   it('uses bundled network profiles for Snap network data', () => {
     expect(networkProfile('mainnet')).toEqual(expect.objectContaining({
-      label: 'Mainnet (Alpha contract)',
-      expected_validator_chain_network: 'alpha-mainnet',
-      validator_base_url: 'https://validator-mainnet.alpha.ducatprotocol.com',
+      label: 'Mainnet',
+      expected_validator_chain_network: 'main',
+      validator_base_url: 'https://validator-mainnet.prod.ducatprotocol.com',
     }));
-    expect(networkProfile('mutinynet').validator_base_url).toBe('https://validator-mutinynet.dev.ducatprotocol.com');
+    expect(networkProfile('mutinynet').validator_base_url).toBe('https://validator-mutinynet.prod.ducatprotocol.com');
+  });
+
+  it('authorizes the existing development app in the production build', async () => {
+    await expect(handleRpcRequest('https://dev.app.ducatprotocol.com', {
+      method: 'ducat_getCapabilities',
+    })).resolves.toEqual(expect.objectContaining({ networks: ['mainnet', 'mutinynet'] }));
+  });
+
+  it.each([
+    'https://dev.ducatprotocol.com',
+    'https://staging.app.ducatprotocol.com',
+    'http://dev.app.ducatprotocol.com',
+    'https://dev.app.ducatprotocol.com:8443',
+    'https://dev.app.ducatprotocol.com.evil.example',
+    'https://test.ducatprotocol.com:8443',
+    'https://app.ducatprotocol.com.evil.example',
+  ])('rejects origins outside the exact published allowlist: %s', async (origin) => {
+    await expect(handleRpcRequest(origin, { method: 'ducat_getAccounts' })).rejects.toMatchObject({ code: 'ORIGIN_NOT_AUTHORIZED' });
   });
 
   it('rejects unknown RPC methods', async () => {
@@ -647,6 +665,7 @@ describe('RPC router', () => {
       method: 'ducat_getCapabilities',
     })).resolves.toEqual(expect.objectContaining({ networks: ['regtest', 'mainnet', 'mutinynet'] }));
     for (const origin of [
+      'https://dev.ducatprotocol.com',
       'http://dev.app.ducatprotocol.com',
       'https://dev.app.ducatprotocol.com:8443',
       'https://dev.app.ducatprotocol.com.evil.example',
@@ -1867,7 +1886,7 @@ describe('RPC router', () => {
       expect(settings).toContain(keySet.record.sats.pubkey.slice(0, 33));
       expect(settings).toContain(keySet.record.sats.pubkey.slice(33));
       expect(settings).toContain('manage-key');
-      expect(settings).toContain('https://validator-mutinynet.dev.ducatprotocol.com');
+      expect(settings).toContain('https://validator-mutinynet.prod.ducatprotocol.com');
       expect(settings).toContain('edit-endpoint:validator');
       expect(settings).toContain('https://mutinynet.com/api');
       expect(settings).toContain('edit-endpoint:esplora');
