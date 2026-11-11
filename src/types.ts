@@ -69,8 +69,6 @@ export type VaultDisplayProtocol = {
   unitDivisibility: number;
 };
 
-export type DucatAccountSource = 'derived' | 'imported';
-
 export type DerivedDucatAccountRecord = WalletAccountRecord & {
   id: string;
   source: 'derived';

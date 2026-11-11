@@ -314,7 +314,7 @@ export class WalletInventoryService {
   }
 }
 
-export const walletInventoryService = new WalletInventoryService();
+const walletInventoryService = new WalletInventoryService();
 
 export function invalidateWalletInventory(network?: DeploymentId): void {
   walletInventoryService.invalidate(network);

@@ -141,7 +141,7 @@ The published Snap allows only these HTTPS origins:
 ```text
 https://app.ducatprotocol.com
 https://dev.app.ducatprotocol.com
-https://staging.app.ducatprotocol.com
+https://test.ducatprotocol.com
 ```
 
 Localhost and preview deployments are development-only and are not present in the
@@ -154,11 +154,15 @@ published manifest.
 
 The published Snap supports Mainnet and Mutinynet. Development builds add Regtest.
 
-Mainnet is one canonical wallet network. It currently connects to the reviewed alpha
-DUCAT contract, whose validator reports `chain_network: alpha-mainnet`, while using
-Bitcoin mainnet mechanics. That response is validator evidence, not a separate network
-you can select in the Snap. Signet, Testnet4, and `alpha-mainnet` are not supported Snap
-network choices.
+Mainnet uses `https://validator-mainnet.prod.ducatprotocol.com` and requires
+`chain_network: main`. Mutinynet uses
+`https://validator-mutinynet.prod.ducatprotocol.com` and requires `mutiny`.
+Each profile rejects the other network's data; neither falls back to another
+network or to a retired Alpha endpoint when its validator is unavailable.
+Development builds use those same remote defaults plus local Regtest endpoints.
+Existing endpoint overrides are preserved; clear them in Settings to restore
+the bundled defaults. Signet, Testnet4, and `alpha-mainnet` are not supported
+Snap network choices. All `0.3.1` wallet derivation paths remain unchanged.
 
 </details>
 

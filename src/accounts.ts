@@ -48,18 +48,12 @@ export type AccountPublicSet = {
   vaultOutputScript: Buffer;
   runesInternalPubkey: Buffer;
   vaultInternalPubkey: Buffer;
-  /** Compatibility alias for the vault Taproot account. Prefer vaultOutputScript. */
-  taprootOutputScript: Buffer;
-  /** Compatibility alias for the vault Taproot account. Prefer vaultInternalPubkey. */
-  taprootInternalPubkey: Buffer;
 };
 
 export type AccountKeySet = AccountPublicSet & {
   satsNode: DucatKeyNode;
   runesNode: DucatKeyNode;
   vaultNode: DucatKeyNode;
-  /** Compatibility alias for the vault Taproot account. Prefer vaultNode. */
-  taprootNode: DucatKeyNode;
 };
 
 function trimHexPrefix(hex: string): string {
@@ -177,14 +171,11 @@ export function accountKeySetFromRoleNodes(
     satsNode,
     runesNode,
     vaultNode,
-    taprootNode: vaultNode,
     satsOutputScript: satsPayment.output,
     runesOutputScript: runesPayment.output,
     vaultOutputScript: vaultPayment.output,
-    taprootOutputScript: vaultPayment.output,
     runesInternalPubkey,
     vaultInternalPubkey,
-    taprootInternalPubkey: vaultInternalPubkey,
   };
 }
 
@@ -227,10 +218,8 @@ export function accountPublicSetFromRecord(networkInput: unknown, record: Wallet
     satsOutputScript: satsPayment.output,
     runesOutputScript: runesPayment.output,
     vaultOutputScript: vaultPayment.output,
-    taprootOutputScript: vaultPayment.output,
     runesInternalPubkey,
     vaultInternalPubkey,
-    taprootInternalPubkey: vaultInternalPubkey,
   };
 }
 

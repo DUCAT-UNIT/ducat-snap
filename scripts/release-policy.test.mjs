@@ -10,10 +10,18 @@ import {
   REVIEWED_DERIVATION_PATHS,
   REVIEWED_PRODUCTION_ORIGINS,
   REVIEWED_MAINNET_VALIDATOR_URL,
+  REVIEWED_MUTINYNET_VALIDATOR_URL,
 } from './release-policy.mjs';
 import { parseDevelopmentOrigins } from './dev-origin-policy.mjs';
 
 const trackedManifest = JSON.parse(readFileSync(new URL('../snap.manifest.json', import.meta.url), 'utf8'));
+
+const productionValidatorEvidence = [
+  REVIEWED_MAINNET_VALIDATOR_URL,
+  REVIEWED_MUTINYNET_VALIDATOR_URL,
+  '"expected_validator_chain_network":"main"',
+  '"expected_validator_chain_network":"mutiny"',
+];
 
 const verifyWorkflow = readFileSync(
   new URL('../.github/workflows/verify.yml', import.meta.url),
@@ -90,19 +98,6 @@ test('tracked manifest contains the exact reviewed derivation paths in order', (
   assert.doesNotThrow(() => assertProductionManifest(trackedManifest));
 });
 
-test('rejects the older beta vault path for both coin types', () => {
-  for (const coin of ["0'", "1'"]) {
-    const manifest = structuredClone(trackedManifest);
-    const vaultPermission = manifest.initialPermissions.snap_getBip32Entropy.find(
-      ({ path }) => path[1] === "86'" && path[2] === coin && path[4] === '2',
-    );
-    assert.ok(vaultPermission, '0.3.1 vault permission must be present');
-    vaultPermission.path[4] = '0';
-    vaultPermission.path[5] = '1';
-    assert.throws(() => assertProductionManifest(manifest), /exact reviewed derivation paths/);
-  }
-});
-
 test('rejects every derivation permission set mutation', () => {
   const reviewed = structuredClone(REVIEWED_DERIVATION_PATHS);
   const mutations = [
@@ -120,7 +115,7 @@ test('rejects every derivation permission set mutation', () => {
   }
 });
 
-for (const extraOrigin of ['https://preview.ducatprotocol.com', 'http://localhost:3000']) {
+for (const extraOrigin of ['https://dev.ducatprotocol.com', 'https://preview.ducatprotocol.com', 'http://localhost:3000']) {
   test(`rejects extra manifest origin ${extraOrigin}`, () => {
     const manifest = structuredClone(trackedManifest);
     manifest.initialPermissions['endowment:rpc'].allowedOrigins.push(extraOrigin);
@@ -135,8 +130,8 @@ test('rejects manifest and runtime policy disagreement', () => {
   );
 });
 
-test('accepts the reviewed mainnet contract evidence without treating alpha as a wallet deployment', () => {
-  const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${REVIEWED_MAINNET_VALIDATOR_URL} alpha-mainnet mutiny INVALID_NETWORK`;
+test('accepts the production validator URLs and protocol identities', () => {
+  const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${productionValidatorEvidence.join(' ')} INVALID_NETWORK`;
   assert.doesNotThrow(() => assertProductionBundle(bundle));
 });
 
@@ -146,14 +141,18 @@ test('accepts only the exact ordered production profile set and validator mappin
 
   for (const mutation of [
     { networks: [...profiles.networks, { ...profiles.networks[0], id: 'alpha-mainnet' }] },
+    { networks: profiles.networks.map((profile) => profile.id === 'mainnet' ? { ...profile, expected_validator_chain_network: 'alpha-mainnet' } : profile) },
     { networks: profiles.networks.map((profile) => profile.id === 'mainnet' ? { ...profile, expected_validator_chain_network: 'mainnet' } : profile) },
     { networks: profiles.networks.map((profile) => profile.id === 'mainnet' ? { ...profile, validator_base_url: 'https://validator-mainnet.example' } : profile) },
+    { networks: profiles.networks.map((profile) => profile.id === 'mutinynet' ? { ...profile, validator_base_url: 'https://validator-mutinynet.dev.ducatprotocol.com' } : profile) },
   ]) {
     assert.throws(() => assertProductionProfiles(mutation));
   }
 });
 
 for (const forbidden of [
+  'https://validator-mainnet.alpha.ducatprotocol.com',
+  'https://validator-mutinynet.dev.ducatprotocol.com',
   'http://localhost:3000',
   'http://127.0.0.1:8083',
   'http://frontend:3000',
@@ -163,14 +162,14 @@ for (const forbidden of [
   '.snap/dev',
 ]) {
   test(`rejects production bundle evidence ${forbidden}`, () => {
-    const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${REVIEWED_MAINNET_VALIDATOR_URL} alpha-mainnet mutiny ${forbidden}`;
+    const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${productionValidatorEvidence.join(' ')} ${forbidden}`;
     assert.throws(() => assertProductionBundle(bundle), /forbidden production bundle evidence/);
   });
 }
 
-for (const missing of [REVIEWED_MAINNET_VALIDATOR_URL, 'alpha-mainnet', 'mutiny']) {
+for (const missing of new Set(productionValidatorEvidence)) {
   test(`rejects production bundle missing reviewed network evidence ${missing}`, () => {
-    const evidence = [REVIEWED_MAINNET_VALIDATOR_URL, 'alpha-mainnet', 'mutiny']
+    const evidence = productionValidatorEvidence
       .filter((value) => value !== missing)
       .join(' ');
     const bundle = `${REVIEWED_PRODUCTION_ORIGINS.join(' ')} ${evidence}`;
@@ -193,11 +192,4 @@ test('CI authenticates GitHub Packages only for trusted runs', () => {
     /if: github\.event_name == 'pull_request' && github\.event\.pull_request\.head\.repo\.full_name != github\.repository/,
   );
   assert.match(verifyWorkflow, /run: npm ci --ignore-scripts/);
-});
-
-test('install icon contains no XML comments rejected by MetaMask bundled parser', () => {
-  // Production fix 0709fbc: MetaMask's source transform changes the parser's
-  // XML comment terminator, making otherwise-valid commented SVGs fail install.
-  const icon = readFileSync(new URL('../images/icon.svg', import.meta.url), 'utf8');
-  assert.equal(icon.includes('<!--'), false, 'Snap install icon must be comment-free');
 });

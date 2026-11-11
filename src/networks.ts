@@ -59,15 +59,16 @@ export function bitcoinNetworkForDeployment(deployment: DeploymentId): BitcoinNe
  * Known Ducat guardian (cosigner) x-only public keys, lowercase hex (64 chars), per network.
  *
  * When a network's list is non-empty, the Snap only signs a vault cosign (2-of-2) script-path
- * input whose guard key is in this list. When empty, the guard is not pinned: the Snap still
- * signs but surfaces the cosigner key in the confirmation dialog so the user can verify it.
- * Populate these with the production guardian keys to enforce the cosigner identity.
+ * input whose guard key is in this list. Mainnet fails closed if its list is empty.
+ * Regtest permits ephemeral guardians and surfaces their keys for review.
  */
-// Mainnet remains fail-closed until guardian ops provisions a key that is not used by a test network.
 export const DUCAT_GUARDIAN_PUBKEYS: Record<DeploymentId, readonly string[]> = {
-  // Alpha issuance uses imported key-path inputs. Guardian-backed mainnet vault
-  // signing stays fail-closed until a separately reviewed custody policy is available.
-  mainnet: [],
+  // Fresh Mainnet 3-of-4 FROST group, DKG m202611035fb7.
+  // Confirmed UNITUSD anchor c4c3915aa1fb7f0d8843db634ad777e77db1570138e2abe6847d4834bd87f508.
+  // This is the aggregate public key, never an individual guardian share.
+  mainnet: [
+    'ae14e844894a298e6d731428582618bba86f86e5cd6f14ee94082db4f2ed4c45',
+  ],
   // BitVM own-quorum FROST group key (2-of-2) for the DUCAT•FROST•UNIT Mutinynet deploy,
   // alongside the dev-fleet guardian key.
   mutinynet: [
@@ -98,12 +99,15 @@ export function guardianAllowlistEnforced(network: DeploymentId): boolean {
 }
 
 /**
- * Determines whether guardian custody configuration is launch-ready for a network.
+ * Checks the bundled guardian key policy, independently of endpoint or service readiness.
  * @param network - Ducat network.
  * @returns False for absent keys and for mainnet keys reused by any test network.
  */
 export function guardianKeyPolicyReady(network: DeploymentId): boolean {
-  return network !== 'mainnet';
+  if (network !== 'mainnet') return true;
+  const keys = DUCAT_GUARDIAN_PUBKEYS.mainnet;
+  const testKeys = [...DUCAT_GUARDIAN_PUBKEYS.mutinynet, ...DUCAT_GUARDIAN_PUBKEYS.regtest];
+  return keys.length > 0 && keys.every((key) => /^[0-9a-f]{64}$/u.test(key) && !testKeys.includes(key));
 }
 
 /**

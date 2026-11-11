@@ -1,5 +1,5 @@
 import { importPrivateKeyFromSnapHome } from '../key-overrides';
-import { appendRecentAction, clearRecentActions, getState, rememberDucatSession, setSelectedNetwork } from '../state';
+import { appendRecentAction, getState, rememberDucatSession, setSelectedNetwork } from '../state';
 import type { DucatSnapState, PrivateKeyOverrideRecord } from '../types';
 
 type SnapRequestArgs = {
@@ -228,31 +228,6 @@ describe('Snap state', () => {
     expect(storedState.lastOrigin).toBe('http://localhost:3002');
   });
 
-  it('clears recent actions without losing the selected network and origin', async () => {
-    const { getStoredState } = setStateMock({
-      recentActions: [
-        {
-          id: 'recent',
-          actionType: 'transfer',
-          network: 'mutinynet',
-          origin: 'http://localhost:3002',
-          timestamp: 1_000,
-          status: 'broadcast',
-        },
-      ],
-      selectedNetwork: 'mutinynet',
-      lastOrigin: 'http://localhost:3002',
-    });
-
-    await clearRecentActions();
-
-    expect(getStoredState()).toEqual({
-      recentActions: [],
-      selectedNetwork: 'mutinynet',
-      lastOrigin: 'http://localhost:3002',
-    });
-  });
-
   it('remembers the current Ducat origin without changing recent actions or selection', async () => {
     const { getStoredState } = setStateMock({ recentActions: [], selectedNetwork: 'mutinynet' });
 
@@ -336,7 +311,7 @@ describe('Snap state', () => {
     expect(state.selectedNetwork).toBe('mainnet');
   });
 
-  it('preserves key overrides when appending and clearing recent actions', async () => {
+  it('preserves key overrides when appending recent actions', async () => {
     const { getStoredState } = setStateMock({
       recentActions: [],
       keyOverrides: [keyOverride],
@@ -350,8 +325,6 @@ describe('Snap state', () => {
       origin: 'https://app.ducatprotocol.com',
       summary: 'Sent UNIT',
     });
-    await clearRecentActions();
-
     expect((getStoredState() as DucatSnapState).keyOverrides).toEqual([keyOverride]);
   });
 
