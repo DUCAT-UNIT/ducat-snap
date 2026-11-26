@@ -44,7 +44,7 @@ for this scheme. An imported key selected in Snap Home is an explicit override
 and is not derived from this scheme.
 
 The Snap owns one explicit deployment selection. New production installations default to
-`mutinynet`. `ducat_getNetwork()` returns that selection; `ducat_switchNetwork()`
+`mainnet`. `ducat_getNetwork()` returns that selection; `ducat_switchNetwork()`
 changes it only after a MetaMask-owned confirmation showing the requesting origin,
 the From and To networks, the effective validator and Esplora origins, and the
 signing-context warning. A same-network switch is a confirmation-free no-op.
@@ -71,7 +71,7 @@ manifest. The development artifact replaces this list with exactly
 `http://localhost:3000`, `http://localhost:8075`, `http://frontend:3000`,
 `http://ducat-admin:8075`, and `https://dev.app.ducatprotocol.com`; it does not
 inherit other production origins. It contains
-exactly `regtest`, `mainnet`, and `mutinynet`, defaults to `mutinynet`, and
+exactly `regtest`, `mainnet`, and `mutinynet`, defaults to `mainnet`, and
 disables debug and unprompted signing.
 The test-only unprompted method refuses every deployment mapped to Bitcoin
 mainnet before wallet state, endpoints, entropy, prompts, or signing are

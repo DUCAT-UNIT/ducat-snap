@@ -52,7 +52,7 @@ describe('compiled Snap artifact policy', () => {
         'https://test.ducatprotocol.com',
       ],
       allowed_deployments: ['mainnet', 'mutinynet'],
-      default_deployment: 'mutinynet',
+      default_deployment: 'mainnet',
       debug_enabled: false,
       unprompted_enabled: false,
     });
@@ -70,7 +70,7 @@ describe('compiled Snap artifact policy', () => {
       policy: 'development',
       allowed_origins: ['http://localhost:3000', 'http://localhost:8075', 'http://frontend:3000', 'http://ducat-admin:8075', 'https://dev.app.ducatprotocol.com'],
       allowed_deployments: ['regtest', 'mainnet', 'mutinynet'],
-      default_deployment: 'mutinynet',
+      default_deployment: 'mainnet',
       debug_enabled: true,
       unprompted_enabled: true,
     });

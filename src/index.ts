@@ -1,7 +1,8 @@
 /** @fileoverview Exposes Snap lifecycle and request handlers and routes each event to its owning module. */
 import type { OnHomePageHandler, OnInstallHandler, OnRpcRequestHandler, OnUserInputHandler } from '@metamask/snaps-sdk';
 
-import { artifactPolicy } from './artifact-policy';
+import { getSelectedNetwork } from './network-selection';
+import { networkProfile } from './network-profiles';
 import { DEPOSIT_VAULT_TOGGLE, handleDepositVaultInput } from './confirmation-vault';
 import { handleHomeNavigationInput, isHomeNavigationEvent, renderHomePage } from './home';
 import { handleHomeUserInput } from './home-key-override';
@@ -37,6 +38,7 @@ export const onUserInput: OnUserInputHandler = async (args) => {
 };
 
 export const onInstall: OnInstallHandler = async () => {
+  const { network } = await getSelectedNetwork();
   await snap.request({
     method: 'snap_dialog',
     params: {
@@ -49,7 +51,7 @@ export const onInstall: OnInstallHandler = async () => {
           uiHeading('Your keys stay in MetaMask', 'sm'),
           uiMuted('You approve every signature.'),
         ]),
-        uiRow('Network', artifactPolicy().default_deployment === 'mutinynet' ? 'Testnet' : artifactPolicy().default_deployment === 'mainnet' ? 'Mainnet' : 'Regtest'),
+        uiRow('Network', network === 'mutinynet' ? 'Testnet' : networkProfile(network).label),
         uiDivider(),
         uiText('Open Ducat to get started.'),
       ]),

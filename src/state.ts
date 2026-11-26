@@ -238,9 +238,13 @@ export async function getState(): Promise<DucatSnapState> {
     : isStoredDeployment(storedState.lastNetwork)
       ? storedState.lastNetwork
       : undefined;
+  // A retired or invalid saved selection follows the existing Testnet recovery path.
+  const fallbackNetwork = storedState.selectedNetwork == null && storedState.lastNetwork == null
+    ? policy.default_deployment
+    : 'mutinynet';
   const selectedNetwork = storedSelection && policy.allowed_deployments.includes(storedSelection)
     ? storedSelection
-    : policy.default_deployment;
+    : fallbackNetwork;
   const state = withKeyOverrides({
     recentActions: recentActions
       .filter(isRecentAction)

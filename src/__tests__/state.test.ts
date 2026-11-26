@@ -72,10 +72,10 @@ const keyOverride: PrivateKeyOverrideRecord = {
 };
 
 describe('Snap state', () => {
-  it('defaults an empty store to Mutinynet without eagerly writing state', async () => {
+  it('defaults an empty store to Mainnet without eagerly writing state', async () => {
     const { request } = setStateMock(null);
 
-    await expect(getState()).resolves.toEqual({ recentActions: [], selectedNetwork: 'mutinynet' });
+    await expect(getState()).resolves.toEqual({ recentActions: [], selectedNetwork: 'mainnet' });
     expect(request).toHaveBeenCalledTimes(1);
   });
 
