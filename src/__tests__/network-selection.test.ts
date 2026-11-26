@@ -91,7 +91,7 @@ describe('explicit Snap network selection', () => {
     expect(dialogText(request)).toContain('Testnet');
     expect(dialogText(request)).toContain('Mainnet');
     expect(dialogText(request)).toContain('https://validator.ducatprotocol.com');
-    expect(dialogText(request)).toContain('https://explorer-mainnet.alpha.ducatprotocol.com');
+    expect(dialogText(request)).toContain('https://explorer.ducatprotocol.com');
     expect(dialogText(request)).toContain('You’ll use real Bitcoin.');
     expect(dialogText(request)).toContain('Network details');
   });

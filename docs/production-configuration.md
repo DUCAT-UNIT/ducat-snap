@@ -21,7 +21,7 @@ during that integration.
 
 - Mutinynet validator: `https://validator-mutinynet.prod.ducatprotocol.com`. Live `/api/proto/latest` verification reported `mutiny` and guardian `ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e`.
 - Mutinynet Esplora: `https://mutinynet.com/api`.
-- Mainnet Esplora: `https://explorer-mainnet.alpha.ducatprotocol.com/api`.
+- Mainnet Esplora: `https://explorer.ducatprotocol.com/api`.
 - Mainnet validator: `https://validator.ducatprotocol.com`, verified on 2026-11-26. Its anchor reports `chain_network: main` and UNIT/USD anchor ID `7511d008bd49b55734ff07917cbc7f3bad46953cc9ad151f18633f6d4a668cca`.
 - Application: `https://app.ducatprotocol.com`.
 

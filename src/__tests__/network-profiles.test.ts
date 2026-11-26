@@ -81,7 +81,7 @@ describe('network profiles', () => {
         expect(development.networkProfile('mainnet')).toEqual({
           id: 'mainnet', label: 'Mainnet', bitcoin_network: 'mainnet',
           expected_validator_chain_network: 'main',
-          validator_base_url: 'https://validator.ducatprotocol.com', esplora_base_url: 'https://explorer-mainnet.alpha.ducatprotocol.com/api',
+          validator_base_url: 'https://validator.ducatprotocol.com', esplora_base_url: 'https://explorer.ducatprotocol.com/api',
         });
         expect(development.networkProfile('mutinynet').validator_base_url).toBe('https://validator-mutinynet.prod.ducatprotocol.com');
         expect(development.networkProfile('regtest').expected_validator_chain_network).toBe('regtest');
@@ -138,7 +138,7 @@ describe('network profiles', () => {
     const profile = networkProfile('mainnet');
 
     expect(profile.validator_base_url).toBe('https://validator.ducatprotocol.com');
-    expect(profile.esplora_base_url).toBe('https://explorer-mainnet.alpha.ducatprotocol.com/api');
+    expect(profile.esplora_base_url).toBe('https://explorer.ducatprotocol.com/api');
   });
 
   it('applies explicit overrides over bundled endpoints', () => {
