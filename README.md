@@ -101,7 +101,7 @@ address, transaction, transport, and genesis mechanics, and the exact
 
 | Snap network | Validator URL | Required `chain_network` |
 | --- | --- | --- |
-| Mainnet | `https://validator-mainnet.prod.ducatprotocol.com` | `main` |
+| Mainnet | `https://validator.ducatprotocol.com` | `main` |
 | Mutinynet | `https://validator-mutinynet.prod.ducatprotocol.com` | `mutiny` |
 
 `main` is Ducat Core's production chain identity; `mainnet` remains the Snap's

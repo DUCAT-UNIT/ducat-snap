@@ -5,8 +5,8 @@
       "label": "Mainnet",
       "bitcoin_network": "mainnet",
       "expected_validator_chain_network": "main",
-      "validator_base_url": "https://validator-mainnet.prod.ducatprotocol.com",
-      "esplora_base_url": "https://mempool.space/api"
+      "validator_base_url": "https://validator.ducatprotocol.com",
+      "esplora_base_url": "https://explorer-mainnet.alpha.ducatprotocol.com/api"
     },
     {
       "id": "mutinynet",

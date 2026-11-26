@@ -154,7 +154,7 @@ published manifest.
 
 The published Snap supports Mainnet and Mutinynet. Development builds add Regtest.
 
-Mainnet uses `https://validator-mainnet.prod.ducatprotocol.com` and requires
+Mainnet uses `https://validator.ducatprotocol.com` and requires
 `chain_network: main`. Mutinynet uses
 `https://validator-mutinynet.prod.ducatprotocol.com` and requires `mutiny`.
 Each profile rejects the other network's data; neither falls back to another
