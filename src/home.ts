@@ -257,7 +257,7 @@ async function renderHomeInterface(
             ...(index ? [homeVerticalDivider()] : []),
             wallet.address
               ? homeCopyRow(uiText(wallet.label), wallet.address, wallet.kind)
-              : uiBox([uiText('ETH'), uiText('—', { color: 'alternative' })]),
+              : uiButton('Connect ETH', { name: 'home-connect-eth' }),
           ]), { direction: 'horizontal', alignment: 'space-between', crossAlignment: 'center' }),
         uiDivider(),
         uiBox([uiText('Estimated total', { color: 'alternative' }), uiHeading(homeUsd(totalUsd), 'md')], { direction: 'horizontal', alignment: 'space-between', crossAlignment: 'center' }),
@@ -292,7 +292,7 @@ async function renderHomeInterface(
 }
 
 export function isHomeNavigationEvent(name: string): boolean {
-  return homeCopyKind(name) !== null || name === 'home-settings' || name === 'home-close-settings' || name === 'manage-key' || name === 'cancel-edit-key' || name === 'manage-validator' || name === 'manage-esplora' || name === 'home-back';
+  return homeCopyKind(name) !== null || name === 'home-connect-eth' || name === 'home-settings' || name === 'home-close-settings' || name === 'manage-key' || name === 'cancel-edit-key' || name === 'manage-validator' || name === 'manage-esplora' || name === 'home-back';
 }
 
 export const handleHomeNavigationInput: OnUserInputHandler = async ({ id, event, context }) => {
@@ -301,6 +301,12 @@ export const handleHomeNavigationInput: OnUserInputHandler = async ({ id, event,
   }
 
   const { network } = await getSelectedNetwork();
+  if (event.name === 'home-connect-eth') {
+    if (context?.screen !== 'home' || context.network !== network) return;
+    await homeEthereumAddress(true);
+    await updateHomeInterface(id, network);
+    return;
+  }
   const copyKind = homeCopyKind(event.name);
   if (copyKind) {
     const screen = context?.screen === 'settings' || context?.screen === 'key' ? 'settings' : 'overview';

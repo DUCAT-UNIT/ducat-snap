@@ -165,8 +165,8 @@ or at the published package with `NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wal
 
 Snap Home displays BTC, UNIT, and the permitted MetaMask ETH account, with
 Bitcoin, UNIT, ETH, wUNIT, and USDC balances. The Ethereum provider permission
-is used for account discovery only; opening Home can request missing account
-access, while navigation reads existing access without prompting again.
+is used for account discovery. Home reads existing account access. Select
+**Connect ETH** to grant access when no Ethereum account is connected.
 Ethereum balances use Ethereum mainnet or Sepolia according to the selected
 Snap network. wUNIT is configured for Sepolia; its mainnet address remains
 unset until deployment. Price quotes and EVM balances are display-only and

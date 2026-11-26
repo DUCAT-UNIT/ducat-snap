@@ -251,27 +251,39 @@ describe('Native Home and Settings navigation', () => {
     expect(contexts.get('home').screen).toBe('home');
   });
 
-  it('requests missing permission on Home entry and then displays the approved account', async () => {
-    const { interfaces } = setSnapStateMock({ recentActions: [], selectedNetwork: 'mutinynet' });
-    ethereumRequest.mockResolvedValueOnce([]);
+  it('opens Home without waiting for ETH permission and connects after a click', async () => {
+    const { interfaces, contexts } = setSnapStateMock({ recentActions: [], selectedNetwork: 'mutinynet' });
+    let granted = false;
+    ethereumRequest.mockImplementation(async ({ method }) => {
+      if (method === 'eth_requestAccounts') granted = true;
+      return granted ? [ethAddress] : [];
+    });
     await onHomePage();
+    expect(ethereumRequest.mock.calls).toEqual([[{ method: 'eth_accounts' }]]);
+    expect(rendered(interfaces.get('home'))).toContain('home-connect-eth');
+    expect(rendered(interfaces.get('home'))).toContain('home-toggle-copy-btc');
+    expect(rendered(interfaces.get('home'))).toContain('home-toggle-copy-unit');
+    await handleHomeNavigationInput({ id: 'home', context: contexts.get('home'), event: { type: UserInputEventType.ButtonClickEvent, name: 'home-connect-eth' } });
     expect(ethereumRequest.mock.calls.filter(([args]) => args.method === 'eth_requestAccounts')).toHaveLength(1);
     expect(rendered(interfaces.get('home'))).toContain('0x1234…7890');
     expect(rendered(interfaces.get('home'))).not.toContain('home-connect-eth');
   });
 
-  it('keeps Home usable after declining ETH access and never re-prompts during navigation', async () => {
-    const { interfaces } = setSnapStateMock({ recentActions: [], selectedNetwork: 'mutinynet' });
-    ethereumRequest.mockResolvedValue([]).mockResolvedValueOnce([]).mockRejectedValueOnce({ code: 4001 });
+  it('keeps BTC and UNIT available after declining ETH and never re-prompts during navigation', async () => {
+    const { interfaces, contexts } = setSnapStateMock({ recentActions: [], selectedNetwork: 'mutinynet' });
+    ethereumRequest.mockImplementation(async ({ method }) => {
+      if (method === 'eth_requestAccounts') throw Object.assign(new Error('Declined'), { code: 4001 });
+      return [];
+    });
     await onHomePage();
+    for (const name of ['home-connect-eth', 'home-settings', 'home-close-settings']) {
+      await handleHomeNavigationInput({ id: 'home', context: contexts.get('home'), event: { type: UserInputEventType.ButtonClickEvent, name } });
+    }
     const json = rendered(interfaces.get('home'));
-    expect(json).not.toContain('home-connect-eth');
-    expect(json).not.toContain('home-toggle-copy-eth');
+    expect(json).toContain('home-connect-eth');
     expect(json).toContain('home-toggle-copy-btc');
     expect(json).toContain('home-toggle-copy-unit');
-    expect(json).not.toContain('Wallet data unavailable');
-    await handleHomeNavigationInput({ id: 'home', context: { screen: 'home', network: 'mutinynet' }, event: { type: UserInputEventType.ButtonClickEvent, name: 'home-settings' } });
-    await handleHomeNavigationInput({ id: 'home', context: { screen: 'settings', network: 'mutinynet' }, event: { type: UserInputEventType.ButtonClickEvent, name: 'home-close-settings' } });
+    expect(json).not.toContain('home-toggle-copy-eth');
     expect(ethereumRequest.mock.calls.filter(([args]) => args.method === 'eth_requestAccounts')).toHaveLength(1);
   });
 

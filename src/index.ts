@@ -4,7 +4,6 @@ import type { OnHomePageHandler, OnInstallHandler, OnRpcRequestHandler, OnUserIn
 import { artifactPolicy } from './artifact-policy';
 import { DEPOSIT_VAULT_TOGGLE, handleDepositVaultInput } from './confirmation-vault';
 import { handleHomeNavigationInput, isHomeNavigationEvent, renderHomePage } from './home';
-import { homeEthereumAddress } from './home-ethereum';
 import { handleHomeUserInput } from './home-key-override';
 import { handleHomeNetworkInput, isHomeNetworkEvent } from './home-network';
 import { handleEndpointOverrideInput, isEndpointOverrideEvent } from './home-network-endpoints';
@@ -15,12 +14,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   return handleRpcRequest(origin, request);
 };
 
-export const onHomePage: OnHomePageHandler = async () => {
-  // Opening Ducat is the only Home action that may request missing ETH account access.
-  // Navigation and re-renders only read existing permissions, so declining never creates a prompt loop.
-  await homeEthereumAddress(true);
-  return renderHomePage();
-};
+export const onHomePage: OnHomePageHandler = () => renderHomePage();
 
 export const onUserInput: OnUserInputHandler = async (args) => {
   if ('name' in args.event && args.event.name === DEPOSIT_VAULT_TOGGLE) {
