@@ -79,6 +79,20 @@ describe('Snap state', () => {
     expect(request).toHaveBeenCalledTimes(1);
   });
 
+  it('preserves Testnet for an older wallet with only a remembered origin', async () => {
+    const lastOrigin = 'https://app.ducatprotocol.com';
+    const { getStoredState } = setStateMock({ lastOrigin });
+    await expect(getState()).resolves.toMatchObject({ selectedNetwork: 'mutinynet' });
+    expect(getStoredState()).toEqual({ selectedNetwork: 'mutinynet', lastOrigin });
+  });
+
+  it('retains the fresh installation network after remembering the first origin', async () => {
+    setStateMock(null);
+    await getState(true);
+    await rememberDucatSession('https://app.ducatprotocol.com');
+    await expect(getState()).resolves.toMatchObject({ selectedNetwork: 'mainnet' });
+  });
+
   it('restores a valid last-network selection once without replacing unrelated state', async () => {
     const { request, getStoredState } = setStateMock({
       recentActions: [],

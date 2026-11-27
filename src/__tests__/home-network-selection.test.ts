@@ -18,6 +18,7 @@ import { getWalletInventory } from '../wallet-inventory';
 import { getHomeState, handleHomeNavigationInput, updateHomeInterface } from '../home';
 import { onHomePage } from '../index';
 import { handleHomeNetworkInput, renderNetworkSelector } from '../home-network';
+import { setSelectedNetwork } from '../state';
 import type { DucatSnapState } from '../types';
 
 type SnapRequestArgs = {
@@ -267,6 +268,24 @@ describe('Native Home and Settings navigation', () => {
     expect(ethereumRequest.mock.calls.filter(([args]) => args.method === 'eth_requestAccounts')).toHaveLength(1);
     expect(rendered(interfaces.get('home'))).toContain('0x1234…7890');
     expect(rendered(interfaces.get('home'))).not.toContain('home-connect-eth');
+  });
+
+  it('keeps the current network view if the user switches networks during Connect ETH', async () => {
+    const { interfaces } = setSnapStateMock({ recentActions: [], selectedNetwork: 'mutinynet' });
+    ethereumRequest.mockImplementation(async ({ method }) => {
+      if (method === 'eth_requestAccounts') {
+        await setSelectedNetwork('mainnet');
+        return [ethAddress];
+      }
+      return [];
+    });
+    await handleHomeNavigationInput({
+      id: 'home',
+      context: { screen: 'home', network: 'mutinynet' },
+      event: { type: UserInputEventType.ButtonClickEvent, name: 'home-connect-eth' },
+    });
+    expect(ethereumRequest).toHaveBeenCalledWith({ method: 'eth_requestAccounts' });
+    expect(interfaces.has('home')).toBe(false);
   });
 
   it('keeps BTC and UNIT available after declining ETH and never re-prompts during navigation', async () => {

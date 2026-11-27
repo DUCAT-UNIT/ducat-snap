@@ -1,7 +1,7 @@
 /** @fileoverview Exposes Snap lifecycle and request handlers and routes each event to its owning module. */
 import type { OnHomePageHandler, OnInstallHandler, OnRpcRequestHandler, OnUserInputHandler } from '@metamask/snaps-sdk';
 
-import { getSelectedNetwork } from './network-selection';
+import { getState } from './state';
 import { networkProfile } from './network-profiles';
 import { DEPOSIT_VAULT_TOGGLE, handleDepositVaultInput } from './confirmation-vault';
 import { handleHomeNavigationInput, isHomeNavigationEvent, renderHomePage } from './home';
@@ -38,7 +38,7 @@ export const onUserInput: OnUserInputHandler = async (args) => {
 };
 
 export const onInstall: OnInstallHandler = async () => {
-  const { network } = await getSelectedNetwork();
+  const { selectedNetwork: network } = await getState(true);
   await snap.request({
     method: 'snap_dialog',
     params: {

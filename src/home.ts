@@ -304,6 +304,7 @@ export const handleHomeNavigationInput: OnUserInputHandler = async ({ id, event,
   if (event.name === 'home-connect-eth') {
     if (context?.screen !== 'home' || context.network !== network) return;
     await homeEthereumAddress(true);
+    if ((await getSelectedNetwork()).network !== network) return;
     await updateHomeInterface(id, network);
     return;
   }
