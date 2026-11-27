@@ -72,11 +72,25 @@ const keyOverride: PrivateKeyOverrideRecord = {
 };
 
 describe('Snap state', () => {
-  it('defaults an empty store to Mutinynet without eagerly writing state', async () => {
+  it('defaults an empty store to Mainnet without eagerly writing state', async () => {
     const { request } = setStateMock(null);
 
-    await expect(getState()).resolves.toEqual({ recentActions: [], selectedNetwork: 'mutinynet' });
+    await expect(getState()).resolves.toEqual({ recentActions: [], selectedNetwork: 'mainnet' });
     expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves Testnet for an older wallet with only a remembered origin', async () => {
+    const lastOrigin = 'https://app.ducatprotocol.com';
+    const { getStoredState } = setStateMock({ lastOrigin });
+    await expect(getState()).resolves.toMatchObject({ selectedNetwork: 'mutinynet' });
+    expect(getStoredState()).toEqual({ selectedNetwork: 'mutinynet', lastOrigin });
+  });
+
+  it('retains the fresh installation network after remembering the first origin', async () => {
+    setStateMock(null);
+    await getState(true);
+    await rememberDucatSession('https://app.ducatprotocol.com');
+    await expect(getState()).resolves.toMatchObject({ selectedNetwork: 'mainnet' });
   });
 
   it('restores a valid last-network selection once without replacing unrelated state', async () => {

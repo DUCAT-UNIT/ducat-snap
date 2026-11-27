@@ -15,13 +15,27 @@ test('reads the first permitted account without prompting and refreshes it on ea
   expect(request.mock.calls).toEqual([[{ method: 'eth_accounts' }], [{ method: 'eth_accounts' }]]);
 });
 
-test('reuses existing account permission even when opening Home', async () => {
+test('returns unavailable if the passive account read stalls, without opening a permission prompt', async () => {
+  const controller = new AbortController();
+  const timeout = jest.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
+  request.mockImplementation(() => new Promise(() => {}));
+  try {
+    const reading = homeEthereumAddress(true);
+    controller.abort();
+    await expect(reading).resolves.toBeNull();
+    expect(request.mock.calls).toEqual([[{ method: 'eth_accounts' }]]);
+  } finally {
+    timeout.mockRestore();
+  }
+});
+
+test('reuses existing account permission even when selecting Connect ETH', async () => {
   request.mockResolvedValue([address]);
   expect(await homeEthereumAddress(true)).toBe(address);
   expect(request.mock.calls).toEqual([[{ method: 'eth_accounts' }]]);
 });
 
-test('requests missing account access only when opening Home', async () => {
+test('requests missing account access on an explicit connection request', async () => {
   request.mockResolvedValueOnce([]).mockResolvedValueOnce([address]);
   expect(await homeEthereumAddress(true)).toBe(address);
   expect(request.mock.calls).toEqual([[{ method: 'eth_accounts' }], [{ method: 'eth_requestAccounts' }]]);

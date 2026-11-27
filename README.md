@@ -44,7 +44,7 @@ for this scheme. An imported key selected in Snap Home is an explicit override
 and is not derived from this scheme.
 
 The Snap owns one explicit deployment selection. New production installations default to
-`mutinynet`. `ducat_getNetwork()` returns that selection; `ducat_switchNetwork()`
+`mainnet`. `ducat_getNetwork()` returns that selection; `ducat_switchNetwork()`
 changes it only after a MetaMask-owned confirmation showing the requesting origin,
 the From and To networks, the effective validator and Esplora origins, and the
 signing-context warning. A same-network switch is a confirmation-free no-op.
@@ -71,7 +71,7 @@ manifest. The development artifact replaces this list with exactly
 `http://localhost:3000`, `http://localhost:8075`, `http://frontend:3000`,
 `http://ducat-admin:8075`, and `https://dev.app.ducatprotocol.com`; it does not
 inherit other production origins. It contains
-exactly `regtest`, `mainnet`, and `mutinynet`, defaults to `mutinynet`, and
+exactly `regtest`, `mainnet`, and `mutinynet`, defaults to `mainnet`, and
 disables debug and unprompted signing.
 The test-only unprompted method refuses every deployment mapped to Bitcoin
 mainnet before wallet state, endpoints, entropy, prompts, or signing are
@@ -101,7 +101,7 @@ address, transaction, transport, and genesis mechanics, and the exact
 
 | Snap network | Validator URL | Required `chain_network` |
 | --- | --- | --- |
-| Mainnet | `https://validator-mainnet.prod.ducatprotocol.com` | `main` |
+| Mainnet | `https://validator.ducatprotocol.com` | `main` |
 | Mutinynet | `https://validator-mutinynet.prod.ducatprotocol.com` | `mutiny` |
 
 `main` is Ducat Core's production chain identity; `mainnet` remains the Snap's
@@ -165,8 +165,8 @@ or at the published package with `NEXT_PUBLIC_DUCAT_SNAP_ID="npm:@ducat-unit/wal
 
 Snap Home displays BTC, UNIT, and the permitted MetaMask ETH account, with
 Bitcoin, UNIT, ETH, wUNIT, and USDC balances. The Ethereum provider permission
-is used for account discovery only; opening Home can request missing account
-access, while navigation reads existing access without prompting again.
+is used for account discovery. Home reads existing account access. Select
+**Connect ETH** to grant access when no Ethereum account is connected.
 Ethereum balances use Ethereum mainnet or Sepolia according to the selected
 Snap network. wUNIT is configured for Sepolia; its mainnet address remains
 unset until deployment. Price quotes and EVM balances are display-only and

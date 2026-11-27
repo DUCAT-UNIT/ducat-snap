@@ -1,10 +1,10 @@
 /** @fileoverview Exposes Snap lifecycle and request handlers and routes each event to its owning module. */
 import type { OnHomePageHandler, OnInstallHandler, OnRpcRequestHandler, OnUserInputHandler } from '@metamask/snaps-sdk';
 
-import { artifactPolicy } from './artifact-policy';
+import { getState } from './state';
+import { networkProfile } from './network-profiles';
 import { DEPOSIT_VAULT_TOGGLE, handleDepositVaultInput } from './confirmation-vault';
 import { handleHomeNavigationInput, isHomeNavigationEvent, renderHomePage } from './home';
-import { homeEthereumAddress } from './home-ethereum';
 import { handleHomeUserInput } from './home-key-override';
 import { handleHomeNetworkInput, isHomeNetworkEvent } from './home-network';
 import { handleEndpointOverrideInput, isEndpointOverrideEvent } from './home-network-endpoints';
@@ -15,12 +15,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ origin, request }) => 
   return handleRpcRequest(origin, request);
 };
 
-export const onHomePage: OnHomePageHandler = async () => {
-  // Opening Ducat is the only Home action that may request missing ETH account access.
-  // Navigation and re-renders only read existing permissions, so declining never creates a prompt loop.
-  await homeEthereumAddress(true);
-  return renderHomePage();
-};
+export const onHomePage: OnHomePageHandler = () => renderHomePage();
 
 export const onUserInput: OnUserInputHandler = async (args) => {
   if ('name' in args.event && args.event.name === DEPOSIT_VAULT_TOGGLE) {
@@ -43,6 +38,7 @@ export const onUserInput: OnUserInputHandler = async (args) => {
 };
 
 export const onInstall: OnInstallHandler = async () => {
+  const { selectedNetwork: network } = await getState(true);
   await snap.request({
     method: 'snap_dialog',
     params: {
@@ -55,7 +51,7 @@ export const onInstall: OnInstallHandler = async () => {
           uiHeading('Your keys stay in MetaMask', 'sm'),
           uiMuted('You approve every signature.'),
         ]),
-        uiRow('Network', artifactPolicy().default_deployment === 'mutinynet' ? 'Testnet' : artifactPolicy().default_deployment === 'mainnet' ? 'Mainnet' : 'Regtest'),
+        uiRow('Network', network === 'mutinynet' ? 'Testnet' : networkProfile(network).label),
         uiDivider(),
         uiText('Open Ducat to get started.'),
       ]),

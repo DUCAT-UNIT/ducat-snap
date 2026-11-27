@@ -217,16 +217,19 @@ export async function updateStateField<Key extends keyof DucatSnapState>(
 
 /**
  * Loads untrusted Snap state and retains only bounded schema-valid records and verified overrides.
+ * @param initializeNetwork - Persist the initial network during installation, before other fields are written.
  * @returns Sanitized state safe for wallet policy decisions.
  */
-export async function getState(): Promise<DucatSnapState> {
+export async function getState(initializeNetwork = false): Promise<DucatSnapState> {
   const storedState = await snap.request<RawStoredState | null>({
     method: 'snap_manageState',
     params: { operation: 'get' },
   });
 
   if (!storedState || typeof storedState !== 'object' || Array.isArray(storedState)) {
-    return emptyState();
+    const initial = emptyState();
+    if (initializeNetwork) await setSelectedNetwork(initial.selectedNetwork);
+    return initial;
   }
 
   const recentActions = Array.isArray(storedState.recentActions) ? storedState.recentActions : [];
@@ -238,9 +241,13 @@ export async function getState(): Promise<DucatSnapState> {
     : isStoredDeployment(storedState.lastNetwork)
       ? storedState.lastNetwork
       : undefined;
+  // Older wallets could persist an origin without a network and used Mutinynet in that case.
+  const fallbackNetwork = Object.keys(storedState).length === 0
+    ? policy.default_deployment
+    : 'mutinynet';
   const selectedNetwork = storedSelection && policy.allowed_deployments.includes(storedSelection)
     ? storedSelection
-    : policy.default_deployment;
+    : fallbackNetwork;
   const state = withKeyOverrides({
     recentActions: recentActions
       .filter(isRecentAction)

@@ -125,7 +125,7 @@ export function artifactPolicy(): SnapArtifactPolicyEvidence {
       policy,
       allowed_origins: PRODUCTION_ALLOWED_ORIGINS,
       allowed_deployments: PRODUCTION_DEPLOYMENTS,
-      default_deployment: 'mutinynet',
+      default_deployment: 'mainnet',
       debug_enabled: false,
       unprompted_enabled: false,
     });
@@ -136,7 +136,7 @@ export function artifactPolicy(): SnapArtifactPolicyEvidence {
     policy,
     allowed_origins: developmentOrigins(),
     allowed_deployments: DEVELOPMENT_DEPLOYMENTS,
-    default_deployment: 'mutinynet',
+    default_deployment: 'mainnet',
     debug_enabled: debugEnabled,
     unprompted_enabled: unpromptedEnabled,
   });

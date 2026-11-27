@@ -15,15 +15,14 @@ block `974580`. Its inscription names the aggregate key above as signer group
 `21`, index `0`; group `22` contains the separate oracle key. The on-chain data
 proves that binding. PR #29 attributes the DKG run and 3-of-4 threshold to a
 deployment completion receipt; that receipt was not independently available
-during this integration. The Mainnet validator hostname still did not
-resolve, so its live protocol identity and service readiness remain unverified.
+during that integration.
 
 ## Endpoint status
 
 - Mutinynet validator: `https://validator-mutinynet.prod.ducatprotocol.com`. Live `/api/proto/latest` verification reported `mutiny` and guardian `ef8e6d844354a560c3fe4f68de226a136248fae4da8afc970786e78b1362ca2e`.
 - Mutinynet Esplora: `https://mutinynet.com/api`.
-- Mainnet Esplora: `https://mempool.space/api`.
-- Mainnet validator: `https://validator-mainnet.prod.ducatprotocol.com`, supplied by the deployment owner. The hostname did not resolve during local verification; live `main` identity and UNITUSD anchor verification remain pending. Network-identity checks remain enforced.
+- Mainnet Esplora: `https://explorer.ducatprotocol.com/api`.
+- Mainnet validator: `https://validator.ducatprotocol.com`, verified on 2026-11-26. Its anchor reports `chain_network: main` and UNIT/USD anchor ID `7511d008bd49b55734ff07917cbc7f3bad46953cc9ad151f18633f6d4a668cca`.
 - Application: `https://app.ducatprotocol.com`.
 
 Mainnet wUNIT remains unconfigured until its deployed Ethereum contract is verified. No token address is inferred from the Bitcoin anchor.

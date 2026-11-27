@@ -1,8 +1,13 @@
-/** Read MetaMask's most recently selected permitted account. Home entry may request missing access. */
+/** Read MetaMask's most recently selected permitted account. Request missing access only after the user selects Connect ETH. */
 export async function homeEthereumAddress(requestIfMissing = false): Promise<string | null> {
   try {
     if (typeof ethereum === 'undefined') return null;
-    let accounts = await ethereum.request({ method: 'eth_accounts' });
+    // A locked or busy provider can leave a passive read pending indefinitely.
+    const deadline = AbortSignal.timeout(2_500);
+    const unavailable = new Promise<null>((resolve) => {
+      deadline.addEventListener('abort', () => resolve(null), { once: true });
+    });
+    let accounts = await Promise.race([ethereum.request({ method: 'eth_accounts' }), unavailable]);
     if (requestIfMissing && Array.isArray(accounts) && accounts.length === 0) {
       accounts = await ethereum.request({ method: 'eth_requestAccounts' });
     }

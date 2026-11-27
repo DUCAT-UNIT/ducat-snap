@@ -28,8 +28,11 @@ afterEach(() => {
 });
 
 describe('Snap installation disclosure', () => {
-  it('shows the welcome screen and default network', async () => {
-    const request = jest.fn(async (_args: { method: string; params?: { content?: unknown } }) => undefined);
+  it.each([
+    [null, 'Mainnet'],
+    [{ selectedNetwork: 'mutinynet' }, 'Testnet'],
+  ])('shows the active network on the welcome screen for state %j', async (storedState, label) => {
+    const request = jest.fn(async (_args: { method: string; params?: { content?: unknown } }) => _args.method === 'snap_manageState' ? storedState : undefined);
     (globalThis as unknown as { snap: { request: typeof request } }).snap = { request };
     const { onInstall } = require('../index') as typeof import('../index');
 
@@ -39,7 +42,7 @@ describe('Snap installation disclosure', () => {
     const content = JSON.stringify(dialog?.[0]?.params?.content ?? '');
     expect(content).toContain('Your Ducat wallet is ready');
     expect(content).toContain('Your keys stay in MetaMask');
-    expect(content).toContain('Testnet');
+    expect(content).toContain(label);
     expect(content).not.toContain('Mainnet enabled');
   });
 });
